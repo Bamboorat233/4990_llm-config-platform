@@ -1,4 +1,4 @@
-# 统一换行符,避免 Windows / macOS / Linux 之间产生无意义的 diff
+# Normalise line endings to avoid meaningless diffs between Windows / macOS / Linux
 * text=auto
 
 *.py    text eol=lf
@@ -11,7 +11,7 @@
 *.css   text eol=lf
 *.js    text eol=lf
 
-# 二进制
+# Binary
 *.pdf   binary
 *.docx  binary
 *.doc   binary

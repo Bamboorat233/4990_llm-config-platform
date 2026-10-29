@@ -7,19 +7,19 @@ venv/
 env/
 .python-version
 
-# 本地数据库(运行时生成)
+# Local databases (generated at runtime)
 *.db
 *.db-journal
 *.sqlite
 *.sqlite3
 
-# 生成的执行脚本与日志(M3.0)
+# Generated execution scripts and logs (M3.0)
 generated/
 outputs/
 runs/
 *.log
 
-# 模型权重与 adapter(严禁入库;Fir 上通过共享路径访问)
+# Model weights and adapters (never commit; accessed via shared paths on Fir)
 *.safetensors
 *.bin
 *.gguf
@@ -27,27 +27,31 @@ adapter_config.json
 fineTuningOutput*/
 *-FineTuned/
 
-# 编辑器 / 系统
+# Editors / OS
 .vscode/
 .idea/
 .DS_Store
 Thumbs.db
 desktop.ini
 
-# 数据集(体积大,由博士生提供)
+# Datasets (large; supplied by the PhD student)
 data/
 
 # ---------------------------------------------------------------------------
-# 以下内容不进入本仓库(仓库为 public):
+# The following must not enter this repository (it is public):
 #
 # doc/
-#   课程与内部材料:里程碑说明、立项书(含学号)、导师群发邮件(含 CCDB 项目号)、
-#   研究组未发表的汇报 PDF。仅通过 OneDrive 在团队内共享。
-#   若仓库改为 private 或获得授权,再考虑移除此条。
+#   Course and internal material: milestone descriptions, the project brief
+#   (which contains student IDs), the supervisor's mass email (which contains
+#   the CCDB project number), and unpublished research-group briefing PDFs.
+#   Shared inside the team through OneDrive only.
+#   Revisit this rule only if the repository becomes private or authorisation
+#   is granted.
 #
 # reference-scripts/
-#   博士生(研究组)提供的参考脚本,未获公开授权,暂不纳入公开仓库。
-#   若确认可公开,删除下面这一行即可。
+#   Reference scripts supplied by the PhD student (research group), not
+#   cleared for publication, so they stay out of the public repository.
+#   If they are confirmed publishable, delete the last line below.
 # ---------------------------------------------------------------------------
 doc/
 reference-scripts/

@@ -43,7 +43,7 @@ Drop the traditional three-tier chain of "frontend sends HTTP request -> backend
 
 #### **3.2 app/schemas.py (Pydantic Models and Cross-Field Validation)**
 
-* **Component models**: Defined strictly per §4.3 and §5 of the handover document: `ModelSection` (a), `TokenizerSection` (b), `DataSection` (c), `OptimizerSection` (d), `EncodingSection` (e), `GenerationSection` (f), `DecodingSection` (g), `PromptSection` (p), and the top-level `ConfigRecord`.
+* **Component models**: Defined strictly per sections 3–11 of `specs/parameters.md`: `ModelSection` (a), `TokenizerSection` (b), `DataSection` (c), `OptimizerSection` (d), `EncodingSection` (e), `GenerationSection` (f), `DecodingSection` (g), `PromptSection` (p), and the top-level `ConfigRecord`.
 * **Fingerprint algorithm `config_fingerprint(cfg: ConfigRecord) -> str`**:
   * When exporting to a dict, exclude `config_id`, `config_hash`, `run_status`, `created_at`, `created_by`, `notes`.
   * Serialize with `json.dumps(data, sort_keys=True)`, then compute sha256.
@@ -123,7 +123,7 @@ Given that today is **October 29**, with only 2 days until the **M0.5 check on O
    * Write the a–h, p, and `ConfigRecord` Pydantic models.
    * Write `validate_cross_fields()` covering all 10 validation rules.
 4. **Core smoke test**:
-   * Test with a single command: `python -c "from app.registry import defaults_for; from app.schemas import ConfigRecord; print(ConfigRecord(**defaults_for('mistralai/Mistral-Small-24B-Instruct-2501', 'fine_tune')).model_dump_json(indent=2))"`, and confirm the output JSON matches §7.2 of the handover document exactly.
+   * Test with a single command: `python -c "from app.registry import defaults_for; from app.schemas import ConfigRecord; print(ConfigRecord(**defaults_for('mistralai/Mistral-Small-24B-Instruct-2501', 'fine_tune')).model_dump_json(indent=2))"`, and confirm the output JSON matches section 13 of `specs/parameters.md` exactly.
 
 ### **Sprint 2: NiceGUI Reactive Form and M0.5 Delivery (complete on October 30)**
 
@@ -139,7 +139,7 @@ Given that today is **October 29**, with only 2 days until the **M0.5 check on O
    * Store all widget references in a dictionary, e.g. `field_widgets["b.pad_token"] = input_widget`; when a field has an error, call `widget.props('error error-message="specific reason"')` directly to show a precise, field-level red error border.
 4. **M0.5 rehearsal (October 31)**:
    * Start the service with `python -m app.main` (runs at http://localhost:8080 by default).
-   * Click through the §10.3 demo script item by item: switch models -> switch between fine-tuning/inference (show component d read-only and hidden, component e switching automatically) -> deliberately trigger a validation error (e.g. clear Mistral's `system_prompt`) -> show the full JSON generated live on the right.
+   * Click through the M0.5 demo checklist in `planning/TaskList.md` item by item: switch models -> switch between fine-tuning/inference (show component d read-only and hidden, component e switching automatically) -> deliberately trigger a validation error (e.g. clear Mistral's `system_prompt`) -> show the full JSON generated live on the right.
 
 ### **Sprint 3: SQLite Persistence, Deduplication, and Config Management (November 1 – November 3)**
 
@@ -157,10 +157,10 @@ Given that today is **October 29**, with only 2 days until the **M0.5 check on O
 
 ### **Sprint 4: Acceptance Checklist Self-Testing and Documentation Wrap-Up (November 4 – November 6)**
 
-**Goal**: Check off each of the 10 self-test items in §10.2 of the handover document.
+**Goal**: Check off each of the M1.0 acceptance items in `planning/TaskList.md`.
 
 1. **Write the automated test script `test_m1_checklist.py`**:
-   * Assert all the edge cases from §10.2 directly in code (e.g. rejection of `<myPadToken>`, rejection of the 30000+5000 length overflow, rejection of temperature=0 + do_sample=True, persistence verification after a database restart, etc.).
+   * Assert all the M1.0 acceptance edge cases directly in code (e.g. rejection of `<myPadToken>`, rejection of the 30000+5000 length overflow, rejection of temperature=0 + do_sample=True, persistence verification after a database restart, etc.).
 2. **Complete README.md**:
    * Document the startup steps, the module architecture diagram, and explanations of the 6 fixed defects from the original scripts.
 

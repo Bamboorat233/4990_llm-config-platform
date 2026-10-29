@@ -1,0 +1,18 @@
+name: Language policy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  english-only:
+    name: English-only check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reject CJK characters in tracked files
+        run: python3 .github/scripts/check_no_cjk.py

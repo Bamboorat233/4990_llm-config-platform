@@ -93,8 +93,8 @@
 
 - [ ] Obtain the six sample output files and record each log structure (key lines, error formats, timeout signatures)
 - [ ] General parser: detect and classify all six scenarios
-  - [ ] ① errant fine-tuning　② successful fine-tuning　③ terminated fine-tuning (e.g. timeout)
-  - [ ] ④ errant inference　⑤ successful inference　⑥ terminated inference (e.g. timeout)
+  - [ ] (1) errant fine-tuning · (2) successful fine-tuning · (3) terminated fine-tuning (e.g. timeout)
+  - [ ] (4) errant inference · (5) successful inference · (6) terminated inference (e.g. timeout)
 - [ ] Structured result per scenario: status, key error messages, progress, duration
 - [ ] UI display: select / upload an output file → show the parsed result card
 - [ ] Parser unit tests: at least one sample per scenario, plus hand-built edge cases (empty file, truncated mid-run, encoding errors)
