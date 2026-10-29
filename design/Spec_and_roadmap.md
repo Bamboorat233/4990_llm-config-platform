@@ -114,9 +114,8 @@ Given that today is **October 29**, with only 2 days until the **M0.5 check on O
 
 **Goal**: Write no UI code yet; first get the data models, default-value dictionaries, and all 10 validation rules running 100% from the command line.
 
-1. **Initialize the repository**:
-   * Run `git init` in the 4990B root directory and create `.gitignore` (excluding `data/*.db`, `__pycache__/`, `.venv/`).
-   * Install dependencies: `pip install nicegui pydantic`.
+1. **Install dependencies**:
+   * `pip install -r requirements.txt`.
 2. **Implement app/registry.py**:
    * Write the `MODELS` dictionary and the `defaults_for()` function.
 3. **Implement app/schemas.py**:
@@ -163,5 +162,3 @@ Given that today is **October 29**, with only 2 days until the **M0.5 check on O
    * Assert all the M1.0 acceptance edge cases directly in code (e.g. rejection of `<myPadToken>`, rejection of the 30000+5000 length overflow, rejection of temperature=0 + do_sample=True, persistence verification after a database restart, etc.).
 2. **Complete README.md**:
    * Document the startup steps, the module architecture diagram, and explanations of the 6 fixed defects from the original scripts.
-
-We can go straight into **Sprint 1** now. Would you like me to write the full code for `app/registry.py` and `app/schemas.py` now?
