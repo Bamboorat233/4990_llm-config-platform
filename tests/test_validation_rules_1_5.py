@@ -14,11 +14,18 @@ Where the contract does not say which field a rule reports, the test
 accepts either of the two fields involved. These spots are marked OPEN.
 """
 import copy
+import sys
+from pathlib import Path
 
 import pytest
 
-from app.registry import defaults_for
-from app.schemas import ConfigRecord, validate_cross_fields
+# Let plain `pytest` find the app package, not only `python -m pytest`.
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from app.registry import defaults_for  # noqa: E402
+from app.schemas import ConfigRecord, validate_cross_fields  # noqa: E402
 
 MS = "mistralai/Mistral-Small-24B-Instruct-2501"
 DS = "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B"
@@ -107,7 +114,10 @@ def test_defaults_raise_no_errors_on_rules_1_to_5(model_id, task_type):
 
 # ------------------------------------------ rule 1: total length limit
 # (e.max_length or 0) + f.max_new_tokens <= effective_max_seq_len
-# MS limit is 32768. DS is 32768 or 16384 (OPEN: confirm with A).
+# Both models use an effective limit of 32768 (A's registry:
+# effective_max_seq_len). DeepSeek's tokenizer model_max_length is 16384, but
+# that is a separate field (b.model_max_length). Confirm with A that rule 1
+# uses 32768 for DeepSeek.
 
 def test_rule1_fail_ms_30000_plus_5000():
     """Issue #4 acceptance case: 30000 + 5000 = 35000 > 32768."""
@@ -143,7 +153,7 @@ def test_rule1_none_max_length_still_checks_new_tokens():
 
 
 def test_rule1_fail_ds_far_over_any_limit():
-    """40000 + 1024 is over both of DeepSeek's candidate limits."""
+    """40000 + 1024 is far over DeepSeek's limit."""
     cfg = build(DS, "inference", **{"e.max_length": 40000, "f.max_new_tokens": 1024})
     assert on_fields(validate(cfg), RULE1_FIELDS, "error")
 
@@ -153,9 +163,15 @@ def test_rule1_pass_ds_defaults_size():
     assert on_fields(validate(cfg), RULE1_FIELDS) == []
 
 
-@pytest.mark.skip(reason="OPEN: DS limit is 32768 or 16384 (b.model_max_length)? Ask A, then enable.")
-def test_rule1_ds_between_16384_and_32768():
+def test_rule1_pass_ds_between_16384_and_32768():
+    """DeepSeek's effective limit is 32768, not its tokenizer's 16384."""
     cfg = build(DS, "inference", **{"e.max_length": 16000, "f.max_new_tokens": 1024})
+    assert on_fields(validate(cfg), RULE1_FIELDS, "error") == []
+
+
+def test_rule1_fail_ds_just_over_32768():
+    """31745 + 1024 = 32769, one over the limit."""
+    cfg = build(DS, "inference", **{"e.max_length": 31745, "f.max_new_tokens": 1024})
     assert on_fields(validate(cfg), RULE1_FIELDS, "error")
 
 

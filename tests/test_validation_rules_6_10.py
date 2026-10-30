@@ -14,11 +14,18 @@ Spots marked OPEN are assumptions to confirm with A or against
 specs/parameters.md before the tests are treated as final.
 """
 import copy
+import sys
+from pathlib import Path
 
 import pytest
 
-from app.registry import defaults_for
-from app.schemas import ConfigRecord, validate_cross_fields
+# Let plain `pytest` find the app package, not only `python -m pytest`.
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from app.registry import defaults_for  # noqa: E402
+from app.schemas import ConfigRecord, validate_cross_fields  # noqa: E402
 
 MS = "mistralai/Mistral-Small-24B-Instruct-2501"
 DS = "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B"
@@ -69,8 +76,8 @@ def on_fields(issues: list, fields: set, level: str = None) -> list:
 
 # --- paths used by these rules
 LOAD_BEST = "d.sft.load_best_model_at_end"   # in contract 1
-EVAL_STRATEGY = "d.sft.eval_strategy"        # OPEN: assumed spelling, check parameters.md
-SAVE_STRATEGY = "d.sft.save_strategy"        # OPEN: assumed spelling, check parameters.md
+EVAL_STRATEGY = "d.sft.eval_strategy"        # confirmed in A's registry defaults
+SAVE_STRATEGY = "d.sft.save_strategy"        # confirmed in A's registry defaults
 
 # --- fields each rule may report on (see OPEN notes)
 RULE6_STRATEGY_FIELDS = {EVAL_STRATEGY, SAVE_STRATEGY, LOAD_BEST}  # OPEN: which one?
@@ -166,7 +173,8 @@ def test_rule6_not_applied_to_inference():
 # use one reading: verdict_parse_marker must appear inside assistant_prompt.
 # That matches the original scripts: training used "### Response: Verdict: "
 # but the eval split used "### Response: ", and inference searched for
-# "### Response: Verdict: ". Skipped until A confirms how rule 7 works.
+# "### Response: Verdict: ". A's registry defaults use the same string for both
+# fields, which fits this reading. Skipped until A confirms how rule 7 works.
 
 RULE7_SKIP = "OPEN: rule 7 semantics not confirmed with A; enable once settled."
 
