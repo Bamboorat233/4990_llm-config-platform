@@ -292,3 +292,6 @@ __all__ = [
     "ValidationIssue",
     "config_fingerprint",
 ]
+
+from app.validation import validate_cross_fields  # noqa: E402,F401
+
