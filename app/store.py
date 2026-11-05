@@ -144,6 +144,13 @@ def get_config(
     return ConfigRecord.model_validate_json(row[0])
 
 
+def delete_config(config_id: str, db_path: str | Path | None = None) -> None:
+    """Permanently remove a saved configuration by its ID."""
+    init_db(db_path)
+    with closing(sqlite3.connect(_database_path(db_path))) as conn, conn:
+        conn.execute("DELETE FROM configs WHERE config_id = ?", (config_id,))
+
+
 def duplicate_config(
     config_id: str, db_path: str | Path | None = None
 ) -> ConfigRecord:
