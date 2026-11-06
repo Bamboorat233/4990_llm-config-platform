@@ -14,9 +14,11 @@ from app.store import (
     duplicate_config,
     find_by_hash,
     get_config,
+    init_db,
     insert_config,
     list_configs,
 )
+from app.ui.console import build_console
 
 # from app.ui.kwargs_panel import validate_kwargs_section
 # from app.validation import validate_cross_fields
@@ -52,11 +54,11 @@ EVIDENCE_CONFIG_OPTIONS = {
 class PlatformUI:
     # default model is Mistral
     def __init__(self) -> None:
-        # init_db()
+        init_db()
 
         self.current_model_id = MISTRAL_ID
         self.current_task_type = "fine_tune"
-        self.create_by_val = ""
+        self.created_by_val = ""
         self.notes_val = ""
 
         # loading defaults_for func from registry.py
@@ -129,7 +131,7 @@ class PlatformUI:
         payload = copy.deepcopy(self.form_state)
         payload["model_id"] = self.current_model_id
         payload["task_type"] = self.current_task_type
-        payload["created_by"] = self.create_by_val or None
+        payload["created_by"] = self.created_by_val or None
         payload["notes"] = self.notes_val or None
 
         # clean up whitespaces
@@ -139,14 +141,14 @@ class PlatformUI:
                 item.strip() for item in c["label_values"].split(",") if item.strip()
             ]
         # Hugging Face needs a string array
-        d = payload.get("d", {})
-        lora = d.get("lora", {})
-        if isinstance(lora.get("target_modules"), str):
-            lora["target_modules"] = [
-                item.strip()
-                for item in lora["target_modules"].split(",")
-                if item.strip()
-            ]
+        # d = payload.get("d", {})
+        # lora = d.get("lora", {})
+        # if isinstance(lora.get("target_modules"), str):
+        #     lora["target_modules"] = [
+        #         item.strip()
+        #         for item in lora["target_modules"].split(",")
+        #         if item.strip()
+        #     ]
 
         # sets top_k to 0 when deepseek toggled
         f = payload.get("f", {})
@@ -166,9 +168,9 @@ class PlatformUI:
             if "h" not in self.form_state or not isinstance(self.form_state["h"], dict):
                 self.form_state["h"] = {}
 
-            self.current_model_id = new_state.ge("model_id", self.current_model_id)
+            self.current_model_id = new_state.get("model_id", self.current_model_id)
             self.current_task_type = new_state.get("task_type", self.current_task_type)
-            self.create_by_val = new_state.get("created_by") or ""
+            self.created_by_val = new_state.get("created_by") or ""
             self.notes_val = new_state.get("notes") or ""
 
             # puts the actual values inside the widgets
@@ -177,7 +179,7 @@ class PlatformUI:
             if "task_type" in self.field_widgets:
                 self.field_widgets["task_type"].value = self.current_task_type
             if "created_by" in self.field_widgets:
-                self.field_widgets["created_by"].value = self.create_by_val
+                self.field_widgets["created_by"].value = self.created_by_val
             if "notes" in self.field_widgets:
                 self.field_widgets["notes"].value = self.notes_val
 
@@ -228,13 +230,13 @@ class PlatformUI:
 
         # this was an earlier bug this is the fix
         # preserve user metadata before load_state
-        saved_by = self.create_by_val
+        saved_by = self.created_by_val
         saved_notes = self.notes_val
         self.current_model_id = new_model
         defaults = defaults_for(self.current_model_id, self.current_task_type)
         self.load_state(defaults)
         # restore the metadata
-        self.create_by_val = saved_by
+        self.created_by_val = saved_by
         self.notes_val = saved_notes
         if "created_by" in self.field_widgets:
             self.field_widgets["created_by"].value = saved_by
@@ -249,12 +251,12 @@ class PlatformUI:
             return
 
         # preserve user metadata before load_state overwrites them
-        saved_by = self.create_by_val
+        saved_by = self.created_by_val
         saved_notes = self.notes_val
         self.current_task_type = new_task
         defaults = defaults_for(self.current_model_id, self.current_task_type)
         self.load_state(defaults)
-        self.create_by_val = saved_by
+        self.created_by_val = saved_by
         self.notes_val = saved_notes
         if "created_by" in self.field_widgets:
             self.field_widgets["created_by"].value = saved_by
@@ -273,7 +275,7 @@ class PlatformUI:
             return
 
         cfg.config_hash = fingerprint
-        cfg.created_by = self.create_by_val or None
+        cfg.created_by = self.created_by_val or None
         cfg.notes = self.notes_val or None
         saved_id = insert_config(cfg)
         ui.notify(f"Config successfully saved (ID: {saved_id[:8]})", type="positive")
@@ -404,201 +406,204 @@ def create_app() -> PlatformUI:
                 ui.label("Experiment Configuration").classes(
                     "text-base font-bold text-slate-800"
                 )
-            with ui.grid(columns=2).classes("w-full gap-4"):
-                model_select = ui.select(
-                    options=AVAILABLE_MODELS,
-                    value=platform.current_model_id,
-                    label="Target LLM (model_id)",
-                    on_change=platform.on_model_changed,
+                with ui.grid(columns=2).classes("w-full gap-4"):
+                    model_select = ui.select(
+                        options=AVAILABLE_MODELS,
+                        value=platform.current_model_id,
+                        label="Target LLM (model_id)",
+                        on_change=platform.on_model_changed,
+                    ).classes("w-full")
+                    platform.field_widgets["model_id"] = model_select
+
+                    task_toggle = ui.toggle(
+                        options=TASK_TYPE_OPTIONS,
+                        value=platform.current_task_type,
+                        on_change=platform.on_task_type_changed,
+                    ).classes("self-center")
+                    platform.field_widgets["task_type"] = task_toggle
+
+                with ui.grid(columns=2).classes("w-full gap-4 mt-2"):
+                    created_by_input = ui.input(
+                        label="Created By (Author / Researcher)",
+                        value=platform.created_by_val,
+                    ).classes("w-full")
+                    created_by_input.on_value_change(
+                        lambda e: setattr(platform, "created_by_val", e.value)
+                    )
+                    platform.field_widgets["created_by"] = created_by_input
+
+                    notes_input = ui.textarea(
+                        label="Experiment Notes",
+                        value=platform.notes_val,
+                    ).classes("w-full")
+                    notes_input.on_value_change(
+                        lambda e: setattr(platform, "notes_val", e.value)
+                    )
+                    platform.field_widgets["notes"] = notes_input
+
+            ######################## PROMPT STYLING ##################################
+
+            with ui.card().classes("w-full shadow-md"):
+                with ui.row().classes("items-center justify-between w-full"):
+                    ui.label("Component p: Prompts & Chat Template").classes(
+                        "text-base font-bold text-slate-800"
+                    )
+                    # ui.badge("Research Critical", color="accent").classes("text-xs")
+
+                sys_prompt = ui.textarea(
+                    label="System Prompt (p.system_prompt)",
+                    value=platform.form_state["p"]["system_prompt"],
                 ).classes("w-full")
-                platform.field_widgets["model_id"] = model_select
+                platform._register_input("p.system_prompt", sys_prompt)
 
-                task_toggle = ui.toggle(
-                    options=TASK_TYPE_OPTIONS,
-                    value=platform.current_task_type,
-                    on_change=platform.on_task_type_changed,
-                ).classes("self-center")
-                platform.field_widgets["task_type"] = task_toggle
-
-            with ui.grid(columns=2).classes("w-full gap-4 mt-2"):
-                created_by_input = ui.input(
-                    label="Created By (Author / Researcher)",
-                    # value=platform.created_by_val,
+                user_prompt = ui.textarea(
+                    label="User Prompt Template (p.user_prompt_template)",
+                    value=platform.form_state["p"]["user_prompt_template"],
                 ).classes("w-full")
-                created_by_input.on_value_change(
-                    lambda e: setattr(platform, "created_by_val", e.value)
-                )
-                platform.field_widgets["created_by"] = created_by_input
+                platform._register_input("p.user_prompt_template", user_prompt)
 
-                notes_input = ui.textarea(
-                    label="Experiment Notes",
-                    value=platform.notes_val,
+                with ui.grid(columns=2).classes("w-full gap-4"):
+                    asst_prompt = ui.input(
+                        label="Assistant Prompt (p.assistant_prompt)",
+                        value=platform.form_state["p"]["assistant_prompt"],
+                    ).classes("w-full")
+                    platform._register_input("p.assistant_prompt", asst_prompt)
+
+                    parse_marker = ui.input(
+                        label="Verdict Parse Marker (p.verdict_parse_marker)",
+                        value=platform.form_state["p"]["verdict_parse_marker"],
+                    ).classes("w-full")
+                    platform._register_input("p.verdict_parse_marker", parse_marker)
+
+                template_override = ui.input(
+                    label="Chat Template Override (p.chat_template_override, optional)",
+                    value=platform.form_state["p"].get("chat_template_override") or "",
                 ).classes("w-full")
-                notes_input.on_value_change(
-                    lambda e: setattr(platform, "notes_val", e.value)
-                )
-                platform.field_widgets["notes"] = notes_input
+                platform._register_input("p.chat_template_override", template_override)
 
-        ######################## PROMPT STYLING ##################################
-
-        with ui.card().classes("w-full shadow-md"):
-            with ui.row().classes("items-center justify-between w-full"):
-                ui.label("Component p: Prompts & Chat Template").classes(
-                    "text-base font-bold text-slate-800"
-                )
-                # ui.badge("Research Critical", color="accent").classes("text-xs")
-
-            sys_prompt = ui.textarea(
-                label="System Prompt (p.system_prompt)",
-                value=platform.form_state["p"]["system_prompt"],
-            ).classes("w-full")
-            platform._register_input("p.system_prompt", sys_prompt)
-
-            user_prompt = ui.textarea(
-                label="User Prompt Template (p.user_prompt_template)",
-                value=platform.form_state["p"]["user_prompt_template"],
-            ).classes("w-full")
-            platform._register_input("p.user_prompt_template", user_prompt)
-
-            with ui.grid(columns=2).classes("w-full gap-4"):
-                asst_prompt = ui.input(
-                    label="Assistant Prompt (p.assistant_prompt)",
-                    value=platform.form_state["p"]["assistant_prompt"],
-                ).classes("w-full")
-                platform._register_input("p.assistant_prompt", asst_prompt)
-
-                parse_marker = ui.input(
-                    label="Verdict Parse Marker (p.verdict_parse_marker)",
-                    value=platform.form_state["p"]["verdict_parse_marker"],
-                ).classes("w-full")
-                platform._register_input("p.verdict_parse_marker", parse_marker)
-
-            template_override = ui.input(
-                label="Chat Template Override (p.chat_template_override, optional)",
-                value=platform.form_state["p"].get("chat_template_override") or "",
-            ).classes("w-full")
-            platform._register_input("p.chat_template_override", template_override)
-
-        #################### COMPONENTS ################################################
-
-        # PART B
-        with ui.column().classes("w-full gap-2"):
-            with ui.expansion("Component a: Loading the Model", icon="memory").classes(
-                "w-full bg-white shadow"
-            ):
-                with ui.grid(columns=2).classes("w-full gap-4 p-2"):
-                    a_model_id = ui.input(
-                        label="Model ID / Path (a.model_id)",
-                        value=platform.form_state["a"]["model_id"],
-                    )
-                    platform._register_input("a.model_id", a_model_id)
-
-                    a_dtype = ui.select(
-                        options=["auto", "bfloat16", "float16", "float32"],
-                        label="Dtype (a.dtype)",
-                        value=platform.form_state["a"]["dtype"],
-                    )
-                    platform._register_input("a.dtype", a_dtype)
-
-                    a_tp = ui.input(
-                        label="Tensor Parallelism Plan (a.tp_plan)",
-                        value=platform.form_state["a"]["tp_plan"] or "",
-                    )
-                    platform._register_input("a.tp_plan", a_tp)
-
-                    a_dev_map = ui.input(
-                        label="Device Map (a.device_map)",
-                        value=platform.form_state["a"]["device_map"] or "",
-                    )
-                    platform._register_input("a.device_map", a_dev_map)
-
-                    a_attn = ui.select(
-                        options=["sdpa", "eager", "flash_attention_2"],
-                        label="Attention Implementation (a.attn_implementation)",
-                        value=platform.form_state["a"]["attn_implementation"] or "sdpa",
-                    )
-                    platform._register_input("a.attn_implementation", a_attn)
-
-                    a_quant = ui.select(
-                        options=["", "4bit", "8bit"],
-                        label="Quantization (a.quantization)",
-                        value=platform.form_state["a"]["quantization"] or "",
-                    )
-                    platform._register_input("a.quantization", a_quant)
-
-                with ui.row().classes("w-full gap-6 p-2"):
-                    a_local = ui.switch(
-                        "Local Files Only (a.local_files_only)",
-                        value=platform.form_state["a"]["local_files_only"],
-                    )
-                    platform._register_input("a.local_files_only", a_local)
-
-                    a_trust = ui.switch(
-                        "Trust Remote Code (a.trust_remote_code)",
-                        value=platform.form_state["a"]["trust_remote_code"],
-                    )
-                    platform._register_input("a.trust_remote_code", a_trust)
+            #################### COMPONENTS ################################################
 
             # PART B
-            with ui.expansion(
-                "Component b: Loading the Tokenizer", icon="text_fields"
-            ).classes("w-full bg-white shadow"):
-                with ui.grid(columns=2).classes("w-full gap-4 p-2"):
-                    b_tok_id = ui.input(
-                        label="Tokenizer ID (b.tokenizer_id)",
-                        value=platform.form_state["b"]["tokenizer_id"],
-                    )
-                    platform._register_input("b.tokenizer_id", b_tok_id)
+            with ui.column().classes("w-full gap-2"):
+                with ui.expansion(
+                    "Component a: Loading the Model", icon="memory"
+                ).classes("w-full bg-white shadow"):
+                    with ui.grid(columns=2).classes("w-full gap-4 p-2"):
+                        a_model_id = ui.input(
+                            label="Model ID / Path (a.model_id)",
+                            value=platform.form_state["a"]["model_id"],
+                        )
+                        platform._register_input("a.model_id", a_model_id)
 
-                    b_pad_side = ui.select(
-                        options=["left", "right"],
-                        label="Padding Side (b.padding_side)",
-                        value=platform.form_state["b"]["padding_side"],
-                    )
-                    platform._register_input("b.padding_side", b_pad_side)
+                        a_dtype = ui.select(
+                            options=["auto", "bfloat16", "float16", "float32"],
+                            label="Dtype (a.dtype)",
+                            value=platform.form_state["a"]["dtype"],
+                        )
+                        platform._register_input("a.dtype", a_dtype)
 
-                    b_pad_token = ui.input(
-                        label="Pad Token (b.pad_token)",
-                        value=platform.form_state["b"]["pad_token"],
-                    )
-                    platform._register_input("b.pad_token", b_pad_token)
+                        a_tp = ui.input(
+                            label="Tensor Parallelism Plan (a.tp_plan)",
+                            value=platform.form_state["a"]["tp_plan"] or "",
+                        )
+                        platform._register_input("a.tp_plan", a_tp)
 
-                    b_pad_id = ui.number(
-                        label="Pad Token ID (b.pad_token_id, read-only)",
-                        value=platform.form_state["b"]["pad_token_id"],
-                    ).props("readonly bg-gray-100")
-                    platform._register_input("b.pad_token_id", b_pad_id, cast_func=int)
+                        a_dev_map = ui.input(
+                            label="Device Map (a.device_map)",
+                            value=platform.form_state["a"]["device_map"] or "",
+                        )
+                        platform._register_input("a.device_map", a_dev_map)
 
-                    b_max_len = ui.number(
-                        label="Model Max Length (b.model_max_length)",
-                        value=platform.form_state["b"]["model_max_length"],
-                    )
-                    platform._register_input(
-                        "b.model_max_length", b_max_len, cast_func=int
-                    )
+                        a_attn = ui.select(
+                            options=["sdpa", "eager", "flash_attention_2"],
+                            label="Attention Implementation (a.attn_implementation)",
+                            value=platform.form_state["a"]["attn_implementation"]
+                            or "sdpa",
+                        )
+                        platform._register_input("a.attn_implementation", a_attn)
 
-                    b_trunc_side = ui.select(
-                        options=["right", "left"],
-                        label="Truncation Side (b.truncation_side)",
-                        value=platform.form_state["b"]["truncation_side"],
-                    )
-                    platform._register_input("b.truncation_side", b_trunc_side)
+                        a_quant = ui.select(
+                            options=["", "4bit", "8bit"],
+                            label="Quantization (a.quantization)",
+                            value=platform.form_state["a"]["quantization"] or "",
+                        )
+                        platform._register_input("a.quantization", a_quant)
 
-                with ui.row().classes("w-full gap-6 p-2"):
-                    b_regex = ui.switch(
-                        "Fix Mistral Regex (b.fix_mistral_regex)",
-                        value=platform.form_state["b"]["fix_mistral_regex"],
-                    )
-                    platform._register_input("b.fix_mistral_regex", b_regex)
+                    with ui.row().classes("w-full gap-6 p-2"):
+                        a_local = ui.switch(
+                            "Local Files Only (a.local_files_only)",
+                            value=platform.form_state["a"]["local_files_only"],
+                        )
+                        platform._register_input("a.local_files_only", a_local)
 
-                    b_fast = ui.switch(
-                        "Use Fast Tokenizer (b.use_fast)",
-                        value=platform.form_state["b"]["use_fast"],
-                    )
-                    platform._register_input("b.use_fast", b_fast)
+                        a_trust = ui.switch(
+                            "Trust Remote Code (a.trust_remote_code)",
+                            value=platform.form_state["a"]["trust_remote_code"],
+                        )
+                        platform._register_input("a.trust_remote_code", a_trust)
 
-                # PANEL C
-                # WREWRITE?
+                # PART B
+                with ui.expansion(
+                    "Component b: Loading the Tokenizer", icon="text_fields"
+                ).classes("w-full bg-white shadow"):
+                    with ui.grid(columns=2).classes("w-full gap-4 p-2"):
+                        b_tok_id = ui.input(
+                            label="Tokenizer ID (b.tokenizer_id)",
+                            value=platform.form_state["b"]["tokenizer_id"],
+                        )
+                        platform._register_input("b.tokenizer_id", b_tok_id)
+
+                        b_pad_side = ui.select(
+                            options=["left", "right"],
+                            label="Padding Side (b.padding_side)",
+                            value=platform.form_state["b"]["padding_side"],
+                        )
+                        platform._register_input("b.padding_side", b_pad_side)
+
+                        b_pad_token = ui.input(
+                            label="Pad Token (b.pad_token)",
+                            value=platform.form_state["b"]["pad_token"],
+                        )
+                        platform._register_input("b.pad_token", b_pad_token)
+
+                        b_pad_id = ui.number(
+                            label="Pad Token ID (b.pad_token_id, read-only)",
+                            value=platform.form_state["b"]["pad_token_id"],
+                        ).props("readonly bg-gray-100")
+                        platform._register_input(
+                            "b.pad_token_id", b_pad_id, cast_func=int
+                        )
+
+                        b_max_len = ui.number(
+                            label="Model Max Length (b.model_max_length)",
+                            value=platform.form_state["b"]["model_max_length"],
+                        )
+                        platform._register_input(
+                            "b.model_max_length", b_max_len, cast_func=int
+                        )
+
+                        b_trunc_side = ui.select(
+                            options=["right", "left"],
+                            label="Truncation Side (b.truncation_side)",
+                            value=platform.form_state["b"]["truncation_side"],
+                        )
+                        platform._register_input("b.truncation_side", b_trunc_side)
+
+                    with ui.row().classes("w-full gap-6 p-2"):
+                        b_regex = ui.switch(
+                            "Fix Mistral Regex (b.fix_mistral_regex)",
+                            value=platform.form_state["b"]["fix_mistral_regex"],
+                        )
+                        platform._register_input("b.fix_mistral_regex", b_regex)
+
+                        b_fast = ui.switch(
+                            "Use Fast Tokenizer (b.use_fast)",
+                            value=platform.form_state["b"]["use_fast"],
+                        )
+                        platform._register_input("b.use_fast", b_fast)
+
+                    # PANEL C
+                    # WREWRITE?
                 with ui.expansion(
                     "Component c: Loading the Data", icon="dataset"
                 ).classes("w-full bg-white shadow"):
@@ -676,7 +681,9 @@ def create_app() -> PlatformUI:
                                 value=platform.form_state["c"]["evidence_answers_used"],
                             )
                             platform._register_input(
-                                "c.evidence_answers_used", c_answers_used, cast_func=int
+                                "c.evidence_answers_used",
+                                c_answers_used,
+                                cast_func=int,
                             )
 
                             c_max_seq = ui.number(
@@ -688,9 +695,19 @@ def create_app() -> PlatformUI:
                                 "c.max_seq_length", c_max_seq, cast_func=int
                             )
 
-    ########################### Main #########################################
+        ########################### Main #########################################
 
-    # Initial visibility check
+        # Initial visibility check
+
+        with ui.column().classes("w-5/12 sticky top-4"):
+            platform.console = build_console(
+                container=ui.column().classes("w-full"),
+                field_widgets=platform.field_widgets,
+                build_config=platform.build_config_record,
+                validate=lambda cfg: [],
+                save=platform.save_to_db,
+                reset=platform.reset_to_defaults,
+            )
     platform._update_visibility()
     return platform
 
