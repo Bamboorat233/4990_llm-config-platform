@@ -1,10 +1,21 @@
+# REFERENCES.md
 
-
+## Imports
+https://docs.python.org/3/library/json.html
+https://docs.python.org/3/library/copy.html
+https://typing.python.org/en/latest/spec/callables.html
+https://docs.python.org/3/library/sqlite3.html
+https://docs.python.org/3/library/os.html
+https://docs.python.org/3/library/sqlite3.html
+https://docs.python.org/3/library/contextlib.html
+https://docs.python.org/3/library/datetime.html
+https://docs.python.org/3/library/pathlib.html
+https://docs.python.org/3/library/uuid.html
 
 ### Misc 
 
 https://quasar.dev/style/theme-builder/
-
+https://stackoverflow.com/questions/70967266/what-exactly-is-python-typing-callable
 
 ### NiceGUI
 https://nicegui.io/documentation/notify

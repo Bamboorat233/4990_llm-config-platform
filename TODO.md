@@ -1,8 +1,11 @@
 # TODO
 
-> Task tracking has moved to GitHub Issues:
-> https://github.com/Bamboorat233/4990_llm-config-platform/issues
-> `planning/TaskList.md` stays the milestone-level plan; individual work items,
-> owners and review status live in the issue tracker.
-
 ## Milestones
+
+
+### Daniel Laurin
+
+[x] NiceGUI components A-C 
+[x] SQLi copy, load, delete, deduplicate
+[ ]  Validation check 
+[ ] Kwargs dynamic pannel (component h)
