@@ -67,8 +67,7 @@ class PlatformUI:
             self.form_state["h"] = {}
 
         self.field_widgets: dict[str, Any] = {}
-        # self.kwargs_panels: dict[str, KwargsSubPanel] = {}
-
+        self.kwargs_panels: dict[str, Any] = {}
         self.is_batch_updating = False
 
         self.optimizer_expansion: Any = None
@@ -95,7 +94,7 @@ class PlatformUI:
                 target = target[segment]
             else:
                 return default
-            return target
+        return target
 
     ########################## FUNCIONALITY ###############################
 
@@ -224,7 +223,7 @@ class PlatformUI:
             self.data_fine_tune_container.set_visibility(is_fine_tune)
 
     def on_model_changed(self, e: Any) -> None:
-        new_model = e.Value
+        new_model = e.value
         if new_model == self.current_model_id:
             return
 
