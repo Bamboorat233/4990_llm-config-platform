@@ -1,4 +1,16 @@
-# from __future__ import annotations
+"""Main NiceGUI entry point: page layout, form skeleton, and linkage.
+
+GitHub issues implemented:
+- Issue #6: main.py page layout and form skeleton (M0.5 milestone)
+- Issue #7: Model / task switching linkage (M0.5 milestone)
+- Issue #11: Save, deduplicate, load and duplicate in the UI (M1.0 milestone)
+- Issue #12: Component h (**kwargs) dynamic key-value panels (M1.0 milestone)
+
+Run with:
+    python -m app.main
+"""
+
+from __future__ import annotations
 
 import copy
 import json
@@ -7,7 +19,11 @@ from typing import Any
 
 from nicegui import ui
 
-from app.registry import DEEPSEEK_ID, MISTRAL_ID, defaults_for
+from app.registry import (
+    DEEPSEEK_ID,
+    MISTRAL_ID,
+    defaults_for,
+)
 from app.schemas import ConfigRecord, config_fingerprint
 from app.store import (
     delete_config,
@@ -19,10 +35,10 @@ from app.store import (
     list_configs,
 )
 from app.ui.console import build_console
+from app.ui.kwargs_panel import KwargsSubPanel, validate_kwargs_section
+from app.validation import validate_cross_fields
 
-# from app.ui.kwargs_panel import validate_kwargs_section
-# from app.validation import validate_cross_fields
-
+# Available models for selection
 AVAILABLE_MODELS = {
     MISTRAL_ID: f"Mistral Small 24B ({MISTRAL_ID})",
     DEEPSEEK_ID: f"DeepSeek R1 Distill Qwen 32B ({DEEPSEEK_ID})",
@@ -35,49 +51,69 @@ TASK_TYPE_OPTIONS = {
 
 EVIDENCE_CONFIG_OPTIONS = {
     "with_evidence": "With Evidence (full)",
-    "wihtout_evidence": "Without Evidence",
+    "without_evidence": "Without Evidence",
     "random_evidence": "Random Evidence",
     "question_only": "Question Only",
     "answer_only": "Answer Only",
-    "all_question_last_answer": "All Questions + Last Answer",
-    "all_questions_last_answer": "All Questions + All But Last Answer",
+    "all_questions_last_answer": "All Questions + Last Answer",
+    "all_questions_all_but_last_answer": "All Questions + All But Last Answer",
 }
 
 
-# def validate_full_config(cfg: ConfigRecord) -> list[dict[str, str]]:
-#     issues = list(validate_cross_fields(cfg))
-#     kwargs_issues = validate_kwargs_section(cfg.h)
-#     issues.extend(kwargs_issues)
-#     return issues
+def validate_full_config(cfg: ConfigRecord) -> list[dict[str, str]]:
+    """Validate cross-field rules 1-10 plus Component h kwargs whitelist."""
+    issues = list(validate_cross_fields(cfg))
+    kwargs_issues = validate_kwargs_section(cfg.h)
+    issues.extend(kwargs_issues)
+    return issues
 
 
 class PlatformUI:
-    # default model is Mistral
+    """Manages the platform state, widgets, form linkage, and layout.
+
+    Coordinates reactive two-way data binding:
+    - User input -> updates `self.form_state` dictionary.
+    - Model/task switch -> loads fresh defaults from `registry.py` into `self.form_state`.
+    - Live validation -> validates `ConfigRecord` on every change and updates `self.console`.
+    - Left drawer -> displays SQLite saved configs with Load, Duplicate, and Delete actions.
+    """
+
     def __init__(self) -> None:
+        # Ensure the SQLite database table exists on launch
         init_db()
 
+        # Initial default selections (Mistral + Fine-Tune per design spec)
         self.current_model_id = MISTRAL_ID
         self.current_task_type = "fine_tune"
         self.created_by_val = ""
         self.notes_val = ""
 
-        # loading defaults_for func from registry.py
+        # Populate initial form dictionary with defaults from registry
         self.form_state = defaults_for(self.current_model_id, self.current_task_type)
         if "h" not in self.form_state or not isinstance(self.form_state["h"], dict):
             self.form_state["h"] = {}
 
+        # Widget registry mapping dotted paths (e.g. "b.pad_token") to NiceGUI widget instances.
+        # Used by the validation console to apply red error rings directly on offending inputs.
         self.field_widgets: dict[str, Any] = {}
+<<<<<<< HEAD
         self.kwargs_panels: dict[str, Any] = {}
+=======
+        self.kwargs_panels: dict[str, KwargsSubPanel] = {}
+
+        # Flag to prevent event loops / re-triggering during programmatic bulk updates
+>>>>>>> dbec13a (validation, kwarggs d-h components)
         self.is_batch_updating = False
 
+        # References to dynamically shown/hidden UI containers
         self.optimizer_expansion: Any = None
         self.data_fine_tune_container: Any = None
         self.data_inference_container: Any = None
         self.saved_configs_container: Any = None
         self.console: Any = None
 
-    # makes the JSON format
     def _set_path_value(self, path: str, value: Any) -> None:
+        """Update a dotted path (e.g., 'd.lora.r') in the nested form_state dictionary."""
         parts = path.split(".")
         target = self.form_state
         for segment in parts[:-1]:
@@ -86,8 +122,8 @@ class PlatformUI:
             target = target[segment]
         target[parts[-1]] = value
 
-    # read the dictionary value | ex: tempature: 0.6
     def _get_path_value(self, path: str, default: Any = None) -> Any:
+        """Retrieve a value by dotted path (e.g., 'f.temperature') from form_state."""
         target = self.form_state
         for segment in path.split("."):
             if isinstance(target, dict) and segment in target:
@@ -96,18 +132,22 @@ class PlatformUI:
                 return default
         return target
 
-    ########################## FUNCIONALITY ###############################
-
-    # NiceUI input, validation check, live refresh func
     def _register_input(
         self,
         path: str,
         widget: Any,
-        cast_func: Callable[[Any]] | None = None,
+        cast_func: Callable[[Any], Any] | None = None,
     ) -> Any:
+        """Register a widget in field_widgets and set up value change callback.
+
+        - Binds the widget's value changes to update `form_state`.
+        - Applies optional type casting (e.g., int, float) to enforce schema types.
+        - Automatically triggers a live validation console refresh.
+        """
         self.field_widgets[path] = widget
 
         def on_change(e: Any) -> None:
+            # Skip if we are programmatically updating widgets (e.g. during load_state)
             if self.is_batch_updating:
                 return
             val = e.value if hasattr(e, "value") else widget.value
@@ -117,8 +157,7 @@ class PlatformUI:
                 except (ValueError, TypeError):
                     pass
             self._set_path_value(path, val)
-
-            # LIVE UPDATE
+            # Re-evaluate rules and update live JSON preview
             if self.console is not None:
                 self.console.refresh()
 
@@ -126,43 +165,49 @@ class PlatformUI:
         return widget
 
     def build_config_record(self) -> ConfigRecord:
+        """Assemble the current UI state into a validated Pydantic ConfigRecord.
 
+        Handles string-to-list parsing for comma-separated fields (like label_values
+        and target_modules) and applies model-specific quirks like DeepSeek top_k nullability.
+        """
         payload = copy.deepcopy(self.form_state)
         payload["model_id"] = self.current_model_id
         payload["task_type"] = self.current_task_type
         payload["created_by"] = self.created_by_val or None
         payload["notes"] = self.notes_val or None
 
-        # clean up whitespaces
+        # Parse comma-separated strings into lists expected by Pydantic schemas
         c = payload.get("c", {})
         if isinstance(c.get("label_values"), str):
             c["label_values"] = [
                 item.strip() for item in c["label_values"].split(",") if item.strip()
             ]
-        # Hugging Face needs a string array
-        # d = payload.get("d", {})
-        # lora = d.get("lora", {})
-        # if isinstance(lora.get("target_modules"), str):
-        #     lora["target_modules"] = [
-        #         item.strip()
-        #         for item in lora["target_modules"].split(",")
-        #         if item.strip()
-        #     ]
 
-        # sets top_k to 0 when deepseek toggled
+        d = payload.get("d", {})
+        lora = d.get("lora", {})
+        if isinstance(lora.get("target_modules"), str):
+            lora["target_modules"] = [
+                item.strip()
+                for item in lora["target_modules"].split(",")
+                if item.strip()
+            ]
+
+        # DeepSeek R1 quirk: top_k is disabled / nullable (empty or 0 means None)
         f = payload.get("f", {})
-        if f.get("top_k") == "" or f.get("top_k") == 0:  # noqa: SIM102
+        if f.get("top_k") == "" or f.get("top_k") == 0:
             if self.current_model_id == DEEPSEEK_ID:
                 f["top_k"] = None
 
         return ConfigRecord(**payload)
 
-    # func for making profiles
     def load_state(self, new_state: dict[str, Any]) -> None:
+        """Populate all form widgets from a dictionary state.
 
+        Uses `is_batch_updating = True` while populating fields to avoid firing
+        redundant individual `on_value_change` events during bulk updates.
+        """
         self.is_batch_updating = True
         try:
-            # makes a save state
             self.form_state = copy.deepcopy(new_state)
             if "h" not in self.form_state or not isinstance(self.form_state["h"], dict):
                 self.form_state["h"] = {}
@@ -172,7 +217,7 @@ class PlatformUI:
             self.created_by_val = new_state.get("created_by") or ""
             self.notes_val = new_state.get("notes") or ""
 
-            # puts the actual values inside the widgets
+            # Update top-level control widgets if available
             if "model_id" in self.field_widgets:
                 self.field_widgets["model_id"].value = self.current_model_id
             if "task_type" in self.field_widgets:
@@ -182,7 +227,7 @@ class PlatformUI:
             if "notes" in self.field_widgets:
                 self.field_widgets["notes"].value = self.notes_val
 
-            # loads the profile
+            # Update registered leaf inputs (Components a through g and p)
             for path, widget in self.field_widgets.items():
                 if path in {
                     "model_id",
@@ -193,13 +238,13 @@ class PlatformUI:
                     continue
                 val = self._get_path_value(path)
                 if val is not None and hasattr(widget, "value"):
-                    # make lists comma seperated
+                    # Format lists (like target_modules or label_values) into comma-separated text
                     if isinstance(val, list):
                         widget.value = ", ".join(str(x) for x in val)
                     else:
                         widget.value = val
 
-            # refresh hyperparameters and load user arguments
+            # Refresh dynamic Component h (**kwargs) sub-panels
             for stage, panel in self.kwargs_panels.items():
                 panel.clear()
                 existing_kwargs = self.form_state.get("h", {}).get(stage, {})
@@ -207,54 +252,74 @@ class PlatformUI:
                     val_str = json.dumps(v) if isinstance(v, (dict, list)) else str(v)
                     panel.add_row(initial_key=k, initial_val=val_str)
 
-            # hides the menu that you open
+            # Re-apply conditional section visibility (e.g. Optimizer hidden during inference)
             self._update_visibility()
         finally:
             self.is_batch_updating = False
 
+        # Refresh console to update JSON preview and re-check rules against newly loaded state
         if self.console is not None:
             self.console.refresh()
 
     def _update_visibility(self) -> None:
+        """Toggle visibility of optimizer and data fields based on task_type.
+
+        Per spec:
+        - Optimizer (Component d) is only visible for 'fine_tune'.
+        - 'train_data_file' and 'eval_data_file' are only for 'fine_tune'.
+        - 'test_data_file' and 'evidence_config' are only for 'inference'.
+        """
         is_fine_tune = self.current_task_type == "fine_tune"
         if self.optimizer_expansion is not None:
             self.optimizer_expansion.set_visibility(is_fine_tune)
         if self.data_fine_tune_container is not None:
             self.data_fine_tune_container.set_visibility(is_fine_tune)
+        if self.data_inference_container is not None:
+            self.data_inference_container.set_visibility(not is_fine_tune)
 
     def on_model_changed(self, e: Any) -> None:
+<<<<<<< HEAD
+=======
+        """Switch model: reloads defaults for current (model, task_type).
+
+        User-entered metadata (created_by, notes) is preserved across switches
+        because those fields are not part of the registry defaults.
+        """
+>>>>>>> dbec13a (validation, kwarggs d-h components)
         new_model = e.value
         if new_model == self.current_model_id:
             return
-
-        # this was an earlier bug this is the fix
-        # preserve user metadata before load_state
+        # Preserve user metadata before load_state overwrites them
         saved_by = self.created_by_val
         saved_notes = self.notes_val
         self.current_model_id = new_model
         defaults = defaults_for(self.current_model_id, self.current_task_type)
         self.load_state(defaults)
-        # restore the metadata
+        # Restore user metadata
         self.created_by_val = saved_by
         self.notes_val = saved_notes
         if "created_by" in self.field_widgets:
             self.field_widgets["created_by"].value = saved_by
         if "notes" in self.field_widgets:
             self.field_widgets["notes"].value = saved_notes
-        # import from NiceUi
         ui.notify(f"Switched model to {new_model}", type="info")
 
     def on_task_type_changed(self, e: Any) -> None:
+        """Switch task type: reloads defaults for current (model, task_type).
+
+        User-entered metadata (created_by, notes) is preserved across switches
+        because those fields are not part of the registry defaults.
+        """
         new_task = e.value
         if new_task == self.current_task_type:
             return
-
-        # preserve user metadata before load_state overwrites them
+        # Preserve user metadata before load_state overwrites them
         saved_by = self.created_by_val
         saved_notes = self.notes_val
         self.current_task_type = new_task
         defaults = defaults_for(self.current_model_id, self.current_task_type)
         self.load_state(defaults)
+        # Restore user metadata
         self.created_by_val = saved_by
         self.notes_val = saved_notes
         if "created_by" in self.field_widgets:
@@ -264,11 +329,17 @@ class PlatformUI:
         ui.notify(f"Switched task type to {new_task}", type="info")
 
     def save_to_db(self, cfg: ConfigRecord) -> None:
+        """Persist config to SQLite with SHA256 hash deduplication.
+
+        Computes a SHA-256 fingerprint over the functional experiment parameters.
+        If an identical configuration is already saved, blocks insertion with a warning.
+        Otherwise, writes to SQLite and refreshes the drawer card feed.
+        """
         fingerprint = config_fingerprint(cfg)
         existing_id = find_by_hash(fingerprint)
         if existing_id is not None:
             ui.notify(
-                f"An identical expermient config already exsists (ID: {existing_id[:8]})",
+                f"An identical experiment config already exists (ID: {existing_id[:8]})",
                 type="warning",
             )
             return
@@ -281,11 +352,13 @@ class PlatformUI:
         self.refresh_saved_configs_list()
 
     def reset_to_defaults(self) -> None:
+        """Reset the form back to registry defaults for current model and task."""
         defaults = defaults_for(self.current_model_id, self.current_task_type)
         self.load_state(defaults)
         ui.notify("Form reset to registry defaults.", type="info")
 
     def load_saved_config(self, config_id: str) -> None:
+        """Load a saved config from SQLite by ID into the active editing form."""
         cfg = get_config(config_id)
         if cfg is None:
             ui.notify(f"Config {config_id} not found.", type="negative")
@@ -294,6 +367,11 @@ class PlatformUI:
         ui.notify(f"Loaded config {config_id[:8]}", type="positive")
 
     def duplicate_saved_config(self, config_id: str) -> None:
+        """Clone an existing config with a new ID and timestamp as an unsaved draft.
+
+        Allows the user to easily branch off an existing experiment, adjust one or more
+        hyperparameters (e.g. temperature), and save as a new independent record.
+        """
         clone = duplicate_config(config_id)
         self.load_state(clone.model_dump())
         ui.notify(
@@ -307,9 +385,8 @@ class PlatformUI:
         ui.notify(f"Deleted config {config_id[:8]}", type="warning")
         self.refresh_saved_configs_list()
 
-    ######################### DESIGN ######################################
-
     def refresh_saved_configs_list(self) -> None:
+        """Re-render the list of saved configs in the left drawer."""
         if self.saved_configs_container is None:
             return
         self.saved_configs_container.clear()
@@ -361,29 +438,26 @@ class PlatformUI:
 
 
 def create_app() -> PlatformUI:
+    """Construct the full NiceGUI page layout and form skeleton."""
     platform = PlatformUI()
 
-    ########################### Style ########################################
-
-    # Page styling
+    # Custom page styling
     ui.colors(primary="#1976D2", secondary="#26A69A", accent="#9C27B0")
 
     # Header
-    with (
-        ui.header().classes(
-            "items-center justify-between px-4 py-2 bg-slate-900 text-white"
-        ),
-        ui.row().classes("items-center gap-3"),
+    with ui.header().classes(
+        "items-center justify-between px-4 py-2 bg-slate-900 text-white"
     ):
-        drawer_btn = ui.button(icon="menu").props("flat round color=white")
-        ui.label("LLM Fact-Checking Config Platform").classes(
-            "text-lg font-bold tracking-wide"
-        )
-        # with ui.row().classes("items-center gap-2"):
-        #     ui.badge("Fir HPC Ready", color="positive").classes("text-xs px-2 py-1")
-        #     ui.label("Milestone 0.5 & 1.0").classes("text-xs text-slate-400")
+        with ui.row().classes("items-center gap-3"):
+            drawer_btn = ui.button(icon="menu").props("flat round color=white")
+            ui.label("LLM Fact-Checking Config Platform").classes(
+                "text-lg font-bold tracking-wide"
+            )
+        with ui.row().classes("items-center gap-2"):
+            ui.badge("Fir HPC Ready", color="positive").classes("text-xs px-2 py-1")
+            # ui.label("Milestone 0.5 & 1.0").classes("text-xs text-slate-400")
 
-    # hamburger button
+    # Left Drawer (saved configs)
     with ui.left_drawer(value=False).classes("bg-slate-50 p-3") as drawer:
         drawer_btn.on_click(drawer.toggle)
         with ui.row().classes("w-full items-center justify-between mb-3"):
@@ -397,10 +471,15 @@ def create_app() -> PlatformUI:
         platform.saved_configs_container = ui.column().classes("w-full gap-2")
         platform.refresh_saved_configs_list()
 
-    ############################ Body ########################################
-
+    # Main Area: Split 7:5 (Left: Form skeleton, Right: Sticky validation console)
+    # This ratio is specified in design/Spec_and_roadmap.md to give ample room for
+    # prompt templates on the left and a persistent, readable JSON preview on the right.
     with ui.row().classes("w-full p-4 gap-6 no-wrap items-start"):
+        # ====================================================================
+        # LEFT COLUMN (7/12 width): Form configuration area
+        # ====================================================================
         with ui.column().classes("w-7/12 gap-4"):
+            # 1. Top-Level Control Card: Model ID, Task Type toggle, Author, and Notes
             with ui.card().classes("w-full shadow-md"):
                 ui.label("Experiment Configuration").classes(
                     "text-base font-bold text-slate-800"
@@ -440,8 +519,7 @@ def create_app() -> PlatformUI:
                     )
                     platform.field_widgets["notes"] = notes_input
 
-            ######################## PROMPT STYLING ##################################
-
+            # 2. Prompt Section (Component p)
             with ui.card().classes("w-full shadow-md"):
                 with ui.row().classes("items-center justify-between w-full"):
                     ui.label("Component p: Prompts & Chat Template").classes(
@@ -480,10 +558,9 @@ def create_app() -> PlatformUI:
                 ).classes("w-full")
                 platform._register_input("p.chat_template_override", template_override)
 
-            #################### COMPONENTS ################################################
-
-            # PART B
+            # 3. Expansion Panels: Components a through h
             with ui.column().classes("w-full gap-2"):
+                # Panel a: Model Loading
                 with ui.expansion(
                     "Component a: Loading the Model", icon="memory"
                 ).classes("w-full bg-white shadow"):
@@ -541,7 +618,7 @@ def create_app() -> PlatformUI:
                         )
                         platform._register_input("a.trust_remote_code", a_trust)
 
-                # PART B
+                # Panel b: Tokenizer
                 with ui.expansion(
                     "Component b: Loading the Tokenizer", icon="text_fields"
                 ).classes("w-full bg-white shadow"):
@@ -601,13 +678,12 @@ def create_app() -> PlatformUI:
                         )
                         platform._register_input("b.use_fast", b_fast)
 
-                    # PANEL C
-                    # WREWRITE?
+                # Panel c: Data
                 with ui.expansion(
                     "Component c: Loading the Data", icon="dataset"
                 ).classes("w-full bg-white shadow"):
                     with ui.column().classes("w-full p-2 gap-4"):
-                        # fine-tuning data paths container
+                        # Fine-tuning data paths container
                         platform.data_fine_tune_container = ui.column().classes(
                             "w-full gap-2"
                         )
@@ -630,7 +706,7 @@ def create_app() -> PlatformUI:
                                 )
                                 platform._register_input("c.eval_data_file", c_eval)
 
-                        # Inference data paths and evidence container
+                        # Inference data paths & evidence container
                         platform.data_inference_container = ui.column().classes(
                             "w-full gap-2"
                         )
@@ -655,7 +731,7 @@ def create_app() -> PlatformUI:
                                     "c.evidence_config", c_evidence
                                 )
 
-                        # common data fields
+                        # Common data fields
                         with ui.grid(columns=2).classes("w-full gap-4 mt-2"):
                             c_labels = ui.input(
                                 label="Label Values (c.label_values, comma-separated)",
@@ -680,9 +756,7 @@ def create_app() -> PlatformUI:
                                 value=platform.form_state["c"]["evidence_answers_used"],
                             )
                             platform._register_input(
-                                "c.evidence_answers_used",
-                                c_answers_used,
-                                cast_func=int,
+                                "c.evidence_answers_used", c_answers_used, cast_func=int
                             )
 
                             c_max_seq = ui.number(
@@ -694,19 +768,295 @@ def create_app() -> PlatformUI:
                                 "c.max_seq_length", c_max_seq, cast_func=int
                             )
 
-        ########################### Main #########################################
+                # Panel d: Optimizer (LoRA + SFT) - Read-only, fine-tune only.
+                # In Milestone 0.5/1.0, training hyperparameters are frozen to proven research defaults
+                # (learning rate 2e-4, LoRA r=64, alpha=16) to avoid errant cluster crashes.
+                platform.optimizer_expansion = ui.expansion(
+                    "Component d: Optimizer (LoRA + SFT, Read-Only)",
+                    icon="tune",
+                ).classes("w-full bg-white shadow")
+                with platform.optimizer_expansion:
+                    ui.label("LoRA Adapter Settings").classes(
+                        "text-xs font-semibold text-gray-600 mt-2 px-2"
+                    )
+                    with ui.grid(columns=3).classes("w-full gap-3 p-2"):
+                        d_r = ui.number(
+                            "LoRA Rank (d.lora.r)",
+                            value=platform.form_state["d"]["lora"]["r"],
+                        ).props("readonly bg-gray-100")
+                        platform._register_input("d.lora.r", d_r, cast_func=int)
 
-        # Initial visibility check
+                        d_alpha = ui.number(
+                            "LoRA Alpha (d.lora.lora_alpha)",
+                            value=platform.form_state["d"]["lora"]["lora_alpha"],
+                        ).props("readonly bg-gray-100")
+                        platform._register_input(
+                            "d.lora.lora_alpha", d_alpha, cast_func=int
+                        )
 
+                        d_dropout = ui.number(
+                            "LoRA Dropout (d.lora.lora_dropout)",
+                            value=platform.form_state["d"]["lora"]["lora_dropout"],
+                        ).props("readonly bg-gray-100")
+                        platform._register_input(
+                            "d.lora.lora_dropout", d_dropout, cast_func=float
+                        )
+
+                    with ui.grid(columns=2).classes("w-full gap-3 px-2"):
+                        d_target = ui.input(
+                            "Target Modules",
+                            value=", ".join(
+                                platform.form_state["d"]["lora"]["target_modules"]
+                            ),
+                        ).props("readonly bg-gray-100")
+                        platform._register_input("d.lora.target_modules", d_target)
+
+                        d_bias = ui.input(
+                            "LoRA Bias", value=platform.form_state["d"]["lora"]["bias"]
+                        ).props("readonly bg-gray-100")
+                        platform._register_input("d.lora.bias", d_bias)
+
+                    ui.label("SFT Trainer Settings").classes(
+                        "text-xs font-semibold text-gray-600 mt-4 px-2"
+                    )
+                    with ui.grid(columns=3).classes("w-full gap-3 p-2"):
+                        d_lr = ui.number(
+                            "Learning Rate",
+                            value=platform.form_state["d"]["sft"]["learning_rate"],
+                        ).props("readonly bg-gray-100")
+                        platform._register_input(
+                            "d.sft.learning_rate", d_lr, cast_func=float
+                        )
+
+                        d_epochs = ui.number(
+                            "Epochs",
+                            value=platform.form_state["d"]["sft"]["num_train_epochs"],
+                        ).props("readonly bg-gray-100")
+                        platform._register_input(
+                            "d.sft.num_train_epochs", d_epochs, cast_func=int
+                        )
+
+                        d_batch = ui.number(
+                            "Train Batch Size",
+                            value=platform.form_state["d"]["sft"][
+                                "per_device_train_batch_size"
+                            ],
+                        ).props("readonly bg-gray-100")
+                        platform._register_input(
+                            "d.sft.per_device_train_batch_size", d_batch, cast_func=int
+                        )
+
+                        d_eval_strat = ui.input(
+                            "Eval Strategy",
+                            value=platform.form_state["d"]["sft"]["eval_strategy"],
+                        ).props("readonly bg-gray-100")
+                        platform._register_input("d.sft.eval_strategy", d_eval_strat)
+
+                        d_save_strat = ui.input(
+                            "Save Strategy",
+                            value=platform.form_state["d"]["sft"]["save_strategy"],
+                        ).props("readonly bg-gray-100")
+                        platform._register_input("d.sft.save_strategy", d_save_strat)
+
+                        d_seed = ui.number(
+                            "Seed", value=platform.form_state["d"]["sft"]["seed"]
+                        ).props("readonly bg-gray-100")
+                        platform._register_input("d.sft.seed", d_seed, cast_func=int)
+
+                # Panel e: Token Encoding
+                with ui.expansion("Component e: Token Encoding", icon="code").classes(
+                    "w-full bg-white shadow"
+                ):
+                    with ui.grid(columns=2).classes("w-full gap-4 p-2"):
+                        e_ret_tensors = ui.input(
+                            label="Return Tensors (e.return_tensors)",
+                            value=platform.form_state["e"]["return_tensors"],
+                        )
+                        platform._register_input("e.return_tensors", e_ret_tensors)
+
+                        e_device = ui.input(
+                            label="Device (e.device)",
+                            value=platform.form_state["e"]["device"],
+                        )
+                        platform._register_input("e.device", e_device)
+
+                        e_max_len = ui.number(
+                            label="Max Length (e.max_length)",
+                            value=platform.form_state["e"]["max_length"],
+                        )
+                        platform._register_input(
+                            "e.max_length", e_max_len, cast_func=int
+                        )
+
+                    with ui.row().classes("w-full gap-6 p-2"):
+                        e_template = ui.switch(
+                            "Apply Chat Template (e.apply_chat_template)",
+                            value=platform.form_state["e"]["apply_chat_template"],
+                        )
+                        platform._register_input("e.apply_chat_template", e_template)
+
+                        e_add_gen = ui.switch(
+                            "Add Generation Prompt (e.add_generation_prompt)",
+                            value=platform.form_state["e"]["add_generation_prompt"],
+                        )
+                        platform._register_input("e.add_generation_prompt", e_add_gen)
+
+                        e_tok = ui.switch(
+                            "Tokenize (e.tokenize)",
+                            value=platform.form_state["e"]["tokenize"],
+                        )
+                        platform._register_input("e.tokenize", e_tok)
+
+                        e_padding = ui.switch(
+                            "Padding (e.padding)",
+                            value=platform.form_state["e"]["padding"],
+                        )
+                        platform._register_input("e.padding", e_padding)
+
+                        e_trunc = ui.switch(
+                            "Truncation (e.truncation)",
+                            value=platform.form_state["e"]["truncation"],
+                        )
+                        platform._register_input("e.truncation", e_trunc)
+
+                # Panel f: Text Generation
+                with ui.expansion(
+                    "Component f: Text Generation", icon="auto_stories"
+                ).classes("w-full bg-white shadow"):
+                    with ui.grid(columns=3).classes("w-full gap-3 p-2"):
+                        f_tokens = ui.number(
+                            label="Max New Tokens (f.max_new_tokens)",
+                            value=platform.form_state["f"]["max_new_tokens"],
+                        )
+                        platform._register_input(
+                            "f.max_new_tokens", f_tokens, cast_func=int
+                        )
+
+                        f_temp = ui.number(
+                            label="Temperature (f.temperature)",
+                            value=platform.form_state["f"]["temperature"],
+                            format="%.2f",
+                        )
+                        platform._register_input(
+                            "f.temperature", f_temp, cast_func=float
+                        )
+
+                        f_top_p = ui.number(
+                            label="Top P (f.top_p)",
+                            value=platform.form_state["f"]["top_p"],
+                            format="%.2f",
+                        )
+                        platform._register_input("f.top_p", f_top_p, cast_func=float)
+
+                        f_top_k = ui.number(
+                            label="Top K (f.top_k)",
+                            value=platform.form_state["f"]["top_k"],
+                        )
+                        platform._register_input("f.top_k", f_top_k, cast_func=int)
+
+                        f_batch = ui.number(
+                            label="Batch Size (f.batch_size)",
+                            value=platform.form_state["f"]["batch_size"],
+                        )
+                        platform._register_input("f.batch_size", f_batch, cast_func=int)
+
+                        f_rep_pen = ui.number(
+                            label="Repetition Penalty (f.repetition_penalty)",
+                            value=platform.form_state["f"]["repetition_penalty"],
+                            format="%.2f",
+                        )
+                        platform._register_input(
+                            "f.repetition_penalty", f_rep_pen, cast_func=float
+                        )
+
+                    with ui.grid(columns=2).classes("w-full gap-3 px-2"):
+                        f_forced_prefix = ui.input(
+                            label="Forced Prefix (f.forced_prefix)",
+                            value=platform.form_state["f"]["forced_prefix"] or "",
+                        )
+                        platform._register_input("f.forced_prefix", f_forced_prefix)
+
+                    with ui.row().classes("w-full gap-6 p-2"):
+                        f_sample = ui.switch(
+                            "Do Sample (f.do_sample)",
+                            value=platform.form_state["f"]["do_sample"],
+                        )
+                        platform._register_input("f.do_sample", f_sample)
+
+                        f_cache = ui.switch(
+                            "Use Cache (f.use_cache)",
+                            value=platform.form_state["f"]["use_cache"],
+                        )
+                        platform._register_input("f.use_cache", f_cache)
+
+                # Panel g: Token Decoding
+                with ui.expansion(
+                    "Component g: Token Decoding", icon="translate"
+                ).classes("w-full bg-white shadow"):
+                    with ui.row().classes("w-full gap-6 p-2"):
+                        g_skip = ui.switch(
+                            "Skip Special Tokens (g.skip_special_tokens)",
+                            value=platform.form_state["g"]["skip_special_tokens"],
+                        )
+                        platform._register_input("g.skip_special_tokens", g_skip)
+
+                        g_clean = ui.switch(
+                            "Clean Up Tokenization Spaces (g.clean_up_tokenization_spaces)",
+                            value=platform.form_state["g"][
+                                "clean_up_tokenization_spaces"
+                            ],
+                        )
+                        platform._register_input(
+                            "g.clean_up_tokenization_spaces", g_clean
+                        )
+
+                        g_spaces = ui.switch(
+                            "Spaces Between Special Tokens (g.spaces_between_special_tokens)",
+                            value=platform.form_state["g"][
+                                "spaces_between_special_tokens"
+                            ],
+                        )
+                        platform._register_input(
+                            "g.spaces_between_special_tokens", g_spaces
+                        )
+
+                # Panel h: Optional kwargs (Issue #12)
+                # Allows passing arbitrary additional arguments to underlying Hugging Face methods.
+                # Every key is verified against preset method whitelists (e.g. AutoModelForCausalLM).
+                with ui.expansion(
+                    "Component h: Optional Arguments (**kwargs)", icon="tune"
+                ).classes("w-full bg-white shadow"):
+                    ui.label(
+                        "Forward extra kwargs verified against library whitelists."
+                    ).classes("text-xs text-gray-500 p-2")
+                    for stage in ["load_model", "load_tokenizer", "encode", "generate"]:
+                        sub_panel = KwargsSubPanel(
+                            stage=stage,
+                            h_state=platform.form_state["h"],
+                            field_widgets=platform.field_widgets,
+                            on_change_callback=lambda: (
+                                platform.console.refresh() if platform.console else None
+                            ),
+                        )
+                        platform.kwargs_panels[stage] = sub_panel
+                        sub_panel.build_ui()
+
+        # ====================================================================
+        # RIGHT COLUMN (5/12 width): Sticky live validation console & JSON preview
+        # ====================================================================
+        # Stays pinned at the top as the user scrolls through the form on the left.
+        # Shows real-time error messages, disables saving on violations, and renders the JSON blob.
         with ui.column().classes("w-5/12 sticky top-4"):
             platform.console = build_console(
                 container=ui.column().classes("w-full"),
                 field_widgets=platform.field_widgets,
                 build_config=platform.build_config_record,
-                validate=lambda cfg: [],
+                validate=validate_full_config,
                 save=platform.save_to_db,
                 reset=platform.reset_to_defaults,
             )
+
+    # Initial visibility check
     platform._update_visibility()
     return platform
 
@@ -718,6 +1068,7 @@ def index_page() -> None:
 
 
 def main() -> None:
+    """CLI entry point: start NiceGUI web server."""
     ui.run(
         title="LLM Fact-Checking Platform",
         port=8080,
