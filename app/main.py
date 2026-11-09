@@ -96,13 +96,9 @@ class PlatformUI:
         # Widget registry mapping dotted paths (e.g. "b.pad_token") to NiceGUI widget instances.
         # Used by the validation console to apply red error rings directly on offending inputs.
         self.field_widgets: dict[str, Any] = {}
-<<<<<<< HEAD
-        self.kwargs_panels: dict[str, Any] = {}
-=======
         self.kwargs_panels: dict[str, KwargsSubPanel] = {}
 
         # Flag to prevent event loops / re-triggering during programmatic bulk updates
->>>>>>> dbec13a (validation, kwarggs d-h components)
         self.is_batch_updating = False
 
         # References to dynamically shown/hidden UI containers
@@ -278,14 +274,11 @@ class PlatformUI:
             self.data_inference_container.set_visibility(not is_fine_tune)
 
     def on_model_changed(self, e: Any) -> None:
-<<<<<<< HEAD
-=======
         """Switch model: reloads defaults for current (model, task_type).
 
         User-entered metadata (created_by, notes) is preserved across switches
         because those fields are not part of the registry defaults.
         """
->>>>>>> dbec13a (validation, kwarggs d-h components)
         new_model = e.value
         if new_model == self.current_model_id:
             return
