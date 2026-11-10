@@ -164,3 +164,35 @@ def test_save_and_duplicate_workflow(isolated_db: Any) -> None:
     platform.duplicate_saved_config(cfg.config_id)
     duplicated_cfg = platform.build_config_record()
     assert duplicated_cfg.config_id != cfg.config_id
+
+
+def test_kwargs_panel_stays_bound_after_model_switch(isolated_db: Any) -> None:
+    """Issue #12: Component h keeps writing to the live state after a switch.
+
+    ``load_state`` used to rebind ``form_state`` (and its ``"h"`` sub-dict),
+    orphaning every ``KwargsSubPanel`` that captured the old dict. A key typed
+    after a model switch was written to the orphan and never reached the JSON
+    preview.
+    """
+    from app.main import create_app
+
+    platform = create_app()
+    h_state = platform.form_state["h"]
+    panel = platform.kwargs_panels["load_model"]
+
+    panel.add_row()
+    panel.row_records[-1]["key_widget"].value = "device_map"
+    assert platform.form_state["h"]["load_model"] == {"device_map": ""}
+
+    platform.on_model_changed(SimpleNamespace(value=DEEPSEEK_ID))
+
+    # Both the top-level state and the "h" sub-dict keep their identity.
+    assert platform.form_state["h"] is h_state
+    assert platform.kwargs_panels["load_model"].h_state is h_state
+
+    panel = platform.kwargs_panels["load_model"]
+    panel.add_row()
+    panel.row_records[-1]["key_widget"].value = "torch_dtype"
+    assert platform.form_state["h"]["load_model"] == {"torch_dtype": ""}
+    assert platform.build_config_record().h["load_model"] == {"torch_dtype": ""}
+

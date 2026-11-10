@@ -128,6 +128,19 @@ class PlatformUI:
                 return default
         return target
 
+    def _refresh_console_soon(self) -> None:
+        """Schedule a console refresh on the next event-loop tick.
+
+        NiceGUI suppresses client updates for an element while it is handling
+        that element's own ``value`` change, so error props applied
+        synchronously from an ``on_value_change`` handler never reach the
+        browser. Deferring the refresh by one tick applies the props after the
+        handler returns, which makes live field highlighting visible.
+        """
+        if self.console is None:
+            return
+        ui.timer(0.01, self.console.refresh, once=True)
+
     def _register_input(
         self,
         path: str,
@@ -153,9 +166,9 @@ class PlatformUI:
                 except (ValueError, TypeError):
                     pass
             self._set_path_value(path, val)
-            # Re-evaluate rules and update live JSON preview
-            if self.console is not None:
-                self.console.refresh()
+            # Re-evaluate rules and update live JSON preview on the next tick so
+            # the error props are not suppressed by the element's own update.
+            self._refresh_console_soon()
 
         widget.on_value_change(on_change)
         return widget
@@ -204,9 +217,23 @@ class PlatformUI:
         """
         self.is_batch_updating = True
         try:
-            self.form_state = copy.deepcopy(new_state)
-            if "h" not in self.form_state or not isinstance(self.form_state["h"], dict):
-                self.form_state["h"] = {}
+            # Mutate the existing dictionaries in place instead of rebinding
+            # them: every KwargsSubPanel keeps a reference to the "h" sub-dict
+            # captured at construction time, so replacing it would orphan the
+            # panel and its writes would never reach the live form state.
+            new_state = copy.deepcopy(new_state)
+            new_h = new_state.get("h")
+            if not isinstance(new_h, dict):
+                new_h = {}
+            current_h = self.form_state.get("h")
+            if not isinstance(current_h, dict):
+                current_h = {}
+                self.form_state["h"] = current_h
+            current_h.clear()
+            current_h.update(new_h)
+            new_state["h"] = current_h
+            self.form_state.clear()
+            self.form_state.update(new_state)
 
             self.current_model_id = new_state.get("model_id", self.current_model_id)
             self.current_task_type = new_state.get("task_type", self.current_task_type)
@@ -1027,9 +1054,7 @@ def create_app() -> PlatformUI:
                             stage=stage,
                             h_state=platform.form_state["h"],
                             field_widgets=platform.field_widgets,
-                            on_change_callback=lambda: (
-                                platform.console.refresh() if platform.console else None
-                            ),
+                            on_change_callback=platform._refresh_console_soon,
                         )
                         platform.kwargs_panels[stage] = sub_panel
                         sub_panel.build_ui()
