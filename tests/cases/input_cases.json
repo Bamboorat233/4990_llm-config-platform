@@ -1,0 +1,571 @@
+{
+  "cases": [
+    {
+      "name": "mistral-defaults-fine-tune",
+      "user_input": {
+        "model": "mistral",
+        "run_mode": "fine_tune"
+      },
+      "note": "M1.0 Page 1-2: untouched defaults must be valid",
+      "expect": {
+        "status": "OK",
+        "red": [],
+        "warnings": []
+      }
+    },
+    {
+      "name": "mistral-defaults-inference",
+      "user_input": {
+        "model": "mistral",
+        "run_mode": "inference"
+      },
+      "note": "M1.0 Page 1-2",
+      "expect": {
+        "status": "OK",
+        "red": [],
+        "warnings": []
+      }
+    },
+    {
+      "name": "deepseek-defaults-fine-tune",
+      "user_input": {
+        "model": "deepseek",
+        "run_mode": "fine_tune"
+      },
+      "note": "M1.0 Page 1-2: DeepSeek empty system prompt is the normal case",
+      "expect": {
+        "status": "OK",
+        "red": [],
+        "warnings": []
+      }
+    },
+    {
+      "name": "deepseek-defaults-inference",
+      "user_input": {
+        "model": "deepseek",
+        "run_mode": "inference"
+      },
+      "note": "M1.0 Page 1-2",
+      "expect": {
+        "status": "OK",
+        "red": [],
+        "warnings": []
+      }
+    },
+    {
+      "name": "pad-token-not-in-vocabulary",
+      "user_input": {
+        "model": "mistral",
+        "run_mode": "inference",
+        "pad_token": "<myPadToken>"
+      },
+      "note": "Rule 3 / issue #4: <myPadToken> is rejected",
+      "expect": {
+        "status": "BLOCKED",
+        "red": [
+          "b.pad_token"
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "name": "pad-token-eos-is-allowed",
+      "user_input": {
+        "model": "mistral",
+        "run_mode": "inference",
+        "pad_token": "</s>"
+      },
+      "note": "Rule 3: Mistral may use </s>",
+      "expect": {
+        "status": "OK",
+        "red": [],
+        "warnings": []
+      }
+    },
+    {
+      "name": "deepseek-rejects-mistral-pad-token",
+      "user_input": {
+        "model": "deepseek",
+        "run_mode": "inference",
+        "pad_token": "<pad>"
+      },
+      "note": "Rule 3: DeepSeek allows only its own EOS",
+      "expect": {
+        "status": "BLOCKED",
+        "red": [
+          "b.pad_token"
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "name": "length-over-limit",
+      "user_input": {
+        "model": "mistral",
+        "run_mode": "inference",
+        "max_length": 30000,
+        "max_new_tokens": 5000
+      },
+      "note": "Rule 1 / issue #4: 30000 + 5000 is rejected",
+      "expect": {
+        "status": "BLOCKED",
+        "red": [
+          "f.max_new_tokens"
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "name": "length-exactly-at-limit",
+      "user_input": {
+        "model": "mistral",
+        "run_mode": "inference",
+        "max_length": 32256,
+        "max_new_tokens": 512
+      },
+      "note": "Rule 1: total of exactly 32768 passes",
+      "expect": {
+        "status": "OK",
+        "red": [],
+        "warnings": []
+      }
+    },
+    {
+      "name": "temperature-zero-with-sampling",
+      "user_input": {
+        "model": "mistral",
+        "run_mode": "inference",
+        "temperature": 0
+      },
+      "note": "Rule 5 / issue #4",
+      "expect": {
+        "status": "BLOCKED",
+        "red": [
+          "f.do_sample"
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "name": "temperature-positive-greedy",
+      "user_input": {
+        "model": "mistral",
+        "run_mode": "inference",
+        "do_sample": false
+      },
+      "note": "Rule 5: temperature > 0 needs do_sample true",
+      "expect": {
+        "status": "BLOCKED",
+        "red": [
+          "f.do_sample"
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "name": "temperature-zero-greedy-ok",
+      "user_input": {
+        "model": "mistral",
+        "run_mode": "inference",
+        "temperature": 0,
+        "do_sample": false
+      },
+      "note": "Rule 5: consistent greedy setup",
+      "expect": {
+        "status": "OK",
+        "red": [],
+        "warnings": []
+      }
+    },
+    {
+      "name": "batch-right-padding-inference",
+      "user_input": {
+        "model": "mistral",
+        "run_mode": "inference",
+        "batch_size": 4,
+        "padding_side": "right"
+      },
+      "note": "Rule 2",
+      "expect": {
+        "status": "BLOCKED",
+        "red": [
+          "b.padding_side"
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "name": "batch-right-padding-fine-tune",
+      "user_input": {
+        "model": "mistral",
+        "run_mode": "fine_tune",
+        "batch_size": 4,
+        "padding_side": "right"
+      },
+      "note": "Rule 2 applies to inference only",
+      "expect": {
+        "status": "OK",
+        "red": [],
+        "warnings": []
+      }
+    },
+    {
+      "name": "mistral-regex-fix-off",
+      "user_input": {
+        "model": "mistral",
+        "run_mode": "fine_tune",
+        "fix_mistral_regex": false
+      },
+      "note": "Rule 4",
+      "expect": {
+        "status": "BLOCKED",
+        "red": [
+          "b.fix_mistral_regex"
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "name": "deepseek-regex-fix-off-is-fine",
+      "user_input": {
+        "model": "deepseek",
+        "run_mode": "fine_tune",
+        "fix_mistral_regex": false
+      },
+      "note": "Rule 4 is Mistral-only",
+      "expect": {
+        "status": "OK",
+        "red": [],
+        "warnings": []
+      }
+    },
+    {
+      "name": "best-model-strategy-mismatch",
+      "user_input": {
+        "model": "mistral",
+        "run_mode": "fine_tune",
+        "eval_strategy": "steps"
+      },
+      "note": "Rule 6: eval_strategy must equal save_strategy",
+      "expect": {
+        "status": "BLOCKED",
+        "red": [
+          "d.sft.eval_strategy"
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "name": "best-model-eval-file-empty-text",
+      "user_input": {
+        "model": "mistral",
+        "run_mode": "fine_tune",
+        "eval_data_file": ""
+      },
+      "note": "Rule 6: a cleared text box sends an empty string",
+      "expect": {
+        "status": "BLOCKED",
+        "red": [
+          "c.eval_data_file"
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "name": "best-model-eval-file-null",
+      "user_input": {
+        "model": "mistral",
+        "run_mode": "fine_tune",
+        "eval_data_file": null
+      },
+      "note": "Rule 6: a cleared optional field sends null",
+      "expect": {
+        "status": "BLOCKED",
+        "red": [
+          "c.eval_data_file"
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "name": "best-model-flag-off-needs-no-eval-file",
+      "user_input": {
+        "model": "mistral",
+        "run_mode": "fine_tune",
+        "load_best_model_at_end": false,
+        "eval_data_file": null
+      },
+      "note": "Rule 6 only applies when the flag is on",
+      "expect": {
+        "status": "OK",
+        "red": [],
+        "warnings": []
+      }
+    },
+    {
+      "name": "tp-plan-and-device-map-both-set",
+      "user_input": {
+        "model": "mistral",
+        "run_mode": "inference",
+        "device_map": "auto"
+      },
+      "note": "Issue #5 rule 8",
+      "expect": {
+        "status": "BLOCKED",
+        "red": [
+          "a.device_map"
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "name": "device-map-cleared-text-box",
+      "user_input": {
+        "model": "mistral",
+        "run_mode": "inference",
+        "device_map": ""
+      },
+      "note": "A cleared text box must count as not set",
+      "expect": {
+        "status": "OK",
+        "red": [],
+        "warnings": []
+      }
+    },
+    {
+      "name": "mistral-empty-system-prompt-fine-tune",
+      "user_input": {
+        "model": "mistral",
+        "run_mode": "fine_tune",
+        "system_prompt": ""
+      },
+      "note": "M1.0 Page 3 + rule 9: required for Mistral",
+      "expect": {
+        "status": "BLOCKED",
+        "red": [
+          "p.system_prompt"
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "name": "mistral-empty-system-prompt-inference",
+      "user_input": {
+        "model": "mistral",
+        "run_mode": "inference",
+        "system_prompt": ""
+      },
+      "note": "M1.0 Page 3 + rule 9",
+      "expect": {
+        "status": "BLOCKED",
+        "red": [
+          "p.system_prompt"
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "name": "mistral-whitespace-system-prompt",
+      "user_input": {
+        "model": "mistral",
+        "run_mode": "fine_tune",
+        "system_prompt": "   "
+      },
+      "note": "Rule 9: whitespace only counts as empty",
+      "expect": {
+        "status": "BLOCKED",
+        "red": [
+          "p.system_prompt"
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "name": "deepseek-system-prompt-warns",
+      "user_input": {
+        "model": "deepseek",
+        "run_mode": "inference",
+        "system_prompt": "Give a verdict."
+      },
+      "note": "Rule 10: warning, never blocks",
+      "expect": {
+        "status": "OK",
+        "red": [],
+        "warnings": [
+          "p.system_prompt"
+        ]
+      }
+    },
+    {
+      "name": "cleared-optional-numbers",
+      "user_input": {
+        "model": "mistral",
+        "run_mode": "inference",
+        "max_length": null,
+        "top_k": null
+      },
+      "note": "UI input: cleared optional number fields send null",
+      "expect": {
+        "status": "OK",
+        "red": [],
+        "warnings": []
+      }
+    },
+    {
+      "name": "optional-kwargs-accepted",
+      "user_input": {
+        "model": "mistral",
+        "run_mode": "inference",
+        "h.generate.repetition_penalty": 1.1
+      },
+      "note": "M1.0 component h: h.<stage>.<argument>",
+      "expect": {
+        "status": "OK",
+        "red": [],
+        "warnings": []
+      }
+    },
+    {
+      "name": "several-mistakes-at-once",
+      "user_input": {
+        "model": "mistral",
+        "run_mode": "inference",
+        "pad_token": "<myPadToken>",
+        "temperature": 0
+      },
+      "note": "Every offending field is located, not just the first",
+      "expect": {
+        "status": "BLOCKED",
+        "red": [
+          "b.pad_token",
+          "f.do_sample"
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "name": "schema-rejects-unknown-padding-side",
+      "user_input": {
+        "model": "mistral",
+        "run_mode": "inference",
+        "padding_side": "middle"
+      },
+      "note": "A value outside the allowed choices",
+      "expect": {
+        "status": "SCHEMA_ERROR",
+        "red": [
+          "b.padding_side"
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "name": "schema-rejects-text-temperature",
+      "user_input": {
+        "model": "mistral",
+        "run_mode": "inference",
+        "temperature": "abc"
+      },
+      "note": "A number field that receives text",
+      "expect": {
+        "status": "SCHEMA_ERROR",
+        "red": [
+          "f.temperature"
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "name": "schema-rejects-misspelled-field",
+      "user_input": {
+        "model": "mistral",
+        "run_mode": "inference",
+        "b.pad_tokn": "<pad>"
+      },
+      "note": "A field the model does not have",
+      "expect": {
+        "status": "SCHEMA_ERROR",
+        "red": [
+          "b.pad_tokn"
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "name": "save-valid-config",
+      "user_input": {
+        "model": "mistral",
+        "run_mode": "inference"
+      },
+      "note": "M1.0 database: a valid config is saved",
+      "save": true,
+      "expect": {
+        "status": "OK",
+        "red": [],
+        "warnings": [],
+        "saved": true
+      }
+    },
+    {
+      "name": "save-blocked-config-is-not-saved",
+      "user_input": {
+        "model": "mistral",
+        "run_mode": "inference",
+        "pad_token": "<myPadToken>"
+      },
+      "note": "Save is refused while errors exist",
+      "save": true,
+      "expect": {
+        "status": "BLOCKED",
+        "red": [
+          "b.pad_token"
+        ],
+        "warnings": [],
+        "saved": false
+      }
+    },
+    {
+      "name": "assistant-prefix-mismatch",
+      "user_input": {
+        "model": "mistral",
+        "run_mode": "inference",
+        "assistant_prompt": "### Response: "
+      },
+      "note": "Rule 7: provisional meaning (marker must appear in the assistant prompt)",
+      "expect": {
+        "status": "BLOCKED",
+        "red": [
+          "p.verdict_parse_marker"
+        ],
+        "warnings": []
+      },
+      "skip": "OPEN: what rule 7 should check is not agreed with A yet"
+    },
+    {
+      "name": "Case1Experiment",
+      "user_input": {
+        "model": "mistral",
+        "run_mode": "inference",
+        "pad_token": "<mypPadToken>"
+      },
+      "save": true,
+      "expect": {
+        "status": "BLOCKED",
+        "red": [
+          "b.pad_token"
+        ]
+      }
+    },
+    {
+      "name": "DEFAULT",
+      "user_input": {
+        "model": "mistral",
+        "run_mode": "inference"
+      },
+      "save": true,
+      "expect": {
+        "status": "OK"
+      }
+    }
+  ]
+}
