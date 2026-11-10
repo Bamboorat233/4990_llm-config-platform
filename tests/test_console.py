@@ -13,6 +13,7 @@ Runs with either:
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
 from dataclasses import FrozenInstanceError
 from pathlib import Path
@@ -243,7 +244,24 @@ def test_console_state_is_frozen() -> None:
 
 
 def test_console_imports_without_nicegui() -> None:
-    assert "nicegui" not in sys.modules
+    # Probe the lazy import in a fresh interpreter. pytest imports every test
+    # module during collection, and tests/test_main.py imports app.main, which
+    # loads nicegui into this process, so sys.modules here can never prove the
+    # requirement. The subprocess imports only app.ui.console and asserts that
+    # nicegui was not pulled in.
+    probe = (
+        "import sys\n"
+        "import app.ui.console\n"
+        "assert 'nicegui' not in sys.modules, 'nicegui was imported'\n"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", probe],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
+
     assert console.ERROR_PROP == "error"
     assert console.SAVE_LABEL == "Save to DB"
     assert console.VALIDATE_LABEL == "Validate"

@@ -7,6 +7,7 @@ import pytest
 from app.registry import MISTRAL_ID, defaults_for
 from app.schemas import ConfigRecord, config_fingerprint
 from app.store import (
+    delete_config,
     duplicate_config,
     find_by_hash,
     get_config,
@@ -99,3 +100,14 @@ def test_list_configs_newest_first(db_path):
     assert [row["config_id"] for row in rows] == [
         new_config.config_id, old_config.config_id,
     ]
+
+
+def test_delete_config_removes_record(db_path):
+    """Verify that delete_config permanently deletes the record from SQLite."""
+    config = example_config()
+    insert_config(config, db_path)
+    assert len(list_configs(db_path)) == 1
+
+    delete_config(config.config_id, db_path)
+    assert len(list_configs(db_path)) == 0
+    assert get_config(config.config_id, db_path) is None
