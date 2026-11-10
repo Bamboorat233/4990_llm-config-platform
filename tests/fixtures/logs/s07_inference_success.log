@@ -1,0 +1,416 @@
+created virtual environment CPython3.13.2.final.0-64 in 85452ms
+  creator CPython3Posix(dest=/localscratch/user.13184311.0/python_env, clear=False, no_vcs_ignore=False, global=False)
+  seeder FromAppData(download=False, pip=bundle, via=copy, app_data_dir=/home/user/.local/share/virtualenv)
+    added seed packages: pip==25.3
+  activators BashActivator,CShellActivator,FishActivator,NushellActivator,PowerShellActivator,PythonActivator
+Looking in links: /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/x86-64-v4, /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/x86-64-v3, /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/generic, /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic
+Requirement already satisfied: pip in /localscratch/user.13184311.0/python_env/lib/python3.13/site-packages (25.3)
+Looking in links: /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/x86-64-v4, /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/x86-64-v3, /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/generic, /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/accelerate-1.11.0+computecanada-py3-none-any.whl (from -r requirements.txt (line 1))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/x86-64-v3/aiohttp-3.12.15+computecanada-cp313-cp313-linux_x86_64.whl (from -r requirements.txt (line 2))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/generic/bitsandbytes-0.48.2+computecanada-py3-none-linux_x86_64.whl (from -r requirements.txt (line 3))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/certifi-2025.10.5+computecanada-py3-none-any.whl (from -r requirements.txt (line 4))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/charset_normalizer-3.4.4+computecanada-py3-none-any.whl (from -r requirements.txt (line 5))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/datasets-4.3.0+computecanada-py3-none-any.whl (from -r requirements.txt (line 6))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/dill-0.4.0+computecanada-py3-none-any.whl (from -r requirements.txt (line 7))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/filelock-3.20.0+computecanada-py3-none-any.whl (from -r requirements.txt (line 8))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/fsspec-2025.10.0+computecanada-py3-none-any.whl (from -r requirements.txt (line 9))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/generic/hf_xet-1.1.10+computecanada-cp37-abi3-linux_x86_64.whl (from -r requirements.txt (line 10))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/huggingface_hub-0.36.0+computecanada-py3-none-any.whl (from -r requirements.txt (line 11))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/idna-3.11+computecanada-py3-none-any.whl (from -r requirements.txt (line 12))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/jinja2-3.1.6+computecanada-py3-none-any.whl (from -r requirements.txt (line 13))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/joblib-1.5.2+computecanada-py3-none-any.whl (from -r requirements.txt (line 14))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/MarkupSafe-3.0.2+computecanada-cp313-cp313-linux_x86_64.whl (from -r requirements.txt (line 15))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/multiprocess-0.70.18+computecanada-py3-none-any.whl (from -r requirements.txt (line 16))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/networkx-3.6+computecanada-py3-none-any.whl (from -r requirements.txt (line 17))
+Requirement already satisfied: numpy in /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/scipy-stack/2025a/lib/python3.13/site-packages (from -r requirements.txt (line 18)) (2.2.2+computecanada)
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/openpyxl-3.1.5+computecanada-py2.py3-none-any.whl (from -r requirements.txt (line 19))
+Requirement already satisfied: packaging in /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/scipy-stack/2025a/lib/python3.13/site-packages (from -r requirements.txt (line 20)) (24.2+computecanada)
+Requirement already satisfied: pandas in /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/scipy-stack/2025a/lib/python3.13/site-packages (from -r requirements.txt (line 21)) (2.2.3+computecanada)
+Requirement already satisfied: psutil in /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/ipykernel/2025a/lib/python3.13/site-packages (from -r requirements.txt (line 22)) (6.1.1+computecanada)
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/x86-64-v3/PyYAML-6.0.2+computecanada-cp313-cp313-linux_x86_64.whl (from -r requirements.txt (line 23))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/regex-2024.11.6+computecanada-cp313-cp313-linux_x86_64.whl (from -r requirements.txt (line 24))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/requests-2.32.5+computecanada-py3-none-any.whl (from -r requirements.txt (line 25))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/generic/safetensors-0.5.3+computecanada-cp38-abi3-linux_x86_64.whl (from -r requirements.txt (line 26))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/generic/scikit_learn-1.7.1+computecanada-cp313-cp313-linux_x86_64.whl (from -r requirements.txt (line 27))
+Requirement already satisfied: scipy in /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/scipy-stack/2025a/lib/python3.13/site-packages (from -r requirements.txt (line 28)) (1.15.1+computecanada)
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/setuptools-80.9.0+computecanada-py3-none-any.whl (from -r requirements.txt (line 29))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/sklearn-0.0+computecanada-py2.py3-none-any.whl (from -r requirements.txt (line 30))
+Requirement already satisfied: sympy in /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/scipy-stack/2025a/lib/python3.13/site-packages (from -r requirements.txt (line 31)) (1.13.3+computecanada)
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/threadpoolctl-3.6.0+computecanada-py3-none-any.whl (from -r requirements.txt (line 32))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/generic/tokenizers-0.22.1+computecanada-cp39-abi3-linux_x86_64.whl (from -r requirements.txt (line 33))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/generic/torch-2.9.0+computecanada-cp313-cp313-linux_x86_64.whl (from -r requirements.txt (line 34))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/tqdm-4.67.1+computecanada-py3-none-any.whl (from -r requirements.txt (line 35))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/transformers-4.57.1+computecanada-py3-none-any.whl (from -r requirements.txt (line 36))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/triton-3.5.0+computecanada-cp313-cp313-linux_x86_64.whl (from -r requirements.txt (line 37))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/typing_extensions-4.15.0+computecanada-py3-none-any.whl (from -r requirements.txt (line 38))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/urllib3-2.5.0+computecanada-py3-none-any.whl (from -r requirements.txt (line 39))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/xxhash-3.5.0+computecanada-cp313-cp313-linux_x86_64.whl (from -r requirements.txt (line 40))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/aiohappyeyeballs-2.6.1+computecanada-py3-none-any.whl (from aiohttp->-r requirements.txt (line 2))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/aiosignal-1.4.0+computecanada-py3-none-any.whl (from aiohttp->-r requirements.txt (line 2))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/attrs-25.4.0+computecanada-py3-none-any.whl (from aiohttp->-r requirements.txt (line 2))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/frozenlist-1.8.0+computecanada-py3-none-any.whl (from aiohttp->-r requirements.txt (line 2))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/multidict-6.7.0+computecanada-cp313-cp313-linux_x86_64.whl (from aiohttp->-r requirements.txt (line 2))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/propcache-0.4.1+computecanada-py3-none-any.whl (from aiohttp->-r requirements.txt (line 2))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/x86-64-v3/yarl-1.22.0+computecanada-cp313-cp313-linux_x86_64.whl (from aiohttp->-r requirements.txt (line 2))
+Requirement already satisfied: pyarrow>=21.0.0 in /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/arrow/21.0.0/lib/python3.13/site-packages (from datasets->-r requirements.txt (line 6)) (21.0.0)
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/httpx-0.28.1+computecanada-py3-none-any.whl (from datasets->-r requirements.txt (line 6))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/multiprocess-0.70.16+computecanada-py3-none-any.whl (from -r requirements.txt (line 16))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/fsspec-2025.9.0+computecanada-py3-none-any.whl (from -r requirements.txt (line 9))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/anyio-4.11.0+computecanada-py3-none-any.whl (from httpx<1.0.0->datasets->-r requirements.txt (line 6))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/httpcore-1.0.9+computecanada-py3-none-any.whl (from httpx<1.0.0->datasets->-r requirements.txt (line 6))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/h11-0.16.0+computecanada-py3-none-any.whl (from httpcore==1.*->httpx<1.0.0->datasets->-r requirements.txt (line 6))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/et_xmlfile-2.0.0+computecanada-py3-none-any.whl (from openpyxl->-r requirements.txt (line 19))
+Requirement already satisfied: python-dateutil>=2.8.2 in /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/scipy-stack/2025a/lib/python3.13/site-packages (from pandas->-r requirements.txt (line 21)) (2.9.0.post0+computecanada)
+Requirement already satisfied: pytz>=2020.1 in /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/scipy-stack/2025a/lib/python3.13/site-packages (from pandas->-r requirements.txt (line 21)) (2025.1+computecanada)
+Requirement already satisfied: tzdata>=2022.7 in /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/scipy-stack/2025a/lib/python3.13/site-packages (from pandas->-r requirements.txt (line 21)) (2025.1+computecanada)
+Requirement already satisfied: mpmath<1.4,>=1.1.0 in /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/scipy-stack/2025a/lib/python3.13/site-packages (from sympy->-r requirements.txt (line 31)) (1.3.0+computecanada)
+Requirement already satisfied: six>=1.5 in /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/scipy-stack/2025a/lib/python3.13/site-packages (from python-dateutil>=2.8.2->pandas->-r requirements.txt (line 21)) (1.17.0+computecanada)
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/sniffio-1.3.1+computecanada-py3-none-any.whl (from anyio->httpx<1.0.0->datasets->-r requirements.txt (line 6))
+Installing collected packages: xxhash, urllib3, typing_extensions, triton, tqdm, threadpoolctl, sniffio, setuptools, safetensors, regex, PyYAML, propcache, networkx, multidict, MarkupSafe, joblib, idna, hf_xet, h11, fsspec, frozenlist, filelock, et-xmlfile, dill, charset_normalizer, certifi, attrs, aiohappyeyeballs, yarl, scikit_learn, requests, openpyxl, multiprocess, jinja2, httpcore, anyio, aiosignal, torch, sklearn, huggingface_hub, httpx, aiohttp, tokenizers, bitsandbytes, accelerate, transformers, datasets
+
+Successfully installed MarkupSafe-3.0.2+computecanada PyYAML-6.0.2+computecanada accelerate-1.11.0+computecanada aiohappyeyeballs-2.6.1+computecanada aiohttp-3.12.15+computecanada aiosignal-1.4.0+computecanada anyio-4.11.0+computecanada attrs-25.4.0+computecanada bitsandbytes-0.48.2+computecanada certifi-2025.10.5+computecanada charset_normalizer-3.4.4+computecanada datasets-4.3.0+computecanada dill-0.4.0+computecanada et-xmlfile-2.0.0+computecanada filelock-3.20.0+computecanada frozenlist-1.8.0+computecanada fsspec-2025.9.0+computecanada h11-0.16.0+computecanada hf_xet-1.1.10+computecanada httpcore-1.0.9+computecanada httpx-0.28.1+computecanada huggingface_hub-0.36.0+computecanada idna-3.11+computecanada jinja2-3.1.6+computecanada joblib-1.5.2+computecanada multidict-6.7.0+computecanada multiprocess-0.70.16+computecanada networkx-3.6+computecanada openpyxl-3.1.5+computecanada propcache-0.4.1+computecanada regex-2024.11.6+computecanada requests-2.32.5+computecanada safetensors-0.5.3+computecanada scikit_learn-1.7.1+computecanada setuptools-80.9.0+computecanada sklearn-0.0+computecanada sniffio-1.3.1+computecanada threadpoolctl-3.6.0+computecanada tokenizers-0.22.1+computecanada torch-2.9.0+computecanada tqdm-4.67.1+computecanada transformers-4.57.1+computecanada triton-3.5.0+computecanada typing_extensions-4.15.0+computecanada urllib3-2.5.0+computecanada xxhash-3.5.0+computecanada yarl-1.22.0+computecanada
+Start - Loading the model -  2025-11-29 14:37:33.350954
+
+Loading checkpoint shards:   0%|          | 0/10 [00:00<?, ?it/s]
+Loading checkpoint shards:  10%|█         | 1/10 [00:03<00:33,  3.74s/it]
+Loading checkpoint shards:  20%|██        | 2/10 [00:07<00:28,  3.51s/it]
+Loading checkpoint shards:  30%|███       | 3/10 [00:10<00:24,  3.57s/it]
+Loading checkpoint shards:  40%|████      | 4/10 [00:14<00:21,  3.54s/it]
+Loading checkpoint shards:  50%|█████     | 5/10 [00:18<00:18,  3.63s/it]
+Loading checkpoint shards:  60%|██████    | 6/10 [00:21<00:14,  3.59s/it]
+Loading checkpoint shards:  70%|███████   | 7/10 [00:24<00:10,  3.52s/it]
+Loading checkpoint shards:  80%|████████  | 8/10 [00:28<00:06,  3.39s/it]
+Loading checkpoint shards:  90%|█████████ | 9/10 [00:31<00:03,  3.38s/it]
+Loading checkpoint shards: 100%|██████████| 10/10 [00:34<00:00,  3.21s/it]
+Loading checkpoint shards: 100%|██████████| 10/10 [00:34<00:00,  3.42s/it]
+End - Loading the model -  2025-11-29 14:38:08.811768
+Starting to Load the Tokeizer :  2025-11-29 14:38:08.811853
+Done Loading the Tokenizer :  2025-11-29 14:38:09.416093
+Compiling the Model :  2025-11-29 14:38:09.416214
+Model Complied :  2025-11-29 14:38:10.381810
+Starting Loading Data :  2025-11-29 14:38:10.381924
+Done Loading the Data :  2025-11-29 14:38:10.494432
+Tokenizing Inputs :  2025-11-29 14:38:10.499469
+Done Preparing the Input :  2025-11-29 14:38:10.501275
+Preparing Outputs :  2025-11-29 14:38:10.503161
+The attention mask is not set and cannot be inferred from input because pad token is same as eos token. As a consequence, you may observe unexpected behavior. Please pass your input's `attention_mask` to obtain reliable results.
+Done with the Output :  2025-11-29 14:38:12.334954
+Decoding the Output :  2025-11-29 14:38:12.335099
+Done Decoding :  2025-11-29 14:38:12.335467
+Tokenizing Inputs :  2025-11-29 14:38:12.335529
+Done Preparing the Input :  2025-11-29 14:38:12.337552
+Preparing Outputs :  2025-11-29 14:38:12.339363
+Done with the Output :  2025-11-29 14:38:12.902369
+Decoding the Output :  2025-11-29 14:38:12.902518
+Done Decoding :  2025-11-29 14:38:12.902935
+Tokenizing Inputs :  2025-11-29 14:38:12.902997
+Done Preparing the Input :  2025-11-29 14:38:12.904008
+Preparing Outputs :  2025-11-29 14:38:12.905817
+Done with the Output :  2025-11-29 14:38:14.747586
+Decoding the Output :  2025-11-29 14:38:14.747734
+Done Decoding :  2025-11-29 14:38:14.748022
+Tokenizing Inputs :  2025-11-29 14:38:14.748081
+Done Preparing the Input :  2025-11-29 14:38:14.749851
+Preparing Outputs :  2025-11-29 14:38:14.751676
+Done with the Output :  2025-11-29 14:38:15.528882
+Decoding the Output :  2025-11-29 14:38:15.529005
+Done Decoding :  2025-11-29 14:38:15.529403
+Tokenizing Inputs :  2025-11-29 14:38:15.529464
+Done Preparing the Input :  2025-11-29 14:38:15.531227
+Preparing Outputs :  2025-11-29 14:38:15.533041
+Done with the Output :  2025-11-29 14:38:16.279530
+Decoding the Output :  2025-11-29 14:38:16.279680
+Done Decoding :  2025-11-29 14:38:16.280077
+Tokenizing Inputs :  2025-11-29 14:38:16.280138
+Done Preparing the Input :  2025-11-29 14:38:16.281082
+Preparing Outputs :  2025-11-29 14:38:16.282887
+Done with the Output :  2025-11-29 14:38:16.846105
+Decoding the Output :  2025-11-29 14:38:16.846254
+Done Decoding :  2025-11-29 14:38:16.846543
+Tokenizing Inputs :  2025-11-29 14:38:16.846605
+Done Preparing the Input :  2025-11-29 14:38:16.847914
+Preparing Outputs :  2025-11-29 14:38:16.849724
+Done with the Output :  2025-11-29 14:38:17.417277
+Decoding the Output :  2025-11-29 14:38:17.417399
+Done Decoding :  2025-11-29 14:38:17.417728
+Tokenizing Inputs :  2025-11-29 14:38:17.417788
+Done Preparing the Input :  2025-11-29 14:38:17.418765
+Preparing Outputs :  2025-11-29 14:38:17.420571
+Done with the Output :  2025-11-29 14:38:18.191151
+Decoding the Output :  2025-11-29 14:38:18.191271
+Done Decoding :  2025-11-29 14:38:18.191553
+Tokenizing Inputs :  2025-11-29 14:38:18.191613
+Done Preparing the Input :  2025-11-29 14:38:18.192689
+Preparing Outputs :  2025-11-29 14:38:18.194503
+Done with the Output :  2025-11-29 14:38:18.976761
+Decoding the Output :  2025-11-29 14:38:18.976913
+Done Decoding :  2025-11-29 14:38:18.977276
+Tokenizing Inputs :  2025-11-29 14:38:18.977338
+Done Preparing the Input :  2025-11-29 14:38:18.979024
+[... 964 lines omitted from the original log ...]
+Tokenizing Inputs :  2025-11-29 14:40:47.102530
+Done Preparing the Input :  2025-11-29 14:40:47.105635
+Preparing Outputs :  2025-11-29 14:40:47.107467
+Done with the Output :  2025-11-29 14:40:47.562565
+Decoding the Output :  2025-11-29 14:40:47.562685
+Done Decoding :  2025-11-29 14:40:47.563333
+[... 222 lines omitted from the original log ...]
+Tokenizing Inputs :  2025-11-29 14:41:48.902523
+Done Preparing the Input :  2025-11-29 14:41:48.903790
+Preparing Outputs :  2025-11-29 14:41:48.905610
+Done with the Output :  2025-11-29 14:41:51.268745
+Decoding the Output :  2025-11-29 14:41:51.268897
+Done Decoding :  2025-11-29 14:41:51.269250
+[... 144 lines omitted from the original log ...]
+Tokenizing Inputs :  2025-11-29 14:42:07.938435
+Done Preparing the Input :  2025-11-29 14:42:07.939840
+Preparing Outputs :  2025-11-29 14:42:07.941647
+Done with the Output :  2025-11-29 14:42:09.671939
+Decoding the Output :  2025-11-29 14:42:09.672087
+Done Decoding :  2025-11-29 14:42:09.672472
+[... 78 lines omitted from the original log ...]
+Tokenizing Inputs :  2025-11-29 14:42:26.426309
+Done Preparing the Input :  2025-11-29 14:42:26.428082
+Preparing Outputs :  2025-11-29 14:42:26.429857
+Done with the Output :  2025-11-29 14:42:26.857574
+Decoding the Output :  2025-11-29 14:42:26.857721
+Done Decoding :  2025-11-29 14:42:26.858132
+[... 4194 lines omitted from the original log ...]
+Tokenizing Inputs :  2025-11-29 14:55:35.159604
+Done Preparing the Input :  2025-11-29 14:55:35.162675
+Preparing Outputs :  2025-11-29 14:55:35.164498
+Done with the Output :  2025-11-29 14:55:35.612362
+Decoding the Output :  2025-11-29 14:55:35.612524
+Done Decoding :  2025-11-29 14:55:35.613121
+[... 1578 lines omitted from the original log ...]
+Tokenizing Inputs :  2025-11-29 15:00:46.940339
+Done Preparing the Input :  2025-11-29 15:00:46.942401
+Preparing Outputs :  2025-11-29 15:00:46.944209
+Done with the Output :  2025-11-29 15:00:47.371833
+Decoding the Output :  2025-11-29 15:00:47.371988
+Done Decoding :  2025-11-29 15:00:47.372423
+[... 6390 lines omitted from the original log ...]
+Tokenizing Inputs :  2025-11-29 15:21:20.728382
+Done Preparing the Input :  2025-11-29 15:21:20.730028
+Preparing Outputs :  2025-11-29 15:21:20.731760
+Done with the Output :  2025-11-29 15:21:21.158391
+Decoding the Output :  2025-11-29 15:21:21.158546
+Done Decoding :  2025-11-29 15:21:21.158929
+[... 30 lines omitted from the original log ...]
+Tokenizing Inputs :  2025-11-29 15:21:24.053292
+Done Preparing the Input :  2025-11-29 15:21:24.056643
+Preparing Outputs :  2025-11-29 15:21:24.058390
+Done with the Output :  2025-11-29 15:21:24.507168
+Decoding the Output :  2025-11-29 15:21:24.507290
+Done Decoding :  2025-11-29 15:21:24.507945
+[... 1256 lines omitted from the original log ...]
+Preparing Outputs :  2025-11-29 15:25:51.821319
+Done with the Output :  2025-11-29 15:25:53.625781
+Decoding the Output :  2025-11-29 15:25:53.625908
+Done Decoding :  2025-11-29 15:25:53.626326
+Tokenizing Inputs :  2025-11-29 15:25:53.626386
+Done Preparing the Input :  2025-11-29 15:25:53.628723
+Preparing Outputs :  2025-11-29 15:25:53.630480
+Done with the Output :  2025-11-29 15:25:57.765599
+Decoding the Output :  2025-11-29 15:25:57.765749
+Done Decoding :  2025-11-29 15:25:57.766293
+0 | Verdict: True
+1 | Verdict: True
+2 | Verdict: Conflicting
+3 | Verdict: Conflicting
+4 | Verdict: True
+[... 165 lines omitted from the original log ...]
+170 | Verdict: <verdict>
+[... 55 lines omitted from the original log ...]
+208 | Verdict: <verdict>
+[... 42 lines omitted from the original log ...]
+233 | Verdict: <verdict>
+[... 31 lines omitted from the original log ...]
+247 | Verdict: <verdict>
+[... 950 lines omitted from the original log ...]
+947 | Verdict: <verdict>
+[... 377 lines omitted from the original log ...]
+1211 | Verdict: <verdict>
+[... 1568 lines omitted from the original log ...]
+2277 | Verdict: <verdict>
+[... 23 lines omitted from the original log ...]
+2283 | Verdict: <verdict>
+[... 326 lines omitted from the original log ...]
+2494 | Verdict: <verdict>
+[... 15 lines omitted from the original log ...]
+
+### Answer : a photo of rahul gandhi along with a young woman leader were doing seen posing was none other than amulya leona noronha, a student from
+### Response:  bengaluru who was arrested for shouting 'pakistan zindabad' during an anti-caa rally. the photo was taken during the bharat jodo yatra.
+0 | True
+1 | True
+2 | Conflicting
+3 | Conflicting
+4 | True
+[... 165 lines omitted from the original log ...]
+170 | Conflicting
+[... 37 lines omitted from the original log ...]
+208 | Empty Response
+[... 24 lines omitted from the original log ...]
+233 | Empty Response
+[... 13 lines omitted from the original log ...]
+247 | Conflicting
+[... 699 lines omitted from the original log ...]
+947 | Conflicting
+[... 263 lines omitted from the original log ...]
+1211 | Conflicting
+[... 1065 lines omitted from the original log ...]
+2277 | Conflicting
+[... 5 lines omitted from the original log ...]
+2283 | Conflicting
+[... 61 lines omitted from the original log ...]
+2345 | Conflicting
+2346 | Conflicting
+2347 | True
+2348 | Conflicting
+2349 | Conflicting
+2350 | False
+2351 | Conflicting
+2352 | Conflicting
+2353 | Conflicting
+2354 | False
+2355 | Conflicting
+2356 | False
+2357 | False
+2358 | Conflicting
+2359 | Conflicting
+2360 | Conflicting
+2361 | Conflicting
+2362 | Conflicting
+2363 | Conflicting
+2364 | Conflicting
+2365 | Conflicting
+2366 | False
+2367 | Conflicting
+2368 | Conflicting
+2369 | Conflicting
+2370 | Conflicting
+2371 | Conflicting
+2372 | Conflicting
+2373 | False
+2374 | False
+2375 | Conflicting
+2376 | Empty Response
+2377 | False
+2378 | False
+2379 | Conflicting
+2380 | Conflicting
+2381 | True
+2382 | True
+2383 | Conflicting
+2384 | Conflicting
+2385 | Conflicting
+2386 | Conflicting
+2387 | False
+2388 | Conflicting
+2389 | Conflicting
+2390 | Conflicting
+2391 | Conflicting
+2392 | False
+2393 | Conflicting
+2394 | Conflicting
+2395 | True
+2396 | Conflicting
+2397 | True
+2398 | False
+2399 | False
+2400 | False
+2401 | Conflicting
+2402 | Conflicting
+2403 | False
+2404 | Conflicting
+2405 | Conflicting
+2406 | Conflicting
+2407 | Conflicting
+2408 | Empty Response
+2409 | Conflicting
+2410 | False
+2411 | Conflicting
+2412 | True
+2413 | False
+2414 | Conflicting
+2415 | Conflicting
+2416 | Conflicting
+2417 | Conflicting
+2418 | True
+2419 | Conflicting
+2420 | Conflicting
+2421 | False
+2422 | Empty Response
+2423 | Conflicting
+2424 | Conflicting
+2425 | Conflicting
+2426 | Conflicting
+2427 | Conflicting
+2428 | True
+2429 | False
+2430 | True
+2431 | Conflicting
+2432 | Conflicting
+2433 | Conflicting
+2434 | Conflicting
+2435 | Conflicting
+2436 | False
+2437 | False
+2438 | False
+2439 | True
+2440 | Conflicting
+2441 | Conflicting
+2442 | Conflicting
+2443 | True
+2444 | Conflicting
+2445 | Conflicting
+2446 | True
+2447 | Conflicting
+2448 | Conflicting
+2449 | True
+2450 | True
+2451 | True
+2452 | Conflicting
+2453 | Conflicting
+2454 | Conflicting
+2455 | True
+2456 | True
+2457 | False
+2458 | Conflicting
+2459 | Conflicting
+2460 | False
+2461 | Conflicting
+2462 | True
+2463 | True
+2464 | Conflicting
+2465 | True
+2466 | Conflicting
+2467 | True
+2468 | False
+2469 | Empty Response
+2470 | True
+2471 | True
+2472 | False
+2473 | Conflicting
+2474 | False
+2475 | Conflicting
+2476 | True
+2477 | Conflicting
+2478 | Conflicting
+2479 | False
+2480 | Conflicting
+2481 | True
+2482 | Conflicting
+2483 | Conflicting
+2484 | Conflicting
+2485 | Conflicting
+2486 | Conflicting
+2487 | Conflicting
+2488 | False
+2489 | False
+2490 | True
+2491 | Conflicting
+2492 | False
+2493 | True
+2494 | Empty Response

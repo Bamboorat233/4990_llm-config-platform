@@ -1,0 +1,966 @@
+created virtual environment CPython3.13.2.final.0-64 in 15417ms
+  creator CPython3Posix(dest=/localscratch/user.22936442.0/python_env, clear=False, no_vcs_ignore=False, global=False)
+  seeder FromAppData(download=False, pip=bundle, via=copy, app_data_dir=/home/user/.local/share/virtualenv)
+    added seed packages: pip==25.3
+  activators BashActivator,CShellActivator,FishActivator,NushellActivator,PowerShellActivator,PythonActivator
+Using pip 25.3 from /localscratch/user.22936442.0/python_env/lib/python3.13/site-packages/pip (python 3.13)
+Looking in links: /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/x86-64-v4, /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/x86-64-v3, /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/generic, /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic
+Requirement already satisfied: pip in /localscratch/user.22936442.0/python_env/lib/python3.13/site-packages (25.3)
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/pip-26.0.1+computecanada-py3-none-any.whl
+Installing collected packages: pip
+  Attempting uninstall: pip
+    Found existing installation: pip 25.3
+    Uninstalling pip-25.3:
+      Removing file or directory /localscratch/user.22936442.0/python_env/bin/pip
+      Removing file or directory /localscratch/user.22936442.0/python_env/bin/pip-3.13
+      Removing file or directory /localscratch/user.22936442.0/python_env/bin/pip3
+      Removing file or directory /localscratch/user.22936442.0/python_env/bin/pip3.13
+      Removing file or directory /localscratch/user.22936442.0/python_env/lib/python3.13/site-packages/pip-25.3.dist-info/
+      Removing file or directory /localscratch/user.22936442.0/python_env/lib/python3.13/site-packages/pip-25.3.virtualenv
+      Removing file or directory /localscratch/user.22936442.0/python_env/lib/python3.13/site-packages/pip/
+      Successfully uninstalled pip-25.3
+  changing mode of /localscratch/user.22936442.0/python_env/bin/pip to 755
+  changing mode of /localscratch/user.22936442.0/python_env/bin/pip3 to 755
+  changing mode of /localscratch/user.22936442.0/python_env/bin/pip3.13 to 755
+Successfully installed pip-26.0.1+computecanada
+Using pip 26.0.1 from /localscratch/user.22936442.0/python_env/lib/python3.13/site-packages/pip (python 3.13)
+Looking in links: /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/x86-64-v4, /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/x86-64-v3, /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/generic, /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/accelerate-1.12.0+computecanada-py3-none-any.whl (from -r requirements.txt (line 1))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/x86-64-v3/aiohttp-3.13.3+computecanada-cp313-cp313-linux_x86_64.whl (from -r requirements.txt (line 2))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/generic/bitsandbytes-0.48.2+computecanada-py3-none-linux_x86_64.whl (from -r requirements.txt (line 3))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/certifi-2026.1.4+computecanada-py3-none-any.whl (from -r requirements.txt (line 4))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/charset_normalizer-3.4.4+computecanada-py3-none-any.whl (from -r requirements.txt (line 5))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/datasets-4.5.0+computecanada-py3-none-any.whl (from -r requirements.txt (line 6))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/dill-0.4.1+computecanada-py3-none-any.whl (from -r requirements.txt (line 7))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/filelock-3.21.2+computecanada-py3-none-any.whl (from -r requirements.txt (line 8))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/fsspec-2026.2.0+computecanada-py3-none-any.whl (from -r requirements.txt (line 9))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/generic/hf_xet-1.2.0+computecanada-cp37-abi3-linux_x86_64.whl (from -r requirements.txt (line 10))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/huggingface_hub-1.4.1+computecanada-py3-none-any.whl (from -r requirements.txt (line 11))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/idna-3.11+computecanada-py3-none-any.whl (from -r requirements.txt (line 12))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/jinja2-3.1.6+computecanada-py3-none-any.whl (from -r requirements.txt (line 13))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/joblib-1.5.3+computecanada-py3-none-any.whl (from -r requirements.txt (line 14))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/markupsafe-3.0.3+computecanada-cp313-cp313-linux_x86_64.whl (from -r requirements.txt (line 15))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/multiprocess-0.70.18+computecanada-py3-none-any.whl (from -r requirements.txt (line 16))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/networkx-3.6.1+computecanada-py3-none-any.whl (from -r requirements.txt (line 17))
+Requirement already satisfied: numpy in /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/scipy-stack/2025a/lib/python3.13/site-packages (from -r requirements.txt (line 18)) (2.2.2+computecanada)
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/generic/numpy-2.4.2+computecanada-cp313-cp313-linux_x86_64.whl (from -r requirements.txt (line 18))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/openpyxl-3.1.5+computecanada-py2.py3-none-any.whl (from -r requirements.txt (line 19))
+Requirement already satisfied: packaging in /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/scipy-stack/2025a/lib/python3.13/site-packages (from -r requirements.txt (line 20)) (24.2+computecanada)
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/packaging-26.0+computecanada-py3-none-any.whl (from -r requirements.txt (line 20))
+Requirement already satisfied: pandas in /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/scipy-stack/2025a/lib/python3.13/site-packages (from -r requirements.txt (line 21)) (2.2.3+computecanada)
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/x86-64-v3/pandas-3.0.0+computecanada-cp313-cp313-linux_x86_64.whl (from -r requirements.txt (line 21))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/peft-0.18.0+computecanada-py3-none-any.whl (from -r requirements.txt (line 22))
+Requirement already satisfied: psutil in /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/ipykernel/2025a/lib/python3.13/site-packages (from -r requirements.txt (line 23)) (6.1.1+computecanada)
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/generic/psutil-7.2.2+computecanada-cp36-abi3-linux_x86_64.whl (from -r requirements.txt (line 23))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/pyyaml-6.0.3+computecanada-cp313-cp313-linux_x86_64.whl (from -r requirements.txt (line 24))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/regex-2024.11.6+computecanada-cp313-cp313-linux_x86_64.whl (from -r requirements.txt (line 25))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/requests-2.32.5+computecanada-py3-none-any.whl (from -r requirements.txt (line 26))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/generic/safetensors-0.7.0+computecanada-cp38-abi3-linux_x86_64.whl (from -r requirements.txt (line 27))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/generic/scikit_learn-1.8.0+computecanada-cp313-cp313-linux_x86_64.whl (from -r requirements.txt (line 28))
+Requirement already satisfied: scipy in /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/scipy-stack/2025a/lib/python3.13/site-packages (from -r requirements.txt (line 29)) (1.15.1+computecanada)
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/generic/scipy-1.17.0+computecanada-cp313-cp313-linux_x86_64.whl (from -r requirements.txt (line 29))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/setuptools-82.0.0+computecanada-py3-none-any.whl (from -r requirements.txt (line 30))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/sklearn-0.0+computecanada-py2.py3-none-any.whl (from -r requirements.txt (line 31))
+Requirement already satisfied: sympy in /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/scipy-stack/2025a/lib/python3.13/site-packages (from -r requirements.txt (line 32)) (1.13.3+computecanada)
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/sympy-1.14.0+computecanada-py3-none-any.whl (from -r requirements.txt (line 32))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/threadpoolctl-3.6.0+computecanada-py3-none-any.whl (from -r requirements.txt (line 33))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/generic/tokenizers-0.22.2+computecanada-cp39-abi3-linux_x86_64.whl (from -r requirements.txt (line 34))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/x86-64-v3/torch-2.10.0+computecanada-cp313-cp313-linux_x86_64.whl (from -r requirements.txt (line 35))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/tqdm-4.67.3+computecanada-py3-none-any.whl (from -r requirements.txt (line 36))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/transformers-5.0.0+computecanada-py3-none-any.whl (from -r requirements.txt (line 37))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/triton-3.6.0+computecanada-cp313-cp313-linux_x86_64.whl (from -r requirements.txt (line 38))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/trl-0.26.1+computecanada-py3-none-any.whl (from -r requirements.txt (line 39))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/typing_extensions-4.15.0+computecanada-py3-none-any.whl (from -r requirements.txt (line 40))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/urllib3-2.6.3+computecanada-py3-none-any.whl (from -r requirements.txt (line 41))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/xxhash-3.5.0+computecanada-cp313-cp313-linux_x86_64.whl (from -r requirements.txt (line 42))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/aiohappyeyeballs-2.6.1+computecanada-py3-none-any.whl (from aiohttp->-r requirements.txt (line 2))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/aiosignal-1.4.0+computecanada-py3-none-any.whl (from aiohttp->-r requirements.txt (line 2))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/attrs-25.4.0+computecanada-py3-none-any.whl (from aiohttp->-r requirements.txt (line 2))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/frozenlist-1.8.0+computecanada-py3-none-any.whl (from aiohttp->-r requirements.txt (line 2))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/multidict-6.7.1+computecanada-cp313-cp313-linux_x86_64.whl (from aiohttp->-r requirements.txt (line 2))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/propcache-0.4.1+computecanada-py3-none-any.whl (from aiohttp->-r requirements.txt (line 2))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/x86-64-v3/yarl-1.22.0+computecanada-cp313-cp313-linux_x86_64.whl (from aiohttp->-r requirements.txt (line 2))
+Requirement already satisfied: pyarrow>=21.0.0 in /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/arrow/22.0.0/lib/python3.13/site-packages (from datasets->-r requirements.txt (line 6)) (22.0.0)
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/dill-0.4.0+computecanada-py3-none-any.whl (from -r requirements.txt (line 7))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/httpx-0.28.1+computecanada-py3-none-any.whl (from datasets->-r requirements.txt (line 6))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/fsspec-2025.10.0+computecanada-py3-none-any.whl (from -r requirements.txt (line 9))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/shellingham-1.5.4+computecanada-py2.py3-none-any.whl (from huggingface_hub->-r requirements.txt (line 11))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/typer_slim-0.23.1+computecanada-py3-none-any.whl (from huggingface_hub->-r requirements.txt (line 11))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/anyio-4.12.1+computecanada-py3-none-any.whl (from httpx<1.0.0->datasets->-r requirements.txt (line 6))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/httpcore-1.0.9+computecanada-py3-none-any.whl (from httpx<1.0.0->datasets->-r requirements.txt (line 6))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/h11-0.16.0+computecanada-py3-none-any.whl (from httpcore==1.*->httpx<1.0.0->datasets->-r requirements.txt (line 6))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/et_xmlfile-2.0.0+computecanada-py3-none-any.whl (from openpyxl->-r requirements.txt (line 19))
+Requirement already satisfied: python-dateutil>=2.8.2 in /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/scipy-stack/2025a/lib/python3.13/site-packages (from pandas->-r requirements.txt (line 21)) (2.9.0.post0+computecanada)
+Requirement already satisfied: mpmath<1.4,>=1.1.0 in /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/scipy-stack/2025a/lib/python3.13/site-packages (from sympy->-r requirements.txt (line 32)) (1.3.0+computecanada)
+Requirement already satisfied: six>=1.5 in /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/scipy-stack/2025a/lib/python3.13/site-packages (from python-dateutil>=2.8.2->pandas->-r requirements.txt (line 21)) (1.17.0+computecanada)
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/typer-0.23.1+computecanada-py3-none-any.whl (from typer-slim->huggingface_hub->-r requirements.txt (line 11))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/click-8.3.1+computecanada-py3-none-any.whl (from typer>=0.23.1->typer-slim->huggingface_hub->-r requirements.txt (line 11))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/rich-14.3.2+computecanada-py3-none-any.whl (from typer>=0.23.1->typer-slim->huggingface_hub->-r requirements.txt (line 11))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/annotated_doc-0.0.4+computecanada-py3-none-any.whl (from typer>=0.23.1->typer-slim->huggingface_hub->-r requirements.txt (line 11))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/markdown_it_py-4.0.0+computecanada-py3-none-any.whl (from rich>=10.11.0->typer>=0.23.1->typer-slim->huggingface_hub->-r requirements.txt (line 11))
+Requirement already satisfied: pygments<3.0.0,>=2.13.0 in /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/ipykernel/2025a/lib/python3.13/site-packages (from rich>=10.11.0->typer>=0.23.1->typer-slim->huggingface_hub->-r requirements.txt (line 11)) (2.19.1+computecanada)
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/mdurl-0.1.2+computecanada-py3-none-any.whl (from markdown-it-py>=2.2.0->rich>=10.11.0->typer>=0.23.1->typer-slim->huggingface_hub->-r requirements.txt (line 11))
+Installing collected packages: xxhash, urllib3, typing_extensions, triton, tqdm, threadpoolctl, sympy, shellingham, setuptools, safetensors, regex, PyYAML, psutil, propcache, packaging, numpy, networkx, multidict, mdurl, MarkupSafe, joblib, idna, hf_xet, h11, fsspec, frozenlist, filelock, et-xmlfile, dill, click, charset_normalizer, certifi, attrs, annotated-doc, aiohappyeyeballs, yarl, scipy, requests, pandas, openpyxl, multiprocess, markdown-it-py, jinja2, httpcore, anyio, aiosignal, torch, scikit_learn, rich, httpx, aiohttp, typer, sklearn, bitsandbytes, typer-slim, huggingface_hub, tokenizers, datasets, accelerate, transformers, trl, peft
+  changing mode of /localscratch/user.22936442.0/python_env/bin/proton to 755
+  changing mode of /localscratch/user.22936442.0/python_env/bin/proton-viewer to 755
+  changing mode of /localscratch/user.22936442.0/python_env/bin/tqdm to 755
+  Attempting uninstall: sympy
+    Found existing installation: sympy 1.13.3+computecanada
+    Not uninstalling sympy at /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/scipy-stack/2025a/lib/python3.13/site-packages, outside environment /localscratch/user.22936442.0/python_env
+    Can't uninstall 'sympy'. No files were found to uninstall.
+  changing mode of /localscratch/user.22936442.0/python_env/bin/isympy to 755
+  Attempting uninstall: psutil
+    Found existing installation: psutil 6.1.1+computecanada
+    Not uninstalling psutil at /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/ipykernel/2025a/lib/python3.13/site-packages, outside environment /localscratch/user.22936442.0/python_env
+    Can't uninstall 'psutil'. No files were found to uninstall.
+  Attempting uninstall: packaging
+    Found existing installation: packaging 24.2+computecanada
+    Not uninstalling packaging at /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/scipy-stack/2025a/lib/python3.13/site-packages, outside environment /localscratch/user.22936442.0/python_env
+    Can't uninstall 'packaging'. No files were found to uninstall.
+  Attempting uninstall: numpy
+    Found existing installation: numpy 2.2.2+computecanada
+    Not uninstalling numpy at /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/scipy-stack/2025a/lib/python3.13/site-packages, outside environment /localscratch/user.22936442.0/python_env
+    Can't uninstall 'numpy'. No files were found to uninstall.
+  changing mode of /localscratch/user.22936442.0/python_env/bin/f2py to 755
+  changing mode of /localscratch/user.22936442.0/python_env/bin/numpy-config to 755
+  changing mode of /localscratch/user.22936442.0/python_env/bin/normalizer to 755
+  Attempting uninstall: scipy
+    Found existing installation: scipy 1.15.1+computecanada
+    Not uninstalling scipy at /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/scipy-stack/2025a/lib/python3.13/site-packages, outside environment /localscratch/user.22936442.0/python_env
+    Can't uninstall 'scipy'. No files were found to uninstall.
+  Attempting uninstall: pandas
+    Found existing installation: pandas 2.2.3+computecanada
+    Not uninstalling pandas at /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/scipy-stack/2025a/lib/python3.13/site-packages, outside environment /localscratch/user.22936442.0/python_env
+    Can't uninstall 'pandas'. No files were found to uninstall.
+  changing mode of /localscratch/user.22936442.0/python_env/bin/markdown-it to 755
+  changing mode of /localscratch/user.22936442.0/python_env/bin/torchrun to 755
+  changing mode of /localscratch/user.22936442.0/python_env/bin/httpx to 755
+  changing mode of /localscratch/user.22936442.0/python_env/bin/typer to 755
+  changing mode of /localscratch/user.22936442.0/python_env/bin/hf to 755
+  changing mode of /localscratch/user.22936442.0/python_env/bin/tiny-agents to 755
+  changing mode of /localscratch/user.22936442.0/python_env/bin/datasets-cli to 755
+  changing mode of /localscratch/user.22936442.0/python_env/bin/accelerate to 755
+  changing mode of /localscratch/user.22936442.0/python_env/bin/accelerate-config to 755
+  changing mode of /localscratch/user.22936442.0/python_env/bin/accelerate-estimate-memory to 755
+  changing mode of /localscratch/user.22936442.0/python_env/bin/accelerate-launch to 755
+  changing mode of /localscratch/user.22936442.0/python_env/bin/accelerate-merge-weights to 755
+  changing mode of /localscratch/user.22936442.0/python_env/bin/transformers to 755
+  changing mode of /localscratch/user.22936442.0/python_env/bin/trl to 755
+
+Successfully installed MarkupSafe-3.0.3+computecanada PyYAML-6.0.3+computecanada accelerate-1.12.0+computecanada aiohappyeyeballs-2.6.1+computecanada aiohttp-3.13.3+computecanada aiosignal-1.4.0+computecanada annotated-doc-0.0.4+computecanada anyio-4.12.1+computecanada attrs-25.4.0+computecanada bitsandbytes-0.48.2+computecanada certifi-2026.1.4+computecanada charset_normalizer-3.4.4+computecanada click-8.3.1+computecanada datasets-4.5.0+computecanada dill-0.4.0+computecanada et-xmlfile-2.0.0+computecanada filelock-3.21.2+computecanada frozenlist-1.8.0+computecanada fsspec-2025.10.0+computecanada h11-0.16.0+computecanada hf_xet-1.2.0+computecanada httpcore-1.0.9+computecanada httpx-0.28.1+computecanada huggingface_hub-1.4.1+computecanada idna-3.11+computecanada jinja2-3.1.6+computecanada joblib-1.5.3+computecanada markdown-it-py-4.0.0+computecanada mdurl-0.1.2+computecanada multidict-6.7.1+computecanada multiprocess-0.70.18+computecanada networkx-3.6.1+computecanada numpy-2.4.2+computecanada openpyxl-3.1.5+computecanada packaging-26.0+computecanada pandas-3.0.0+computecanada peft-0.18.0+computecanada propcache-0.4.1+computecanada psutil-7.2.2+computecanada regex-2024.11.6+computecanada requests-2.32.5+computecanada rich-14.3.2+computecanada safetensors-0.7.0+computecanada scikit_learn-1.8.0+computecanada scipy-1.17.0+computecanada setuptools-82.0.0+computecanada shellingham-1.5.4+computecanada sklearn-0.0+computecanada sympy-1.14.0+computecanada threadpoolctl-3.6.0+computecanada tokenizers-0.22.2+computecanada torch-2.10.0+computecanada tqdm-4.67.3+computecanada transformers-5.0.0+computecanada triton-3.6.0+computecanada trl-0.26.1+computecanada typer-0.23.1+computecanada typer-slim-0.23.1+computecanada typing_extensions-4.15.0+computecanada urllib3-2.6.3+computecanada xxhash-3.5.0+computecanada yarl-1.22.0+computecanada
+[... 410 lines omitted from the original log ...]
+Successfully installed bitsandbytes-0.49.1.dev0
+Removed build tracker: '/tmp/pip-build-tracker-8r8keq92'
+Loading the Model :  2026-02-14 09:32:15.471201
+
+Loading weights:   0%|          | 0/363 [00:00<?, ?it/s]
+Loading weights:   0%|          | 1/363 [00:00<00:00, 15087.42it/s, Materializing param=lm_head.weight]
+Loading weights:   0%|          | 1/363 [00:00<00:00, 7096.96it/s, Materializing param=lm_head.weight] 
+[... 846 lines omitted from the original log ...]
+Loading weights: 100%|██████████| 363/363 [00:41<00:00,  9.76it/s, Materializing param=model.norm.weight]                      
+Loading weights: 100%|██████████| 363/363 [00:41<00:00,  9.76it/s, Materializing param=model.norm.weight]
+Loading weights: 100%|██████████| 363/363 [00:41<00:00,  8.71it/s, Materializing param=model.norm.weight]
+Done Loading the Model :  2026-02-14 09:32:59.769580
+Starting to Load the Tokeizer :  2026-02-14 09:32:59.769676
+Done Loading the Tokenizer :  2026-02-14 09:33:00.822424
+Starting Loading Data :  2026-02-14 09:33:00.822554
+Done Loading the Data :  2026-02-14 09:33:00.893240
+*************************************INPUTS****************************************
+tensor([[     1,      1,     17,   1010,   1595,  83779,   1877,   1293,   3213,
+           1584,   1261,   3121,  40172,   1258,   1046,   3213,   1736,   5595,
+           1261,   3121,  40172,   1317,  21294,   1261,  71829,   4057,   1408,
+           1278,   7259,   5662,   1294,   1278,   2071,   1307,   4098,   1045,
+          24613,  10217,   1626,   1293,   9825,   6255,   1395,   1317,   7137,
+           1278,  77233,   1307,   1261,   4983,   4057,   1408,   1278,   5662,
+           4098,   1045,  24613,  10217,   7259,   1046,   1531,  71829,   1710,
+           1402,   1925,   1307,   1278,  20344,   1058,   1576,   7848,   2096,
+           1576,  13297,   2096,   1576,  17854,   1676,   3333,   9528,   1032,
+           1010,   1293,   5469,   1593,   1536,   3629,   1877,   1293,   1462,
+         101460,   1576,   7848,   1039,   2342,   1693,   1278,  11157,   7259,
+          10886,   1505,   7115,  10886,  17448,   1321,   2019,  16646,   1278,
+           4983,   1435,   6298,   1626,   1293,   1462, 101460,   1576,  13297,
+           1039,   1693,   1877,   1293,   4254,   1531,  11157,   7259,  35499,
+           1115,   1505,  63518,   3741,   1278,   4983,   1626,   1293,   4254,
+           1531,   4983,   1395,  70157,   4057,   1408,   1278,  11157,   7259,
+           1626,   1293,   4254,   1531,   7259,   1395,   4382,  10824,   1505,
+          36204,   1317,   3471,   1278,   4983,   1626,   1293,   1462, 101460,
+           1576,  17854,   1676,   3333,   1039,   1693,   1278,   7259,   1395,
+          61103,   1044,  38543,   1044,   1505,  25685,  38394,   1044,   6187,
+           1494,  16501,   1317,   8497,   1693,   1278,   4983,   1395,  10886,
+           2925,   1505,   3276,   1626,   1293,  53119,  77763,   1317,   1278,
+           3629,  10469,   1877,   1293,   1462,  13516,   3686,   2342,   1562,
+           1278,  10281,   7259,   1058,  86725,  59979,   3686,   1455,   1395,
+           1605,  47210,   1536,   1278,   7259,   1046,   3213,   2188,   2210,
+           2009,   2232,   3533,   7807,   1044,   5572,   1626,   1293,   1462,
+          86725,  54272,  14019,   1626,   1293,  49287,   1278,   4005,   1294,
+           1278,   8174,   1462,  33735,   2335,   1058,   1534,   1465,  36467,
+           1561,     18,      3,   1010,   1595,  71829,   1058,   1429,   1784,
+           2767,  24926,  20646,  95772,  64606,  16711,  21233,  34743,  66360,
+           2084,   4362,   1278,   1608,   3051,   1046,   2081,   2224,   1032,
+           1056,   1048,   1048,   1044,   1048,   1048,   1048,  20516,   4043,
+           1595,  30190,   1058,   2697,   1278,  64793,  18089,   9750,  28714,
+           1455,   1843,   1325,   1413,   1667,   2084,   4362,   1278,   1333,
+           1913,   1046,   2081,   2224,   1032,   1056,   1048,   1048,   1044,
+           1048,   1048,   1048,  20516,   1063,   1013,   1267,   1595,   3450,
+           1058,   6421,   9781,   1593,   2637,   1044,   1278,   3518,   1307,
+           1278,  64793,  18089,   9750,  94776,   3066,  64558,   1455,  11708,
+           1307,   1843,   1325,   1413,   1667,   2168,   4362,   1032,   1056,
+           1048,   1048,   1044,   1048,   1048,   1048,  20516,   1046,   1032,
+          20213,   1595,  30190,   1058,   1032,   1395,   1278,  64793,  18089,
+           9750,   6090,   1261,   2767,  24926,  20646,  13304,   1063,   1013,
+           1267,   1595,   3450,   1058,   1278,  64793,  18089,   9750,   1395,
+           2767,   3332,  20646,   1044,   1321,  22444,   1429,   1259,  14058,
+          12865,   1307,  18089,   1760,   1321,   9870,   8520,   1317,   3471,
+           1278,  64793,  18089,   2832,   2613,   1766,   1057,   1093,   2744,
+           2637,   1044,   1278,  24628,  37247,  12501,   1321,   4362,  20828,
+           1394,   9614,  27865,   1044,   3816,  79694,   2258,   9200,  28063,
+           1626,   1595,  30190,   1058,   1032,   1395,   2156,   7259,   1317,
+           3471,   1278,   4983,   1455,   1843,   1325,   1413,   1667,   2084,
+           4362,   1278,   1333,   1913,   1046,   2081,   2224,   1032,   1056,
+           1048,   1048,   1044,   1048,   1048,   1048,  20516,   9551,   1595,
+           3450,   1058,   6421,   9781,   1593,   2637,   1044,   1278,   3518,
+           1307,   1278,  64793,  18089,   9750,  94776,   3066,  64558,   1455,
+          11708,   1307,   1843,   1325,   1413,   1667,   2168,   4362,   1032,
+           1056,   1048,   1048,   1044,   1048,   1048,   1048,  20516,   1046,
+           1032,   6421,      4]], device='cuda:0')
+#####################################LENGTH#########################################
+1
+The attention mask and the pad token id were not set. As a consequence, you may observe unexpected behavior. Please pass your input's `attention_mask` to obtain reliable results.
+Setting `pad_token_id` to `eos_token_id`:2 for open-end generation.
+The attention mask is not set and cannot be inferred from input because pad token is same as eos token. As a consequence, you may observe unexpected behavior. Please pass your input's `attention_mask` to obtain reliable results.
+******************************OUTPUT*****************************
+<s><s>[SYSTEM_PROMPT]
+### Instruction:
+    You are a fact-checker. You have done a fact-check to verify a Claim based on the evidence provided in the form of question-answer pair.
+    Your task is to predict the verdict of a claim based on the provided question-answer pair evidence. The Claim can be one of the labels: 'True', 'False', 'Conflicting'. 
+    Do this by following:
+    - Respond 'True' only if the relevant evidence fully or almost fully supports and verifies the claim as correct.
+    - Respond 'False' if:
+    -- The relevant evidence contradicts or disproves the claim.
+    -- The claim is misleading based on the relevant evidence.
+    -- The evidence is too weak or insufficient to support the claim.
+    - Respond 'Conflicting' if the evidence is ambiguous, incomplete, or inconclusive, making it impossible to determine if the claim is fully true or false.
+    Always adhere to the following rules:
+    - Use information only from the recorded evidence: Avoid inserting information that is not implied by the evidence. You may use commonsense knowledge, though.
+    - Avoid repeating yourself.
+    Give the response in the format - Verdict: <verdict>
+[/SYSTEM_PROMPT][INST]
+### Claim: "The non-partisan Congressional Budget Office concluded ObamaCare will cost the U.S. more than 800,000 jobs."
+
+### Question: did the congressional budget office conclude that obamacare will cost the u.s. more than 800,000 jobs?
+
+### Answer: ... earlier this year, the head of the congressional budget office testified before congress that implementation of obamacare would cost 800,000 jobs.  ...
+### Question:  is the congressional budget office considered a non-partisan entity?
+
+### Answer: the congressional budget office is nonpartisan, and produces "independent analyses of budgetary and economic issues to support the congressional budget process." [9] each year, the agency releases reports and cost estimates for proposed legislation, without issuing any policy recommendations.
+### Question:  is there evidence to support the claim that obamacare will cost the u.s. more than 800,000 jobs?
+### Answer: ... earlier this year, the head of the congressional budget office testified before congress that implementation of obamacare would cost 800,000 jobs.  ...[/INST]
+### Response: Verdict: Conflicting</s>
+*************************************INPUTS****************************************
+tensor([[     1,      1,     17,   1010,   1595,  83779,   1877,   1293,   3213,
+           1584,   1261,   3121,  40172,   1258,   1046,   3213,   1736,   5595,
+           1261,   3121,  40172,   1317,  21294,   1261,  71829,   4057,   1408,
+           1278,   7259,   5662,   1294,   1278,   2071,   1307,   4098,   1045,
+          24613,  10217,   1626,   1293,   9825,   6255,   1395,   1317,   7137,
+           1278,  77233,   1307,   1261,   4983,   4057,   1408,   1278,   5662,
+           4098,   1045,  24613,  10217,   7259,   1046,   1531,  71829,   1710,
+           1402,   1925,   1307,   1278,  20344,   1058,   1576,   7848,   2096,
+           1576,  13297,   2096,   1576,  17854,   1676,   3333,   9528,   1032,
+           1010,   1293,   5469,   1593,   1536,   3629,   1877,   1293,   1462,
+         101460,   1576,   7848,   1039,   2342,   1693,   1278,  11157,   7259,
+          10886,   1505,   7115,  10886,  17448,   1321,   2019,  16646,   1278,
+           4983,   1435,   6298,   1626,   1293,   1462, 101460,   1576,  13297,
+           1039,   1693,   1877,   1293,   4254,   1531,  11157,   7259,  35499,
+           1115,   1505,  63518,   3741,   1278,   4983,   1626,   1293,   4254,
+           1531,   4983,   1395,  70157,   4057,   1408,   1278,  11157,   7259,
+           1626,   1293,   4254,   1531,   7259,   1395,   4382,  10824,   1505,
+          36204,   1317,   3471,   1278,   4983,   1626,   1293,   1462, 101460,
+           1576,  17854,   1676,   3333,   1039,   1693,   1278,   7259,   1395,
+          61103,   1044,  38543,   1044,   1505,  25685,  38394,   1044,   6187,
+           1494,  16501,   1317,   8497,   1693,   1278,   4983,   1395,  10886,
+           2925,   1505,   3276,   1626,   1293,  53119,  77763,   1317,   1278,
+           3629,  10469,   1877,   1293,   1462,  13516,   3686,   2342,   1562,
+           1278,  10281,   7259,   1058,  86725,  59979,   3686,   1455,   1395,
+           1605,  47210,   1536,   1278,   7259,   1046,   3213,   2188,   2210,
+           2009,   2232,   3533,   7807,   1044,   5572,   1626,   1293,   1462,
+          86725,  54272,  14019,   1626,   1293,  49287,   1278,   4005,   1294,
+           1278,   8174,   1462,  33735,   2335,   1058,   1534,   1465,  36467,
+           1561,     18,      3,   1010,   1595,  71829,   1058,   1429,  18513,
+           2224,   1032,   1053,   1048,   7133,   1307,  40064,   1562,   1319,
+           4168,  29638,   1044,  43275,   1321,  54249,   1041,   2210,   1513,
+           4403,   1925,   4616,  35582,   3467,   5785,   2127,   2012,   3226,
+           4043,   1595,  30190,   1058,   1653,   2081,   2224,   1032,   1053,
+           1048,   7133,   1307,  40064,   1562,   1578,  24408,   4520,   2210,
+           1513,   4403,   1925,   4616,  35582,   3467,   5785,   2127,   2012,
+           1317,   1278,   1650,   1063,   1013,   1267,   1595,   3450,   1058,
+          35582,   2210,   1395,   3435,   2738,   1394,   1747,   3300,   3977,
+           2553,   5420,   8641,   1562,   1278,   5578,   1046,   1307,  25625,
+          25076,   1536,   1578,  24408,   4520,   1271,  40064,   1044,   1032,
+           1054,   1048,   7133,   2210,   1513,   4403,   1925,   4616,  35582,
+           3467,   1059,   1278,   8240,   1395,   1032,   1053,   1057,   7133,
+           1394,   3003,  27814,   1279,   1545,   1321,   1032,   1053,   1050,
+           7133,   1394, 121054,   1328,   1545,   1046,   4265,   1278,   4329,
+           9730,   1307,   7030,  12706,  17087,   1454,   4253, 106956,   1044,
+           1494,   1395,   1605,  26427,   1455,   1878,   3325,   4731,   1278,
+          35582,   2663,   1046,   1294,   1032,   1050,   1048,   1049,   1056,
+           1044,   1032,   1053,   1054,   7133,   1307,  25625,  25076,   1536,
+           7030,  47386,  40064,   2434,   1925,   1505,   2081,   4616,  35582,
+          11840,   1044,   2081,   2224,   5558,   1278,   1032,   1050,   1054,
+           7133,   1307,  15191,  25625,   1046,  35582,   2210,   1395,   4878,
+           5002,   2960,  11771,  15832,   1321,   2081,   8582,   7030,  12706,
+          17087,   1046,   5002,  25625,  25076,   1536,   7030,  12706,  17087,
+           1294,   1278,   6816,   1394,   1032,   1049,   1048,   3351,   1505,
+           4289,   1044,   1032,   1053,   1053,   7133,   2434,   1925,   1505,
+           2081,  35582,  11840,   1044,   3016,   1278,   8240,   1395,   1032,
+           1053,   1054,   7133,   1394,  25625,  25076,   1536,   1261,   7030,
+          47386,   1294,   1278,   6816,   1394,   2081,   2224,   1032,   1049,
+           1048,   3351,   1626,   1595,  30190,   1058,   1032,   1653,   2081,
+           2224,   1032,   1053,   1048,   7133,   1307,  40064,   1562,   3003,
+          27814,   4182,   2210,   1513,   4403,   1925,   4616,  35582,   3467,
+           5785,   2127,   2012,   1317,   1278,   1650,   1063,   1013,   1267,
+           1595,   3450,   1058,  35582,   2210,   1395,   3435,   2738,   1394,
+           1747,   3300,   3977,   2553,   5420,   8641,   1562,   1278,   5578,
+           1046,   1307,  25625,  25076,   1536,   1578,  24408,   4520,   1271,
+          40064,   1044,   1032,   1054,   1048,   7133,   2210,   1513,   4403,
+           1925,   4616,  35582,   3467,   1059,   1278,   8240,   1395,   1032,
+           1053,   1057,   7133,   1394,   3003,  27814,   1279,   1545,   1321,
+           1032,   1053,   1050,   7133,   1394, 121054,   1328,   1545,   1046,
+           4265,   1278,   4329,   9730,   1307,   7030,  12706,  17087,   1454,
+           4253, 106956,   1044,   1494,   1395,   1605,  26427,   1455,   1878,
+           3325,   4731,   1278,  35582,   2663,   1046,   1294,   1032,   1050,
+           1048,   1049,   1056,   1044,   1032,   1053,   1054,   7133,   1307,
+          25625,  25076,   1536,   7030,  47386,  40064,   2434,   1925,   1505,
+           2081,   4616,  35582,  11840,   1044,   2081,   2224,   5558,   1278,
+           1032,   1050,   1054,   7133,   1307,  15191,  25625,   1046,  35582,
+           2210,   1395,   4878,   5002,   2960,  11771,  15832,   1321,   2081,
+           8582,   7030,  12706,  17087,   1046,   5002,  25625,  25076,   1536,
+           7030,  12706,  17087,   1294,   1278,   6816,   1394,   1032,   1049,
+           1048,   3351,   1505,   4289,   1044,   1032,   1053,   1053,   7133,
+           2434,   1925,   1505,   2081,  35582,  11840,   1044,   3016,   1278,
+           8240,   1395,   1032,   1053,   1054,   7133,   1394,  25625,  25076,
+           1536,   1261,   7030,  47386,   1294,   1278,   6816,   1394,   2081,
+           2224,   1032,   1049,   1048,   3351,   1626,   1595,  30190,   1058,
+           1032,   1653,   2081,   2224,   1032,   1053,   1048,   7133,   1307,
+          40064,   1562, 121054,  11757,   2210,   1513,   4403,   1925,   4616,
+          35582,   3467,   5785,   2127,   2012,   1317,   1278,   1650,   9551,
+           1595,   3450,   1058,  35582,   2210,   1395,   3435,   2738,   1394,
+           1747,   3300,   3977,   2553,   5420,   8641,   1562,   1278,   5578,
+           1046,   1307,  25625,  25076,   1536,   1578,  24408,   4520,   1271,
+          40064,   1044,   1032,   1054,   1048,   7133,   2210,   1513,   4403,
+           1925,   4616,  35582,   3467,   1059,   1278,   8240,   1395,   1032,
+           1053,   1057,   7133,   1394,   3003,  27814,   1279,   1545,   1321,
+           1032,   1053,   1050,   7133,   1394, 121054,   1328,   1545,   1046,
+           4265,   1278,   4329,   9730,   1307,   7030,  12706,  17087,   1454,
+           4253, 106956,   1044,   1494,   1395,   1605,  26427,   1455,   1878,
+           3325,   4731,   1278,  35582,   2663,   1046,   1294,   1032,   1050,
+           1048,   1049,   1056,   1044,   1032,   1053,   1054,   7133,   1307,
+          25625,  25076,   1536,   7030,  47386,  40064,   2434,   1925,   1505,
+           2081,   4616,  35582,  11840,   1044,   2081,   2224,   5558,   1278,
+           1032,   1050,   1054,   7133,   1307,  15191,  25625,   1046,  35582,
+           2210,   1395,   4878,   5002,   2960,  11771,  15832,   1321,   2081,
+           8582,   7030,  12706,  17087,   1046,   5002,  25625,  25076,   1536,
+           7030,  12706,  17087,   1294,   1278,   6816,   1394,   1032,   1049,
+           1048,   3351,   1505,   4289,   1044,   1032,   1053,   1053,   7133,
+           2434,   1925,   1505,   2081,  35582,  11840,   1044,   3016,   1278,
+           8240,   1395,   1032,   1053,   1054,   7133,   1394,  25625,  25076,
+           1536,   1261,   7030,  47386,   1294,   1278,   6816,   1394,   2081,
+           2224,   1032,   1049,   1048,   3351,   1046,      4]],
+       device='cuda:0')
+#####################################LENGTH#########################################
+1
+The attention mask and the pad token id were not set. As a consequence, you may observe unexpected behavior. Please pass your input's `attention_mask` to obtain reliable results.
+Setting `pad_token_id` to `eos_token_id`:2 for open-end generation.
+******************************OUTPUT*****************************
+<s><s>[SYSTEM_PROMPT]
+### Instruction:
+    You are a fact-checker. You have done a fact-check to verify a Claim based on the evidence provided in the form of question-answer pair.
+    Your task is to predict the verdict of a claim based on the provided question-answer pair evidence. The Claim can be one of the labels: 'True', 'False', 'Conflicting'. 
+    Do this by following:
+    - Respond 'True' only if the relevant evidence fully or almost fully supports and verifies the claim as correct.
+    - Respond 'False' if:
+    -- The relevant evidence contradicts or disproves the claim.
+    -- The claim is misleading based on the relevant evidence.
+    -- The evidence is too weak or insufficient to support the claim.
+    - Respond 'Conflicting' if the evidence is ambiguous, incomplete, or inconclusive, making it impossible to determine if the claim is fully true or false.
+    Always adhere to the following rules:
+    - Use information only from the recorded evidence: Avoid inserting information that is not implied by the evidence. You may use commonsense knowledge, though.
+    - Avoid repeating yourself.
+    Give the response in the format - Verdict: <verdict>
+[/SYSTEM_PROMPT][INST]
+### Claim: "More than 50 percent of immigrants from (El Salvador, Guatemala and Honduras) use at least one major welfare program once they get here."
+
+### Question: do more than 50 percent of immigrants from el salvador use at least one major welfare program once they get to the us?
+
+### Answer: welfare use is very high for all three top-sending countries from the region. of households headed by el salvadoran immigrants, 60 percent use at least one major welfare program; the figure is 59 percent for guatemalans and 52 percent for hondurans. given the large share of central americans with low incomes, it is not surprising that so many access the welfare system. in 2018, 56 percent of households headed by central american immigrants used one or more major welfare programs, more than double the 26 percent of native households. welfare use is common among both recently arrived and more established central americans. among households headed by central americans in the country for 10 years or less, 55 percent used one or more welfare programs, while the figure is 56 percent for households headed by a central american in the country for more than 10 years.
+### Question:  do more than 50 percent of immigrants from guatemala use at least one major welfare program once they get to the us?
+
+### Answer: welfare use is very high for all three top-sending countries from the region. of households headed by el salvadoran immigrants, 60 percent use at least one major welfare program; the figure is 59 percent for guatemalans and 52 percent for hondurans. given the large share of central americans with low incomes, it is not surprising that so many access the welfare system. in 2018, 56 percent of households headed by central american immigrants used one or more major welfare programs, more than double the 26 percent of native households. welfare use is common among both recently arrived and more established central americans. among households headed by central americans in the country for 10 years or less, 55 percent used one or more welfare programs, while the figure is 56 percent for households headed by a central american in the country for more than 10 years.
+### Question:  do more than 50 percent of immigrants from honduras use at least one major welfare program once they get to the us?
+### Answer: welfare use is very high for all three top-sending countries from the region. of households headed by el salvadoran immigrants, 60 percent use at least one major welfare program; the figure is 59 percent for guatemalans and 52 percent for hondurans. given the large share of central americans with low incomes, it is not surprising that so many access the welfare system. in 2018, 56 percent of households headed by central american immigrants used one or more major welfare programs, more than double the 26 percent of native households. welfare use is common among both recently arrived and more established central americans. among households headed by central americans in the country for 10 years or less, 55 percent used one or more welfare programs, while the figure is 56 percent for households headed by a central american in the country for more than 10 years.[/INST]
+### Response: Verdict: Conflicting</s>
+*************************************INPUTS****************************************
+tensor([[     1,      1,     17,   1010,   1595,  83779,   1877,   1293,   3213,
+           1584,   1261,   3121,  40172,   1258,   1046,   3213,   1736,   5595,
+           1261,   3121,  40172,   1317,  21294,   1261,  71829,   4057,   1408,
+           1278,   7259,   5662,   1294,   1278,   2071,   1307,   4098,   1045,
+          24613,  10217,   1626,   1293,   9825,   6255,   1395,   1317,   7137,
+           1278,  77233,   1307,   1261,   4983,   4057,   1408,   1278,   5662,
+           4098,   1045,  24613,  10217,   7259,   1046,   1531,  71829,   1710,
+           1402,   1925,   1307,   1278,  20344,   1058,   1576,   7848,   2096,
+           1576,  13297,   2096,   1576,  17854,   1676,   3333,   9528,   1032,
+           1010,   1293,   5469,   1593,   1536,   3629,   1877,   1293,   1462,
+         101460,   1576,   7848,   1039,   2342,   1693,   1278,  11157,   7259,
+          10886,   1505,   7115,  10886,  17448,   1321,   2019,  16646,   1278,
+           4983,   1435,   6298,   1626,   1293,   1462, 101460,   1576,  13297,
+           1039,   1693,   1877,   1293,   4254,   1531,  11157,   7259,  35499,
+           1115,   1505,  63518,   3741,   1278,   4983,   1626,   1293,   4254,
+           1531,   4983,   1395,  70157,   4057,   1408,   1278,  11157,   7259,
+           1626,   1293,   4254,   1531,   7259,   1395,   4382,  10824,   1505,
+          36204,   1317,   3471,   1278,   4983,   1626,   1293,   1462, 101460,
+           1576,  17854,   1676,   3333,   1039,   1693,   1278,   7259,   1395,
+          61103,   1044,  38543,   1044,   1505,  25685,  38394,   1044,   6187,
+           1494,  16501,   1317,   8497,   1693,   1278,   4983,   1395,  10886,
+           2925,   1505,   3276,   1626,   1293,  53119,  77763,   1317,   1278,
+           3629,  10469,   1877,   1293,   1462,  13516,   3686,   2342,   1562,
+           1278,  10281,   7259,   1058,  86725,  59979,   3686,   1455,   1395,
+           1605,  47210,   1536,   1278,   7259,   1046,   3213,   2188,   2210,
+           2009,   2232,   3533,   7807,   1044,   5572,   1626,   1293,   1462,
+          86725,  54272,  14019,   1626,   1293,  49287,   1278,   4005,   1294,
+           1278,   8174,   1462,  33735,   2335,   1058,   1534,   1465,  36467,
+           1561,     18,      3,   1010,   1595,  71829,   1058,  10159,   5922,
+          48337,  57429,  24499,   1394,   4974,   5128,   1032,   1053,   1045,
+           1049,   1049,   1267,   1595,  30190,   1058,   1934,   1278,  18142,
+           5922,  48337,   1278,  29689,   1327,  24499,   1394,   4974,   5128,
+           1032,   1053,   1045,   1049,   1049,   1063,   1013,   1267,   1595,
+           3450,   1058,   1435,  36237,   3675,  29689,   1327,   1045,   1049,
+           1057,  10548,   9301,   1805,   1307,   1278,  18142,  21430,  59063,
+          24499,  15021,   1294,   1032,   1053,   1045,   1049,   1049,   2637,
+          15962,   4974,   1294,   4119,   2432,   1626,   1595,  30190,   1058,
+           1032,   1395,   2156,   1261,   4811,   5972,   1394,   1278,  18142,
+           5922,   1681,  11803,   1408,   1278,  29689,   1327,  24499,   1394,
+           4974,   5128,   1032,   1053,   1045,   1049,   1049,   1063,   1013,
+           1267,   1595,   3450,   1058,   1435,  36237,   3675,  29689,   1327,
+           1045,   1049,   1057,  10548,   9301,   1805,   1307,   1278,  18142,
+          21430,  59063,  24499,  15021,   1294,   1032,   1053,   1045,   1049,
+           1049,   2637,  15962,   4974,   1294,   4119,   2432,   1626,   1595,
+          30190,   1058,   1032,   1395,   1593,  11803,  24512,   1317,   1747,
+          29689,   1327,  43097,   1505,   2342,   5029,  10907,   1394,   4974,
+           5128,   1032,   1053,   1045,   1049,   1049,   9551,   1595,   3450,
+           1058,  43097,   1584,   3246,   2095,   3144,  43889,   1394,   2210,
+           1294,   4974,   1046,   2269,   9411,  26489,   1307,   4974,  21713,
+           1032,   1053,   1045,   1049,   1049,   3351,   1454,  19829,  83997,
+          56677,  29689,   1327,      4]], device='cuda:0')
+#####################################LENGTH#########################################
+1
+The attention mask and the pad token id were not set. As a consequence, you may observe unexpected behavior. Please pass your input's `attention_mask` to obtain reliable results.
+Setting `pad_token_id` to `eos_token_id`:2 for open-end generation.
+******************************OUTPUT*****************************
+<s><s>[SYSTEM_PROMPT]
+### Instruction:
+    You are a fact-checker. You have done a fact-check to verify a Claim based on the evidence provided in the form of question-answer pair.
+    Your task is to predict the verdict of a claim based on the provided question-answer pair evidence. The Claim can be one of the labels: 'True', 'False', 'Conflicting'. 
+    Do this by following:
+    - Respond 'True' only if the relevant evidence fully or almost fully supports and verifies the claim as correct.
+    - Respond 'False' if:
+    -- The relevant evidence contradicts or disproves the claim.
+    -- The claim is misleading based on the relevant evidence.
+    -- The evidence is too weak or insufficient to support the claim.
+    - Respond 'Conflicting' if the evidence is ambiguous, incomplete, or inconclusive, making it impossible to determine if the claim is fully true or false.
+    Always adhere to the following rules:
+    - Use information only from the recorded evidence: Avoid inserting information that is not implied by the evidence. You may use commonsense knowledge, though.
+    - Avoid repeating yourself.
+    Give the response in the format - Verdict: <verdict>
+[/SYSTEM_PROMPT][INST]
+### Claim: UK government banned Covid vaccine for children age 5-11
+
+### Question: has the uk government banned the covid vaccine for children age 5-11?
+
+### Answer: as vaccination against covid-19 currently forms part of the uk pandemic estimating vaccine benefits in 5-11 year-old children in england.
+### Question:  is there a specific reason for the uk government's ban on the covid vaccine for children age 5-11?
+
+### Answer: as vaccination against covid-19 currently forms part of the uk pandemic estimating vaccine benefits in 5-11 year-old children in england.
+### Question:  is this ban applicable to all covid vaccines or only certain ones for children age 5-11?
+### Answer: vaccines are now also being authorized for use in children. some hospitalizations of children aged 5-11 years with laboratory-confirmed covid[/INST]
+### Response: Verdict: False</s>
+*************************************INPUTS****************************************
+tensor([[     1,      1,     17,   1010,   1595,  83779,   1877,   1293,   3213,
+           1584,   1261,   3121,  40172,   1258,   1046,   3213,   1736,   5595,
+           1261,   3121,  40172,   1317,  21294,   1261,  71829,   4057,   1408,
+           1278,   7259,   5662,   1294,   1278,   2071,   1307,   4098,   1045,
+          24613,  10217,   1626,   1293,   9825,   6255,   1395,   1317,   7137,
+           1278,  77233,   1307,   1261,   4983,   4057,   1408,   1278,   5662,
+           4098,   1045,  24613,  10217,   7259,   1046,   1531,  71829,   1710,
+           1402,   1925,   1307,   1278,  20344,   1058,   1576,   7848,   2096,
+           1576,  13297,   2096,   1576,  17854,   1676,   3333,   9528,   1032,
+           1010,   1293,   5469,   1593,   1536,   3629,   1877,   1293,   1462,
+         101460,   1576,   7848,   1039,   2342,   1693,   1278,  11157,   7259,
+          10886,   1505,   7115,  10886,  17448,   1321,   2019,  16646,   1278,
+           4983,   1435,   6298,   1626,   1293,   1462, 101460,   1576,  13297,
+           1039,   1693,   1877,   1293,   4254,   1531,  11157,   7259,  35499,
+           1115,   1505,  63518,   3741,   1278,   4983,   1626,   1293,   4254,
+           1531,   4983,   1395,  70157,   4057,   1408,   1278,  11157,   7259,
+           1626,   1293,   4254,   1531,   7259,   1395,   4382,  10824,   1505,
+          36204,   1317,   3471,   1278,   4983,   1626,   1293,   1462, 101460,
+           1576,  17854,   1676,   3333,   1039,   1693,   1278,   7259,   1395,
+          61103,   1044,  38543,   1044,   1505,  25685,  38394,   1044,   6187,
+           1494,  16501,   1317,   8497,   1693,   1278,   4983,   1395,  10886,
+           2925,   1505,   3276,   1626,   1293,  53119,  77763,   1317,   1278,
+           3629,  10469,   1877,   1293,   1462,  13516,   3686,   2342,   1562,
+           1278,  10281,   7259,   1058,  86725,  59979,   3686,   1455,   1395,
+           1605,  47210,   1536,   1278,   7259,   1046,   3213,   2188,   2210,
+           2009,   2232,   3533,   7807,   1044,   5572,   1626,   1293,   1462,
+          86725,  54272,  14019,   1626,   1293,  49287,   1278,   4005,   1294,
+           1278,   8174,   1462,  33735,   2335,   1058,   1534,   1465,  36467,
+           1561,     18,      3,   1010,   1595,  71829,   1058,  27336,   1785,
+           1032,   1050,   1048,   1049,   1052,   1045,   1050,   1048,   1049,
+           1053,   1093,  19552,   1394,   1278,   6554,  33639,  24499,  50357,
+           1278,   1032,   1057,   1053,   1037,   3579,   1321,   1278,  24800,
+          93097,  24499,   9174,   1032,   1057,   1049,   1046,   1053,   1037,
+           4043,   1595,  30190,   1058,   2697,   1278,  19552,   1394,   1278,
+           6554,  33639,  24499,  17717,   1278,   1032,   1057,   1053,   1037,
+           3579,   1294,   1032,   1050,   1048,   1049,   1052,   1045,   1050,
+           1048,   1049,   1053,   1063,   1013,   1010,   1032,   1010,   1595,
+           3450,   1058,   5724,   1114,  12124,  19552,   5956,   1278,  14838,
+           3306,   1032,   1050,   1048,   1050,   1048,   3579,   1307,   1032,
+           1057,   1048,  14082,  43525,  19552,   1394,   6554,  33639,  24499,
+           1486,   4057,   1408,   1032,   1050,   1505,   1032,   1051,  25223,
+           1044,  14611,   1408,   1010,   1595,  30190,   1058,   1032,   2697,
+           1278,  19552,   1394,   1278,  24800,  93097,  24499,   8132,   1032,
+           1057,   1049,   1046,   1053,   1037,   1294,   1032,   1050,   1048,
+           1049,   1052,   1045,   1050,   1048,   1049,   1053,   1063,   1013,
+           1010,   1032,   1010,   1595,   3450,   1058,   8240,   1032,   1057,
+           1058,  30100,   1294,  19552,  20828,   1394,  24800,  93097,   1042,
+          24499,   1394,  39103,   4974,   1536,   1394,  35538,   1485,   1486,
+           1032,   1057,   1049,   1046,   1053,   8630,   2015,   1562,   1032,
+           1056,   1053,   1046,   1050,   1037,   1294,   1032,   1050,   1048,
+           1049,   1050,   1046,   6320,   1595,  30190,   1058,   1032,   2697,
+           1278,  19552,   1394,   2258,   2147,  43097,   8132,   1278,   3579,
+           1294,   1032,   1050,   1048,   1049,   1052,   1045,   1050,   1048,
+           1049,   1053,   9551,   1595,   3450,   1058,   1278,   2637,   1032,
+           1050,   1048,   1049,   1052,  13949,   1278,   1032,   1052,   1048,
+           1411,  39702,   1307,   1278,   4304,   4612,  11936,   1681,   1319,
+          30778,   1041,  20473,   3467,   1408,  87629,   1044,   1799,   1486,
+           8582,   1317,  11811,   3089,   9059,   4731,   1317,  22209,  87629,
+           6591,   1319,   1049,   1577,   4136,   1032,   1049,   1057,   1055,
+           1052,   1044,   7783,  19552,   1454,   1278,   3946,   9620,  43097,
+           1319,   1098,   1413,   3344,  26517,   3390,   5243,  66045,  24499,
+           1766,  32052,   1103,   1059,   1394,  11824,   3675,  50773,   3605,
+          15018,   1104,   1781,   1485,   2848,  17591,   1374,   1045,   8913,
+           2512,   1275,   1766,  15651,   1112,   1093,  24499,   1044,  46502,
+          57562,  24499,   1044,   1321,   3713,   2013,  24499,   1041,   1934,
+           5376,   1562,   1534,   1053,   1037,   1317,   1032,   1056,   1053,
+           8630,   1321,   7481,  43097,   1736,   2151,   5949,   1317,   1278,
+          17201,  21027,   1046,  19552,   1454,   1278,   1032,   1051,   7989,
+          12124,   1307,  23705,   1112,  24499,   1319,  15651,   1112,   1051,
+           1041,   1536,   5128,   1032,   1049,   1050,   6972,   1395,   1420,
+          27058,   1307,  87629,   3467,   6103,   3147,   1494,  31825,  20843,
+           1307,   1278,  10234,  19360,  87629,  21027,   1059,  19552,   1454,
+           2147,  43097,   1044,   3907,   1278,   1032,   1051,   7989,  12124,
+           1307,  46502,  57562,  24499,   1319,  14342,   1655,   1051,   3455,
+           1278,   1032,   1049,   1314,  12124,   1307,   3713,   2013,  34348,
+          24499,   1319,   1109,  56625,   1049,   1041,   1395,   2095,  16232,
+           1046,  12092,   7783,  23705,   1112,   1051,  19552,   1934,  11092,
+           1513,   1032,   1056,   1052,   1037,   1056,   1054,   1037,   4136,
+           1032,   1050,   1048,   1048,   1057,   1044,   1454,  12092,   1032,
+           1050,   1048,   1049,   1052,  19552,   1513,   1032,   1056,   1054,
+          14082,  12092,   7783,  19552,   1394,   1278,   1032,   1050,   1298,
+          22209,  12124,   1307,   3713,   2013,  34348,  24499,   1319,   1109,
+          56625,   1050,   1041,   1486,   1032,   1051,   1056,   1037,   1536,
+           5128,   1032,   1050,   1052,   6972,   1321,   1032,   1053,   1054,
+           1037,   2200,  11190,   5128,   5200,   1722,   5656,   1044,   4510,
+           1317,   5283,   5237,   1294,   1032,   1050,   1048,   1049,   1051,
+           1319,   1051,   1054,   1037,   1321,   1032,   1053,   1053,   8630,
+           6505,   1577,   1317,   8132,   1321,  22130,   2738,  87629,  19552,
+           1294,   1747,   8641,   1044,  25844,  24499,  12169,   7981,   1321,
+           7481,  20567,   1394,  87629,   1044,   2516,   1435,   2645,  22209,
+          29751,   1294,   1278,   2667,   2637,   1307,   4129,   1044,   1584,
+          21107,   7995,   1317,  66687,  87629,  11840,   1321,  17291,  46820,
+           1321,  15876,   1562,  24499,   7495,   1638,  14060,   1046,      4]],
+       device='cuda:0')
+#####################################LENGTH#########################################
+1
+The attention mask and the pad token id were not set. As a consequence, you may observe unexpected behavior. Please pass your input's `attention_mask` to obtain reliable results.
+Setting `pad_token_id` to `eos_token_id`:2 for open-end generation.
+******************************OUTPUT*****************************
+<s><s>[SYSTEM_PROMPT]
+### Instruction:
+    You are a fact-checker. You have done a fact-check to verify a Claim based on the evidence provided in the form of question-answer pair.
+    Your task is to predict the verdict of a claim based on the provided question-answer pair evidence. The Claim can be one of the labels: 'True', 'False', 'Conflicting'. 
+    Do this by following:
+    - Respond 'True' only if the relevant evidence fully or almost fully supports and verifies the claim as correct.
+    - Respond 'False' if:
+    -- The relevant evidence contradicts or disproves the claim.
+    -- The claim is misleading based on the relevant evidence.
+    -- The evidence is too weak or insufficient to support the claim.
+    - Respond 'Conflicting' if the evidence is ambiguous, incomplete, or inconclusive, making it impossible to determine if the claim is fully true or false.
+    Always adhere to the following rules:
+    - Use information only from the recorded evidence: Avoid inserting information that is not implied by the evidence. You may use commonsense knowledge, though.
+    - Avoid repeating yourself.
+    Give the response in the format - Verdict: <verdict>
+[/SYSTEM_PROMPT][INST]
+### Claim: "[In 2014-2015] coverage for the rotavirus vaccine exceeded the 95% target and the pneumococcal vaccine reached 91.5%."
+
+### Question: did the coverage for the rotavirus vaccine exceed the 95% target in 2014-2015?
+ 
+### Answer: mmr dose coverage below the healthy people 2020 target of 90%. *** coverage for rotavirus vaccine was based on 2 or 3 doses, depending on
+### Question:  did the coverage for the pneumococcal vaccine reach 91.5% in 2014-2015?
+ 
+### Answer: figure 9: trends in coverage estimates for pneumococcal* vaccine for indigenous children by for australia was 91.5%, up from 85.2% in 2012. (
+### Question:  did the coverage for any other vaccines reach the target in 2014-2015?
+### Answer: the year 2014 marked the 40th anniversary of the world health organization's (who) expanded program on immunization, which was established to ensure equitable access to routine immunization services (1). since 1974, global coverage with the four core vaccines (bacille calmette-gurin vaccine [bcg; for protection against tuberculosis], diphtheria-tetanus-pertussis [dtp] vaccine, poliovirus vaccine, and measles vaccine) has increased from <5% to 85%, and additional vaccines have been added to the recommended schedule. coverage with the 3rd dose of dtp vaccine (dtp3) by age 12 months is an indicator of immunization program performance because it reflects completion of the basic infant immunization schedule; coverage with other vaccines, including the 3rd dose of poliovirus vaccine (polio3); the 1st dose of measles-containing vaccine (mcv1) is also assessed. estimated global dtp3 coverage has remained at 84%86% since 2009, with estimated 2014 coverage at 86%. estimated global coverage for the 2nd routine dose of measles-containing vaccine (mcv2) was 38% by age 24 months and 56% when older age groups were included, similar to levels reported in 2013 (36% and 55%, respectively). to reach and sustain high immunization coverage in all countries, adequate vaccine stock management and additional opportunities for immunization, such as through routine visits in the second year of life, are integral components to strengthening immunization programs and reducing morbidity and mortality from vaccine preventable diseases.[/INST]
+### Response: Verdict: True</s>
+*************************************INPUTS****************************************
+tensor([[     1,      1,     17,   1010,   1595,  83779,   1877,   1293,   3213,
+           1584,   1261,   3121,  40172,   1258,   1046,   3213,   1736,   5595,
+           1261,   3121,  40172,   1317,  21294,   1261,  71829,   4057,   1408,
+           1278,   7259,   5662,   1294,   1278,   2071,   1307,   4098,   1045,
+          24613,  10217,   1626,   1293,   9825,   6255,   1395,   1317,   7137,
+           1278,  77233,   1307,   1261,   4983,   4057,   1408,   1278,   5662,
+           4098,   1045,  24613,  10217,   7259,   1046,   1531,  71829,   1710,
+           1402,   1925,   1307,   1278,  20344,   1058,   1576,   7848,   2096,
+           1576,  13297,   2096,   1576,  17854,   1676,   3333,   9528,   1032,
+           1010,   1293,   5469,   1593,   1536,   3629,   1877,   1293,   1462,
+         101460,   1576,   7848,   1039,   2342,   1693,   1278,  11157,   7259,
+          10886,   1505,   7115,  10886,  17448,   1321,   2019,  16646,   1278,
+           4983,   1435,   6298,   1626,   1293,   1462, 101460,   1576,  13297,
+           1039,   1693,   1877,   1293,   4254,   1531,  11157,   7259,  35499,
+           1115,   1505,  63518,   3741,   1278,   4983,   1626,   1293,   4254,
+           1531,   4983,   1395,  70157,   4057,   1408,   1278,  11157,   7259,
+           1626,   1293,   4254,   1531,   7259,   1395,   4382,  10824,   1505,
+          36204,   1317,   3471,   1278,   4983,   1626,   1293,   1462, 101460,
+           1576,  17854,   1676,   3333,   1039,   1693,   1278,   7259,   1395,
+          61103,   1044,  38543,   1044,   1505,  25685,  38394,   1044,   6187,
+           1494,  16501,   1317,   8497,   1693,   1278,   4983,   1395,  10886,
+           2925,   1505,   3276,   1626,   1293,  53119,  77763,   1317,   1278,
+           3629,  10469,   1877,   1293,   1462,  13516,   3686,   2342,   1562,
+           1278,  10281,   7259,   1058,  86725,  59979,   3686,   1455,   1395,
+           1605,  47210,   1536,   1278,   7259,   1046,   3213,   2188,   2210,
+           2009,   2232,   3533,   7807,   1044,   5572,   1626,   1293,   1462,
+          86725,  54272,  14019,   1626,   1293,  49287,   1278,   4005,   1294,
+           1278,   8174,   1462,  33735,   2335,   1058,   1534,   1465,  36467,
+           1561,     18,      3,   1010,   1595,  71829,   1058,   1656,   5663,
+           1032,   1050,   1048,   1050,   1049,   1044,   1278,   1608,  20231,
+           1046,   5922,   9726,   2246,  21450,   1317,   4305,   1261,   1875,
+          18886,  54134,   1307,   6290,   1715,  10404,   1338,   1595,  30190,
+           1058,   1395,   1278,   1333,  23715,   1046,   5922,  15148,   1317,
+           4305,   1261,   1875,  18886,  54134,   1307,   6290,   1715,  10404,
+           1063,   1013,   1267,   1595,   3450,   1058,   1295,  31895,   1044,
+           7721,   1032,   1051,   1319,   1273,  70553,   1041,   1462,   1278,
+           9873,   2140,   5922,   2639,   1408,   2643,  20645,   1494,   1486,
+          15148,   1317,   3180,   6290,   1715,  10404,   1261,  18886,  84458,
+           1294,   4119,   2432,   2453,   1261,  14851,   1294,   1278,  73746,
+           1307,  11115,   1044,   7702,  25007,   1044,   3184,   1278,  29689,
+           1327,   1045,   1049,   1057,  21430,   1046,  81932,   1261,   6290,
+           1395,   5314,   1261,  18944,   1454,  97605,  22116,   1261,   8905,
+          29556,   1307,  11282,   3351,   1294,  12084,   1809,   1278,   1875,
+          84458,   2168,  72897,   1278,  35582,   1307,  11115,   1435,   4108,
+           1687,  35478,   1321,  42332,   1455,  84140,   1722,   2081,   2224,
+           2586,   2034,  28994,   1039,   7299,   1044,   1278,   5922,   2639,
+           1046,   1278,   1875,  84458,   1395,   1925,   1307,   1261,   2782,
+           1307,  28063,   1562,   1261,   3463,   1536,   1278,   6290,  73746,
+           6255,  17271,   1799,   1278,   5922,   2016,   2015,   1294,   2188,
+           1317,  20189,   1278,   6769,   1626,   1595,  30190,   1058,   1032,
+           1395,   1278,  46263,   1307,  11851,   1261,   1875,  18886,  54134,
+           1307,   6290,   1715,  10404,   8531,   1063,   1013,   1267,   1595,
+           3450,   1058,   1278,  16099,   1307,   1261,   1875,   6290,   1715,
+          10404,  84458,   1058,   6290,  73746,   1395,  10548,   9818,   1435,
+           1261,   6410,   1307,   7299,   1317,   1278,  16692,   1044,   1809,
+           1729,   2840,   1455,   3120,   1605,  10235,   1278,   2925,  23759,
+           1307,   1593,  18944,   1046,   1278,   1875,  84458,   2084,  54628,
+           2087,   1278,  35582,   1307,   2948,  84140,   1435,   4108,   1687,
+          35478,   1321,  72897,   1278,  20120,  33662,   1317,   1278,  11386,
+           1294,   3988,   1317,   2246,  16692,   1046,   1261,   1875,  18886,
+          84458,   1394,   6290,   1715,  10404,   1395,   2016,   1317,   1402,
+          10939,   2425,   5922,  13449,   1317,  19226,   3151,   1408,   6290,
+          73746,   3629,   1261,   5237,  14851,   1294,  84140,   3144,  49879,
+           3184,   1278,  21430,   1046,   1278,   1875,   5622,   2084,  72897,
+           1278,  35582,   1307,  11115,   1321,   1455,  84140,   1584,  55138,
+           1435,   2081,   2224,   7299,   1046,   4590,  40218,   1517,   6770,
+           2350,   1299,   2639,   1058,  81932,   1261,   6290,   1395,   1420,
+          62273,  18944,   1799,   1710,   6706,  13187,   4824,  20120,  33662,
+          33044,   3690,   1718,  80515,   3110,   2034,  60027,   1046,   1278,
+           1875,  84458,   1307,   6290,   1715,  10404, 106714,   1455,  11115,
+           1584,   4955,   2081,   2224,   2586,   7299,   1321,   2084,   5628,
+          10012,   1420,   7481,   9519,   1317,   8548,   2576,  23534,   7081,
+           8833,   1317,  18675,   1046,   1513,   1278,   2879,   2142,   1044,
+          10012,   2084,   8214,   1317,   2196,   1317,  14761,  25257,   2314,
+           2606,  28994,   1710,   3560,   1317,   9656,  84140,   1562,   3144,
+          23977,   1626,   1595,  30190,   1058,   1032,   2084,   1278,   1875,
+          18886,  54134,   2342,  11145,   1317,   6290,   1715,  10404,   5443,
+           9551,   1595,   3450,   1058,   1261,   1875,  18886,  84458,   1394,
+           6290,   1715,  10404,   1395,   2016,   1317,   1402,  10939,   2425,
+           5922,  13449,   1317,  19226,   3151,   1408,   6290,  73746,   3629,
+           1261,   5237,  14851,   1294,  84140,   3144,  49879,   3184,   1278,
+          21430,   1046,   1278,   1875,   5622,   2084,  72897,   1278,  35582,
+           1307,  11115,   1321,   1455,  84140,   1584,  55138,   1435,   2081,
+           2224,   7299,   1046,   1278,  16099,   1307,   1261,   1875,   6290,
+           1715,  10404,  84458,   1058,   6290,  73746,   1395,  10548,   9818,
+           1435,   1261,   6410,   1307,   7299,   1317,   1278,  16692,   1044,
+           1809,   1729,   2840,   1455,   3120,   1605,  10235,   1278,   2925,
+          23759,   1307,   1593,  18944,   1046,   1278,   1875,  84458,   2084,
+          54628,   2087,   1278,  35582,   1307,   2948,  84140,   1435,   4108,
+           1687,  35478,   1321,  72897,   1278,  20120,  33662,   1317,   1278,
+          11386,   1294,   3988,   1317,   2246,  16692,   1046,      4]],
+       device='cuda:0')
+#####################################LENGTH#########################################
+1
+The attention mask and the pad token id were not set. As a consequence, you may observe unexpected behavior. Please pass your input's `attention_mask` to obtain reliable results.
+Setting `pad_token_id` to `eos_token_id`:2 for open-end generation.
+******************************OUTPUT*****************************
+<s><s>[SYSTEM_PROMPT]
+### Instruction:
+    You are a fact-checker. You have done a fact-check to verify a Claim based on the evidence provided in the form of question-answer pair.
+    Your task is to predict the verdict of a claim based on the provided question-answer pair evidence. The Claim can be one of the labels: 'True', 'False', 'Conflicting'. 
+    Do this by following:
+    - Respond 'True' only if the relevant evidence fully or almost fully supports and verifies the claim as correct.
+    - Respond 'False' if:
+    -- The relevant evidence contradicts or disproves the claim.
+    -- The claim is misleading based on the relevant evidence.
+    -- The evidence is too weak or insufficient to support the claim.
+    - Respond 'Conflicting' if the evidence is ambiguous, incomplete, or inconclusive, making it impossible to determine if the claim is fully true or false.
+    Always adhere to the following rules:
+    - Use information only from the recorded evidence: Avoid inserting information that is not implied by the evidence. You may use commonsense knowledge, though.
+    - Avoid repeating yourself.
+    Give the response in the format - Verdict: <verdict>
+[/SYSTEM_PROMPT][INST]
+### Claim: In September 2021, the U.K. government announced its intention to create a new criminal offense of pet abduction.
+
+### Question: is the u.k. government planning to create a new criminal offense of pet abduction?
+
+### Answer: london, sept 3 (reuters) - the british government said on friday it was planning to make pet abduction a criminal offence in england after a rise in the theft of animals, especially dogs, during the covid-19 pandemic. stealing a pet is already a crime with offenders facing a maximum penalty of seven years in prison but the new offence would recognise the welfare of animals as sentient beings and acknowledge that pets were more than just their owners' property, the government said. the new offence is one of a number of recommendations from a report by the pet theft taskforce which the government set up in may to examine the issue.
+### Question:  is the announcement of creating a new criminal offense of pet abduction recent?
+
+### Answer: the creation of a new pet abduction offence: pet theft is currently treated as a loss of property to the owner, but we know that does not reflect the true severity of this crime. the new offence will prioritise the welfare of our pets as sentient beings and recognise the emotional distress to the animal in addition to its owner. a new criminal offence for pet abduction is set to be introduced under government plans to crack down on pet theft following a reported rise in pets being stolen during the pandemic. the new law will recognise the welfare of animals and that pets are valued as more than property. home secretary priti patel said: stealing a pet is an awful crime which can cause families great emotional distress whilst callous criminals line their pockets. the new offence of pet abduction acknowledges that animals are far more than just property and will give police an additional tool to bring these sickening individuals to justice. at the same time, police will continue to work to raise awareness about how owners can best to protect pets from being targeted.
+### Question:  will the new criminal offense only apply to pet abduction cases?
+### Answer: a new criminal offence for pet abduction is set to be introduced under government plans to crack down on pet theft following a reported rise in pets being stolen during the pandemic. the new law will recognise the welfare of animals and that pets are valued as more than property. the creation of a new pet abduction offence: pet theft is currently treated as a loss of property to the owner, but we know that does not reflect the true severity of this crime. the new offence will prioritise the welfare of our pets as sentient beings and recognise the emotional distress to the animal in addition to its owner.[/INST]
+### Response: Verdict: True</s>
+[... 238467 lines omitted from the original log ...]
+*************************************INPUTS****************************************
+tensor([[     1,      1,     17,   1010,   1595,  83779,   1877,   1293,   3213,
+           1584,   1261,   3121,  40172,   1258,   1046,   3213,   1736,   5595,
+           1261,   3121,  40172,   1317,  21294,   1261,  71829,   4057,   1408,
+           1278,   7259,   5662,   1294,   1278,   2071,   1307,   4098,   1045,
+          24613,  10217,   1626,   1293,   9825,   6255,   1395,   1317,   7137,
+           1278,  77233,   1307,   1261,   4983,   4057,   1408,   1278,   5662,
+           4098,   1045,  24613,  10217,   7259,   1046,   1531,  71829,   1710,
+           1402,   1925,   1307,   1278,  20344,   1058,   1576,   7848,   2096,
+           1576,  13297,   2096,   1576,  17854,   1676,   3333,   9528,   1032,
+           1010,   1293,   5469,   1593,   1536,   3629,   1877,   1293,   1462,
+         101460,   1576,   7848,   1039,   2342,   1693,   1278,  11157,   7259,
+          10886,   1505,   7115,  10886,  17448,   1321,   2019,  16646,   1278,
+           4983,   1435,   6298,   1626,   1293,   1462, 101460,   1576,  13297,
+           1039,   1693,   1877,   1293,   4254,   1531,  11157,   7259,  35499,
+           1115,   1505,  63518,   3741,   1278,   4983,   1626,   1293,   4254,
+           1531,   4983,   1395,  70157,   4057,   1408,   1278,  11157,   7259,
+           1626,   1293,   4254,   1531,   7259,   1395,   4382,  10824,   1505,
+          36204,   1317,   3471,   1278,   4983,   1626,   1293,   1462, 101460,
+           1576,  17854,   1676,   3333,   1039,   1693,   1278,   7259,   1395,
+          61103,   1044,  38543,   1044,   1505,  25685,  38394,   1044,   6187,
+           1494,  16501,   1317,   8497,   1693,   1278,   4983,   1395,  10886,
+           2925,   1505,   3276,   1626,   1293,  53119,  77763,   1317,   1278,
+           3629,  10469,   1877,   1293,   1462,  13516,   3686,   2342,   1562,
+           1278,  10281,   7259,   1058,  86725,  59979,   3686,   1455,   1395,
+           1605,  47210,   1536,   1278,   7259,   1046,   3213,   2188,   2210,
+           2009,   2232,   3533,   7807,   1044,   5572,   1626,   1293,   1462,
+          86725,  54272,  14019,   1626,   1293,  49287,   1278,   4005,   1294,
+           1278,   8174,   1462,  33735,   2335,   1058,   1534,   1465,  36467,
+           1561,     18,      3,   1010,   1595,  71829,   1058,   1429, 124531,
+           6427,   1681,  16892,   6793,  50644,   2921,   8567,  24729,   4955,
+           4958,   1307,   1278,  48745,  17201,  16892,   6793,  50644,   2921,
+           8567,   1307,   1032,   1049,   1058,   1054,   1048,   1048,   4043,
+           1595,  30190,   1058,   1395,  66462,   6427,   1681,  16892,   6793,
+          50644,   2921,   8567,   5956,   1278,   2274,  17201,   8567,   1063,
+           1013,   1267,   1595,   3450,   1058,   4983,   1058,  66462,   6427,
+           1681,  16892,   6793,  50644,   2921,   8567,  24729,   4955,   4958,
+           1307,   1278,   2274,  17201,  16892,   6793,  50644,   2921,   8567,
+           1307,   1032,   1049,   1058,   1054,   1048,   1048,   1046,  77233,
+           1058,  25342,   7155,  20213,   1595,  30190,   1058,   1032,   3120,
+          66462,   6427,   1736,   1261,   2738,   2782,   1307,  35128,   1651,
+          55662,   1063,   1013,   1267,   1595,   3450,   1058,   1514,   2639,
+           1455,  66462,   6427,   1934,   1261,  16892,   6793,   4595,  44199,
+           8567,   1307,   1925,  16892,   1317,   1032,   1052,   1048,   1048,
+           1048,   1045,   1053,   1048,   1048,   1048,   3358,   6302,   1307,
+           1278,   1925,  16892,   1317,   1032,   1054,   1048,   1048,   6482,
+           8567,  17201,   1536,   1278,   4304,   4612,  26877,   1319,  30778,
+           1577,   1278,   1308,   1831,   2095,   9844,   1455,  66462,   6427,
+          10548,   1934,   1261,  16892,   6793,   4595,  44199,   8567,   1307,
+           1925,  16892,   1317,   1032,   1052,   1048,   1048,   1048,   1045,
+           1053,   1048,   1048,   1048,   3358,   6302,   1307,   1278,   1925,
+          16892,   1317,   1032,   1054,   1048,   1048,   6482,   8567,  17201,
+           1536,   1278,   4304,   4612,  26877,   1319,  30778,   1577,   5444,
+           1044,   1278,  10233,   1307,   1308,   1831,   1044,   3047,   1333,
+           1837,   1281,  54464,   1109,   1816,   2639,   2156,   1584,   2342,
+           1032,   1050,   1048,   1044,   1032,   1048,   1048,   1048,   1317,
+           1032,   1051,   1048,   1044,   1048,   1048,   1048,   9371,  35128,
+          10548,   4972,   5091,   1294,  66462,   6427,   1848,   1307,   1278,
+           2314,   1032,   1056,   1048,   1044,   1048,   1048,   1048,  20083,
+           1454,   1278,   9371,   1321,  33891,  23968,   1307,  66462,   6427,
+           1319,  10442,  18170,   1041,   4136,   1032,   1049,   1057,   1054,
+           1048,   1317,   5451,   1626,   1595,  30190,   1058,   1032,   1395,
+           1278,   2274,   1681,  17201,  16892,   6793,  50644,   2921,   8567,
+           1032,   1049,   1058,   1054,   1048,   1048,   9551,   1595,   3450,
+           1058,  35128,   1046,   1278,  16892,   4669,   8567,   1294,   1032,
+           1050,   1048,   1049,   1057,   1045,   1050,   1048,   1486,   1032,
+           1049,   1058,   1049,   1052,   1053,   1054,   1059,   3675,   1278,
+           2274,  17201,   3178,   1307,   1032,   1049,   1058,   1049,   1048,
+           1048,   1048,   1046,   2645,   1278,   1420,   2418,   1119,   3614,
+           2663,   1044,   1278,   6816,   1395,      4]], device='cuda:0')
+#####################################LENGTH#########################################
+1
+The attention mask and the pad token id were not set. As a consequence, you may observe unexpected behavior. Please pass your input's `attention_mask` to obtain reliable results.
+Setting `pad_token_id` to `eos_token_id`:2 for open-end generation.
+******************************OUTPUT*****************************
+<s><s>[SYSTEM_PROMPT]
+### Instruction:
+    You are a fact-checker. You have done a fact-check to verify a Claim based on the evidence provided in the form of question-answer pair.
+    Your task is to predict the verdict of a claim based on the provided question-answer pair evidence. The Claim can be one of the labels: 'True', 'False', 'Conflicting'. 
+    Do this by following:
+    - Respond 'True' only if the relevant evidence fully or almost fully supports and verifies the claim as correct.
+    - Respond 'False' if:
+    -- The relevant evidence contradicts or disproves the claim.
+    -- The claim is misleading based on the relevant evidence.
+    -- The evidence is too weak or insufficient to support the claim.
+    - Respond 'Conflicting' if the evidence is ambiguous, incomplete, or inconclusive, making it impossible to determine if the claim is fully true or false.
+    Always adhere to the following rules:
+    - Use information only from the recorded evidence: Avoid inserting information that is not implied by the evidence. You may use commonsense knowledge, though.
+    - Avoid repeating yourself.
+    Give the response in the format - Verdict: <verdict>
+[/SYSTEM_PROMPT][INST]
+### Claim: "Nigeria's doctor-to-population ratio falls far short of the WHO recommended doctor-to-population ratio of 1:600."
+
+### Question: is nigeria's doctor-to-population ratio below the who recommended ratio?
+
+### Answer: claim: nigeria's doctor-to-population ratio falls far short of the who recommended doctor-to-population ratio of 1:600. verdict: incorrect https ...
+### Question:  does nigeria have a high number of doctors per capita?
+
+### Answer: he said that nigeria has a doctor-to-patient ratio of one doctor to 4000-5000 patients instead of the one doctor to 600 patient ratio recommended by the world health organisation (who). the nma also revealed that nigeria currently has a doctor-to-patient ratio of one doctor to 4000-5000 patients instead of the one doctor to 600 patient ratio recommended by the world health organisation (who). however, the president of nma, dr uche ojinmah said there are only 20, 000 to 30,000 medical doctors currently practising in nigeria out of the about 80,000 registered with the medical and dental council of nigeria (mdcn) since 1960 to date.
+### Question:  is the who's recommended doctor-to-population ratio 1:600?
+### Answer: doctors. the doctor population ratio in 2019-20 was 1:1456; against the who recommended level of 1:1000. through the anganwadi system, the country is[/INST]
+### Response: Verdict: False</s>
+*************************************INPUTS****************************************
+tensor([[     1,      1,     17,   1010,   1595,  83779,   1877,   1293,   3213,
+           1584,   1261,   3121,  40172,   1258,   1046,   3213,   1736,   5595,
+           1261,   3121,  40172,   1317,  21294,   1261,  71829,   4057,   1408,
+           1278,   7259,   5662,   1294,   1278,   2071,   1307,   4098,   1045,
+          24613,  10217,   1626,   1293,   9825,   6255,   1395,   1317,   7137,
+           1278,  77233,   1307,   1261,   4983,   4057,   1408,   1278,   5662,
+           4098,   1045,  24613,  10217,   7259,   1046,   1531,  71829,   1710,
+           1402,   1925,   1307,   1278,  20344,   1058,   1576,   7848,   2096,
+           1576,  13297,   2096,   1576,  17854,   1676,   3333,   9528,   1032,
+           1010,   1293,   5469,   1593,   1536,   3629,   1877,   1293,   1462,
+         101460,   1576,   7848,   1039,   2342,   1693,   1278,  11157,   7259,
+          10886,   1505,   7115,  10886,  17448,   1321,   2019,  16646,   1278,
+           4983,   1435,   6298,   1626,   1293,   1462, 101460,   1576,  13297,
+           1039,   1693,   1877,   1293,   4254,   1531,  11157,   7259,  35499,
+           1115,   1505,  63518,   3741,   1278,   4983,   1626,   1293,   4254,
+           1531,   4983,   1395,  70157,   4057,   1408,   1278,  11157,   7259,
+           1626,   1293,   4254,   1531,   7259,   1395,   4382,  10824,   1505,
+          36204,   1317,   3471,   1278,   4983,   1626,   1293,   1462, 101460,
+           1576,  17854,   1676,   3333,   1039,   1693,   1278,   7259,   1395,
+          61103,   1044,  38543,   1044,   1505,  25685,  38394,   1044,   6187,
+           1494,  16501,   1317,   8497,   1693,   1278,   4983,   1395,  10886,
+           2925,   1505,   3276,   1626,   1293,  53119,  77763,   1317,   1278,
+           3629,  10469,   1877,   1293,   1462,  13516,   3686,   2342,   1562,
+           1278,  10281,   7259,   1058,  86725,  59979,   3686,   1455,   1395,
+           1605,  47210,   1536,   1278,   7259,   1046,   3213,   2188,   2210,
+           2009,   2232,   3533,   7807,   1044,   5572,   1626,   1293,   1462,
+          86725,  54272,  14019,   1626,   1293,  49287,   1278,   4005,   1294,
+           1278,   8174,   1462,  33735,   2335,   1058,   1534,   1465,  36467,
+           1561,     18,      3,   1010,   1595,  71829,   1058,  10473,   1278,
+         117004,   1269,   1507,   8740,   1945,  24505,   1044,  22280,   1366,
+          66264,   1486,   5753,   1454,   3792,   1366,   4263,   2301,   4504,
+           6828,   1263,   3230,   1044,   1278,   8227,   2274,   1486,  27792,
+           1394,  11051,   1576,  92056,   9994,   2163,   1629,  31126,   1039,
+           3184,   1420,   7346,   5849,  14229,  52047,   1294,   1032,   1050,
+           1048,   1050,   1048,   1338,   1595,  30190,   1058,   1486,   2093,
+          80089,   1343,   1421,   8101,   2988,   3184,   1278,   1289,  15746,
+           1269,   1475,   8740,   1404,  24505,   1063,   1013,   1267,   1595,
+           3450,   1058,  64558,   1681,   1289,  15746,   1269,   1475,   8740,
+           1404,  24505,   6990,   1562,   1409,  30217,   1403,   1859,   1321,
+          13955,   1294,   1265,  15306,  41645,   1294,  27504,   1760,   1032,
+           1050,   1048,   1050,   1051,   8925,   1049,   1093,   1289,  15746,
+           1269,   1475,   8740,   1404,  24505,  13875,   1032,   1052,   1044,
+           1048,   1056,   1048,  47347,   1319,   1050,   1044,   1053,   1052,
+           1048,  14079,   1041,   2247,   1091,   1050,   1093,   2156,   1584,
+           4631,  94664,   2396,   1278,  64558,   1681,   1576,   1098,  15746,
+           1269,   1475,   8740,   1404,  24505,   1039,   1321,   1480,   1045,
+           8658,  16451,   1307, 107806,   1528,  26912,   2165,   1107,  15746,
+           1681,  12254,   1032,   1052,   1044,   1050,   1054,   1048,  47347,
+          44164,   1289,  15746,   1269,   1404,  24505,   1294,   1032,   1049,
+           1057,   1056,   1051,   8925,   1051,   5371,   1052,   5371,   1053,
+           1093,   2093,  80089,   1343,   1421,   8101,   1321,   1278,  21279,
+          42806,   1278,   1032,   1049,   1053,   1051,   7989,  11573,  39702,
+           1307,  30750,   1269,   1831,   1343,   1421,   8101,   1513,   8143,
+           1271,   1430,  32570,   1044,   1261,  11525,   1278,  12207,   1880,
+          21643,   1294,   1032,   1049,   1057,   1050,   1055,   8925,   1049,
+           1055,   1093,   2093,  80089,   1343,   1421,   8101, 125461,   1454,
+           1278,   5343,   1729, 119348,   1513,   1278,   4640,   3614,  22285,
+          11371,   2156,   1321,   2095,  23173,   1278,   3804,  34623,   1307,
+           1261,   1032,   1049,   1056,   1048,  83142,   2730,   9480,   1455,
+           9779,   8822,   2295,  15930,   2274,   1880,   2151,   1513,  19905,
+          80760,   1454,   2744,   2147,   1294,   1278,  11525,   4136,   1032,
+           1049,   1057,   1057,   1051,   1046,   1408,   1032,   1051,   8554,
+           6049,   1032,   1050,   1048,   1050,   1050,   1044,  64558,   8967,
+          19295,   2246,   1289,  15746,   1269,   1475,   8740,   2118,   1317,
+           5234,   1747,   1278,   3686,   2314,   1278,   1289,  15746,   1269,
+           1475,   8740,   1404,  24505,   8925,   1049,   1056,   5371,   1049,
+           1057,   1093,   2376,   1485,   1343,   1421,   8101,   1044,  63074,
+          10233,   1307,   1278,  64558,   8967,   1044,  13392,   1278,   1289,
+          15746,   1269,   1475,   8740,   1404,  24505,   1294,   1409,   4021,
+         111222,   1408,   1032,   1054,   8554,   6049,   1032,   1050,   1048,
+           1050,   1050,   1046,  12890,   5019,  20423,   3495,   1455,  31289,
+           1853,   1562,  36910,   1294,   2065,   1294,   1032,   1050,   1048,
+           1050,   1050,   1044,   2165,  94039,   1261,  46340,  21279,   4837,
+           1454,   1404,  24505,   9803,   1394,   1261,   3016,   1044,   1853,
+           2158,   2065,   9480,   9761,   4136,   1925,   1294,   1032,   1050,
+           1048,   1049,   1054,   1294,   2841,   1271,   5809,   8925,   1050,
+           1048,   2820,   1595,  30190,   1058,   1032,   1486,   1855,   1366,
+           4263,   1459,   4504,   6685,   1263,   3230,  27792,   1394,  11051,
+           1576,  65596,   9994,   1554,   1629,  31126,   1039,   3184,   1420,
+           7346,   1045,   3173,   1097,  52047,   1063,   1013,   1267,   1595,
+           3450,   1058,   1289,   2031,   1279,  20836,   1044,  14248,   1032,
+           1050,   1050,   1058,   1855,   1366,   4263,   1459,   4504,   6685,
+           1263,   3230,   1044,   1420,   7346,   3591,   1276,  69406,   3218,
+          64521,   2108,   1319,   3173,   1097,   1041,  60391,   1044,   2274,
+          11106,   1286,  21753,   2453,  82178,   1576,  65596,   9994,   1554,
+           1629,  31126,   2913,   1595,  30190,   1058,   1032,   2697,   2093,
+          80089,   1343,   1421,   8101,  18425,   1454,   1855,   1366,   4263,
+           1459,   4504,   6685,   1263,   3230,   3184,   1278,   1289,  15746,
+           1269,   1475,   8740,   1404,  24505,   9551,   1595,   3450,   1058,
+           1261,  16649,   1307,   2093,  80089,   1343,   1421,   8101,   4837,
+           1454,   1261,   6552,   8227,  13485,   1722,   6965,   5753, 127870,
+           1486,  11518,   2147,   2224,   1855,   1366,   4263,   1459,   4504,
+           6685,   1263,   3230,   1044,   1261,  10385,   1562,      4]],
+       device='cuda:0')
+#####################################LENGTH#########################################
+1
+The attention mask and the pad token id were not set. As a consequence, you may observe unexpected behavior. Please pass your input's `attention_mask` to obtain reliable results.
+Setting `pad_token_id` to `eos_token_id`:2 for open-end generation.
+******************************OUTPUT*****************************
+<s><s>[SYSTEM_PROMPT]
+### Instruction:
+    You are a fact-checker. You have done a fact-check to verify a Claim based on the evidence provided in the form of question-answer pair.
+    Your task is to predict the verdict of a claim based on the provided question-answer pair evidence. The Claim can be one of the labels: 'True', 'False', 'Conflicting'. 
+    Do this by following:
+    - Respond 'True' only if the relevant evidence fully or almost fully supports and verifies the claim as correct.
+    - Respond 'False' if:
+    -- The relevant evidence contradicts or disproves the claim.
+    -- The claim is misleading based on the relevant evidence.
+    -- The evidence is too weak or insufficient to support the claim.
+    - Respond 'Conflicting' if the evidence is ambiguous, incomplete, or inconclusive, making it impossible to determine if the claim is fully true or false.
+    Always adhere to the following rules:
+    - Use information only from the recorded evidence: Avoid inserting information that is not implied by the evidence. You may use commonsense knowledge, though.
+    - Avoid repeating yourself.
+    Give the response in the format - Verdict: <verdict>
+[/SYSTEM_PROMPT][INST]
+### Claim: During the Bharat Jodo Yatra, Rahul Gandhi was seen with Amulya Leona Noronha, the woman who was arrested for saying 'Pakistan Zindabad' during an anti-CAA rally in 2020.
+
+### Question: was rahul gandhi present during the bharat jodo yatra?
+
+### Answer: congress's bharat jodo yatra started from kanyakumari and ended in srinagar in january 2023.[1] bharat jodo yatra covered 4,080 kilometres (2,540 miles) .[2] there are several parallels between the congress's 'bharat jodo yatra' and ex-prime minister of india chandra shekhar's nearly 4,260 kilometres-long bharat yatra in 1983.[3][4][5] rahul gandhi and the march celebrated the 153rd birth anniversary of mahatma gandhi at badanavalu, a village the latter had visited in 1927.[17] rahul gandhi interacted with the women weavers at the khadi manufacturing centre there and also laid the last stretch of a 180 metre long road that finally connected two communities who had been at loggerheads with each other in the village since 1993. on 3 october 2022, congress party launched its bharat jodo app to provide all the information about the bharat jodo yatra.[18][19] sonia gandhi, interim president of the congress party, joined the bharat jodo yatra in karnataka on 6 october 2022. despite ill-health that prevented her from appearing in public in 2022, she undertook a symbolic march along with yatra participants for a while, her first public roadshow since one in 2016 in varanasi.[20]
+### Question:  was amulya leona noronha arrested for saying 'pakistan zindabad' during an anti-caa rally?
+
+### Answer: bengaluru, feb 22: amulya leona noronha, an anti-citizenship amendment act (caa) activist, who courted arrest after shouting 'pakistan zindabad'
+### Question:  did rahul gandhi interact with amulya leona noronha during the bharat jodo yatra?
+### Answer: a photo of rahul gandhi along with a young woman leader were doing seen posing was none other than amulya leona noronha, a student from[/INST]
+### Response: Verdict: False</s>
