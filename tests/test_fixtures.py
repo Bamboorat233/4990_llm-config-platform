@@ -20,7 +20,12 @@ PHASES = {
     "inference": ["setup", "data_preparation", "generation", "verdict_output"],
     "checkpoint_export": ["setup", "model_saving"],
 }
-CJK = re.compile("[぀-ヿ㐀-䶿一-鿿가-힯]")
+CJK_RANGES = ((0x3000, 0x303F), (0x3040, 0x30FF), (0x3400, 0x4DBF), (0x4E00, 0x9FFF),
+              (0xF900, 0xFAFF), (0xAC00, 0xD7AF))  # same ranges as .github/scripts/check_no_cjk.py
+
+
+def has_cjk(text):
+    return any(lo <= ord(c) <= hi for c in text for lo, hi in CJK_RANGES)
 
 
 def test_sixteen_fixtures_and_expected_cover_them():
@@ -35,7 +40,7 @@ def test_file_rules(name):
     assert raw.count(b"\r\n") > 0, "CRLF must be preserved"
     assert raw.count(b"\n") == raw.count(b"\r\n"), "mixed line endings"
     text = raw.decode("utf-8")
-    assert not CJK.search(text), "no CJK characters (the full-width bar is allowed)"
+    assert not has_cjk(text), "no CJK characters (the full-width bar is allowed)"
     assert "gaganm" not in text and not re.search(r"/project/(?!0000000)\d+", text)
 
 
