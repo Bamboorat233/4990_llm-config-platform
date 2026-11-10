@@ -1,0 +1,394 @@
+{
+  "s01_inference_error.log": {
+    "family": "inference",
+    "status": "error",
+    "failed_phase": "setup",
+    "phases": [
+      {
+        "name": "setup",
+        "outcome": "failed"
+      },
+      {
+        "name": "data_preparation",
+        "outcome": "not_reached"
+      },
+      {
+        "name": "generation",
+        "outcome": "not_reached"
+      },
+      {
+        "name": "verdict_output",
+        "outcome": "not_reached"
+      }
+    ],
+    "output_format": null,
+    "warnings": 0
+  },
+  "s02_inference_success.log": {
+    "family": "inference",
+    "status": "success",
+    "failed_phase": null,
+    "phases": [
+      {
+        "name": "setup",
+        "outcome": "succeeded"
+      },
+      {
+        "name": "data_preparation",
+        "outcome": "succeeded"
+      },
+      {
+        "name": "generation",
+        "outcome": "succeeded"
+      },
+      {
+        "name": "verdict_output",
+        "outcome": "succeeded"
+      }
+    ],
+    "output_format": "banner",
+    "warnings": 0
+  },
+  "s03_inference_success.log": {
+    "family": "inference",
+    "status": "success",
+    "failed_phase": null,
+    "phases": [
+      {
+        "name": "setup",
+        "outcome": "succeeded"
+      },
+      {
+        "name": "data_preparation",
+        "outcome": "succeeded"
+      },
+      {
+        "name": "generation",
+        "outcome": "succeeded"
+      },
+      {
+        "name": "verdict_output",
+        "outcome": "succeeded"
+      }
+    ],
+    "output_format": "banner",
+    "warnings": 0
+  },
+  "s04_inference_success.log": {
+    "family": "inference",
+    "status": "success",
+    "failed_phase": null,
+    "phases": [
+      {
+        "name": "setup",
+        "outcome": "succeeded"
+      },
+      {
+        "name": "data_preparation",
+        "outcome": "succeeded"
+      },
+      {
+        "name": "generation",
+        "outcome": "succeeded"
+      },
+      {
+        "name": "verdict_output",
+        "outcome": "succeeded"
+      }
+    ],
+    "output_format": "think",
+    "warnings": 0
+  },
+  "s05_inference_error.log": {
+    "family": "inference",
+    "status": "error",
+    "failed_phase": "generation",
+    "phases": [
+      {
+        "name": "setup",
+        "outcome": "succeeded"
+      },
+      {
+        "name": "data_preparation",
+        "outcome": "succeeded"
+      },
+      {
+        "name": "generation",
+        "outcome": "failed"
+      },
+      {
+        "name": "verdict_output",
+        "outcome": "not_reached"
+      }
+    ],
+    "output_format": "banner",
+    "warnings": 0
+  },
+  "s06_inference_error.log": {
+    "family": "inference",
+    "status": "error",
+    "failed_phase": "generation",
+    "phases": [
+      {
+        "name": "setup",
+        "outcome": "succeeded"
+      },
+      {
+        "name": "data_preparation",
+        "outcome": "succeeded"
+      },
+      {
+        "name": "generation",
+        "outcome": "failed"
+      },
+      {
+        "name": "verdict_output",
+        "outcome": "not_reached"
+      }
+    ],
+    "output_format": null,
+    "warnings": 0
+  },
+  "s07_inference_success.log": {
+    "family": "inference",
+    "status": "success",
+    "failed_phase": null,
+    "phases": [
+      {
+        "name": "setup",
+        "outcome": "succeeded"
+      },
+      {
+        "name": "data_preparation",
+        "outcome": "succeeded"
+      },
+      {
+        "name": "generation",
+        "outcome": "succeeded"
+      },
+      {
+        "name": "verdict_output",
+        "outcome": "succeeded"
+      }
+    ],
+    "output_format": "table_only",
+    "warnings": 0
+  },
+  "s08_fine_tune_error.log": {
+    "family": "fine_tune",
+    "status": "error",
+    "failed_phase": "setup",
+    "phases": [
+      {
+        "name": "setup",
+        "outcome": "failed"
+      },
+      {
+        "name": "fine_tuning",
+        "outcome": "not_reached"
+      },
+      {
+        "name": "checkpoint_creation",
+        "outcome": "not_reached"
+      },
+      {
+        "name": "model_saving",
+        "outcome": "not_reached"
+      }
+    ],
+    "output_format": null,
+    "warnings": 0
+  },
+  "s09_fine_tune_error.log": {
+    "family": "fine_tune",
+    "status": "error",
+    "failed_phase": "setup",
+    "phases": [
+      {
+        "name": "setup",
+        "outcome": "failed"
+      },
+      {
+        "name": "fine_tuning",
+        "outcome": "not_reached"
+      },
+      {
+        "name": "checkpoint_creation",
+        "outcome": "not_reached"
+      },
+      {
+        "name": "model_saving",
+        "outcome": "not_reached"
+      }
+    ],
+    "output_format": null,
+    "warnings": 0
+  },
+  "s10_fine_tune_error.log": {
+    "family": "fine_tune",
+    "status": "error",
+    "failed_phase": "fine_tuning",
+    "phases": [
+      {
+        "name": "setup",
+        "outcome": "succeeded"
+      },
+      {
+        "name": "fine_tuning",
+        "outcome": "failed"
+      },
+      {
+        "name": "checkpoint_creation",
+        "outcome": "not_reached"
+      },
+      {
+        "name": "model_saving",
+        "outcome": "not_reached"
+      }
+    ],
+    "output_format": null,
+    "warnings": 0
+  },
+  "s11_fine_tune_error.log": {
+    "family": "fine_tune",
+    "status": "error",
+    "failed_phase": "setup",
+    "phases": [
+      {
+        "name": "setup",
+        "outcome": "failed"
+      },
+      {
+        "name": "fine_tuning",
+        "outcome": "not_reached"
+      },
+      {
+        "name": "checkpoint_creation",
+        "outcome": "not_reached"
+      },
+      {
+        "name": "model_saving",
+        "outcome": "not_reached"
+      }
+    ],
+    "output_format": null,
+    "warnings": 0
+  },
+  "s12_fine_tune_success_warning.log": {
+    "family": "fine_tune",
+    "status": "success",
+    "failed_phase": "model_saving",
+    "phases": [
+      {
+        "name": "setup",
+        "outcome": "succeeded"
+      },
+      {
+        "name": "fine_tuning",
+        "outcome": "succeeded"
+      },
+      {
+        "name": "checkpoint_creation",
+        "outcome": "succeeded"
+      },
+      {
+        "name": "model_saving",
+        "outcome": "failed"
+      }
+    ],
+    "output_format": null,
+    "warnings": 1
+  },
+  "s13_checkpoint_export_success.log": {
+    "family": "checkpoint_export",
+    "status": "success",
+    "failed_phase": null,
+    "phases": [
+      {
+        "name": "setup",
+        "outcome": "succeeded"
+      },
+      {
+        "name": "model_saving",
+        "outcome": "succeeded"
+      }
+    ],
+    "output_format": null,
+    "warnings": 0
+  },
+  "s14_inference_error.log": {
+    "family": "inference",
+    "status": "error",
+    "failed_phase": "data_preparation",
+    "phases": [
+      {
+        "name": "setup",
+        "outcome": "succeeded"
+      },
+      {
+        "name": "data_preparation",
+        "outcome": "failed"
+      },
+      {
+        "name": "generation",
+        "outcome": "not_reached"
+      },
+      {
+        "name": "verdict_output",
+        "outcome": "not_reached"
+      }
+    ],
+    "output_format": null,
+    "warnings": 0
+  },
+  "s15_inference_terminated.log": {
+    "family": "inference",
+    "status": "terminated",
+    "failed_phase": "generation",
+    "phases": [
+      {
+        "name": "setup",
+        "outcome": "succeeded"
+      },
+      {
+        "name": "data_preparation",
+        "outcome": "succeeded"
+      },
+      {
+        "name": "generation",
+        "outcome": "terminated"
+      },
+      {
+        "name": "verdict_output",
+        "outcome": "not_reached"
+      }
+    ],
+    "output_format": "banner",
+    "warnings": 0
+  },
+  "synthetic_fine_tune_terminated.log": {
+    "family": "fine_tune",
+    "status": "terminated",
+    "failed_phase": "fine_tuning",
+    "phases": [
+      {
+        "name": "setup",
+        "outcome": "succeeded"
+      },
+      {
+        "name": "fine_tuning",
+        "outcome": "terminated"
+      },
+      {
+        "name": "checkpoint_creation",
+        "outcome": "not_reached"
+      },
+      {
+        "name": "model_saving",
+        "outcome": "not_reached"
+      }
+    ],
+    "output_format": null,
+    "warnings": 0
+  }
+}

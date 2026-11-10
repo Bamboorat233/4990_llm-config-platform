@@ -18,6 +18,7 @@ generated/
 outputs/
 runs/
 *.log
+!tests/fixtures/logs/*.log
 
 # Model weights and adapters (never commit; accessed via shared paths on Fir)
 *.safetensors

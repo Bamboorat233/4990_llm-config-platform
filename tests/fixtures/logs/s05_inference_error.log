@@ -1,0 +1,309 @@
+created virtual environment CPython3.13.2.final.0-64 in 323ms
+  creator CPython3Posix(dest=/localscratch/user.23075543.0/python_env, clear=False, no_vcs_ignore=False, global=False)
+  seeder FromAppData(download=False, pip=bundle, via=copy, app_data_dir=/home/user/.local/share/virtualenv)
+    added seed packages: pip==25.3
+  activators BashActivator,CShellActivator,FishActivator,NushellActivator,PowerShellActivator,PythonActivator
+Using pip 25.3 from /localscratch/user.23075543.0/python_env/lib/python3.13/site-packages/pip (python 3.13)
+Looking in links: /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/x86-64-v4, /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/x86-64-v3, /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/generic, /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic
+Requirement already satisfied: pip in /localscratch/user.23075543.0/python_env/lib/python3.13/site-packages (25.3)
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/pip-26.0.1+computecanada-py3-none-any.whl
+Installing collected packages: pip
+  Attempting uninstall: pip
+    Found existing installation: pip 25.3
+    Uninstalling pip-25.3:
+      Removing file or directory /localscratch/user.23075543.0/python_env/bin/pip
+      Removing file or directory /localscratch/user.23075543.0/python_env/bin/pip-3.13
+      Removing file or directory /localscratch/user.23075543.0/python_env/bin/pip3
+      Removing file or directory /localscratch/user.23075543.0/python_env/bin/pip3.13
+      Removing file or directory /localscratch/user.23075543.0/python_env/lib/python3.13/site-packages/pip-25.3.dist-info/
+      Removing file or directory /localscratch/user.23075543.0/python_env/lib/python3.13/site-packages/pip-25.3.virtualenv
+      Removing file or directory /localscratch/user.23075543.0/python_env/lib/python3.13/site-packages/pip/
+      Successfully uninstalled pip-25.3
+  changing mode of /localscratch/user.23075543.0/python_env/bin/pip to 755
+  changing mode of /localscratch/user.23075543.0/python_env/bin/pip3 to 755
+  changing mode of /localscratch/user.23075543.0/python_env/bin/pip3.13 to 755
+Successfully installed pip-26.0.1+computecanada
+Using pip 26.0.1 from /localscratch/user.23075543.0/python_env/lib/python3.13/site-packages/pip (python 3.13)
+Looking in links: /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/x86-64-v4, /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/x86-64-v3, /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/generic, /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/accelerate-1.12.0+computecanada-py3-none-any.whl (from -r requirements.txt (line 1))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/x86-64-v3/aiohttp-3.13.3+computecanada-cp313-cp313-linux_x86_64.whl (from -r requirements.txt (line 2))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/generic/bitsandbytes-0.48.2+computecanada-py3-none-linux_x86_64.whl (from -r requirements.txt (line 3))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/certifi-2026.1.4+computecanada-py3-none-any.whl (from -r requirements.txt (line 4))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/charset_normalizer-3.4.4+computecanada-py3-none-any.whl (from -r requirements.txt (line 5))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/datasets-4.5.0+computecanada-py3-none-any.whl (from -r requirements.txt (line 6))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/dill-0.4.1+computecanada-py3-none-any.whl (from -r requirements.txt (line 7))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/filelock-3.21.2+computecanada-py3-none-any.whl (from -r requirements.txt (line 8))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/fsspec-2026.2.0+computecanada-py3-none-any.whl (from -r requirements.txt (line 9))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/generic/hf_xet-1.2.0+computecanada-cp37-abi3-linux_x86_64.whl (from -r requirements.txt (line 10))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/huggingface_hub-1.4.1+computecanada-py3-none-any.whl (from -r requirements.txt (line 11))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/idna-3.11+computecanada-py3-none-any.whl (from -r requirements.txt (line 12))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/jinja2-3.1.6+computecanada-py3-none-any.whl (from -r requirements.txt (line 13))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/joblib-1.5.3+computecanada-py3-none-any.whl (from -r requirements.txt (line 14))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/markupsafe-3.0.3+computecanada-cp313-cp313-linux_x86_64.whl (from -r requirements.txt (line 15))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/multiprocess-0.70.18+computecanada-py3-none-any.whl (from -r requirements.txt (line 16))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/networkx-3.6.1+computecanada-py3-none-any.whl (from -r requirements.txt (line 17))
+Requirement already satisfied: numpy in /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/scipy-stack/2025a/lib/python3.13/site-packages (from -r requirements.txt (line 18)) (2.2.2+computecanada)
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/generic/numpy-2.4.2+computecanada-cp313-cp313-linux_x86_64.whl (from -r requirements.txt (line 18))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/openpyxl-3.1.5+computecanada-py2.py3-none-any.whl (from -r requirements.txt (line 19))
+Requirement already satisfied: packaging in /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/scipy-stack/2025a/lib/python3.13/site-packages (from -r requirements.txt (line 20)) (24.2+computecanada)
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/packaging-26.0+computecanada-py3-none-any.whl (from -r requirements.txt (line 20))
+Requirement already satisfied: pandas in /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/scipy-stack/2025a/lib/python3.13/site-packages (from -r requirements.txt (line 21)) (2.2.3+computecanada)
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/x86-64-v3/pandas-3.0.0+computecanada-cp313-cp313-linux_x86_64.whl (from -r requirements.txt (line 21))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/peft-0.18.0+computecanada-py3-none-any.whl (from -r requirements.txt (line 22))
+Requirement already satisfied: psutil in /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/ipykernel/2025a/lib/python3.13/site-packages (from -r requirements.txt (line 23)) (6.1.1+computecanada)
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/generic/psutil-7.2.2+computecanada-cp36-abi3-linux_x86_64.whl (from -r requirements.txt (line 23))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/pyyaml-6.0.3+computecanada-cp313-cp313-linux_x86_64.whl (from -r requirements.txt (line 24))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/regex-2024.11.6+computecanada-cp313-cp313-linux_x86_64.whl (from -r requirements.txt (line 25))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/requests-2.32.5+computecanada-py3-none-any.whl (from -r requirements.txt (line 26))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/generic/safetensors-0.7.0+computecanada-cp38-abi3-linux_x86_64.whl (from -r requirements.txt (line 27))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/generic/scikit_learn-1.8.0+computecanada-cp313-cp313-linux_x86_64.whl (from -r requirements.txt (line 28))
+Requirement already satisfied: scipy in /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/scipy-stack/2025a/lib/python3.13/site-packages (from -r requirements.txt (line 29)) (1.15.1+computecanada)
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/generic/scipy-1.17.0+computecanada-cp313-cp313-linux_x86_64.whl (from -r requirements.txt (line 29))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/setuptools-82.0.0+computecanada-py3-none-any.whl (from -r requirements.txt (line 30))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/sklearn-0.0+computecanada-py2.py3-none-any.whl (from -r requirements.txt (line 31))
+Requirement already satisfied: sympy in /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/scipy-stack/2025a/lib/python3.13/site-packages (from -r requirements.txt (line 32)) (1.13.3+computecanada)
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/sympy-1.14.0+computecanada-py3-none-any.whl (from -r requirements.txt (line 32))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/threadpoolctl-3.6.0+computecanada-py3-none-any.whl (from -r requirements.txt (line 33))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/generic/tokenizers-0.22.2+computecanada-cp39-abi3-linux_x86_64.whl (from -r requirements.txt (line 34))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/x86-64-v3/torch-2.10.0+computecanada-cp313-cp313-linux_x86_64.whl (from -r requirements.txt (line 35))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/tqdm-4.67.3+computecanada-py3-none-any.whl (from -r requirements.txt (line 36))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/transformers-5.0.0+computecanada-py3-none-any.whl (from -r requirements.txt (line 37))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/triton-3.6.0+computecanada-cp313-cp313-linux_x86_64.whl (from -r requirements.txt (line 38))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/trl-0.26.1+computecanada-py3-none-any.whl (from -r requirements.txt (line 39))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/typing_extensions-4.15.0+computecanada-py3-none-any.whl (from -r requirements.txt (line 40))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/urllib3-2.6.3+computecanada-py3-none-any.whl (from -r requirements.txt (line 41))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/xxhash-3.5.0+computecanada-cp313-cp313-linux_x86_64.whl (from -r requirements.txt (line 42))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/aiohappyeyeballs-2.6.1+computecanada-py3-none-any.whl (from aiohttp->-r requirements.txt (line 2))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/aiosignal-1.4.0+computecanada-py3-none-any.whl (from aiohttp->-r requirements.txt (line 2))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/attrs-25.4.0+computecanada-py3-none-any.whl (from aiohttp->-r requirements.txt (line 2))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/frozenlist-1.8.0+computecanada-py3-none-any.whl (from aiohttp->-r requirements.txt (line 2))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/multidict-6.7.1+computecanada-cp313-cp313-linux_x86_64.whl (from aiohttp->-r requirements.txt (line 2))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/propcache-0.4.1+computecanada-py3-none-any.whl (from aiohttp->-r requirements.txt (line 2))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/x86-64-v3/yarl-1.22.0+computecanada-cp313-cp313-linux_x86_64.whl (from aiohttp->-r requirements.txt (line 2))
+Requirement already satisfied: pyarrow>=21.0.0 in /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/arrow/22.0.0/lib/python3.13/site-packages (from datasets->-r requirements.txt (line 6)) (22.0.0)
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/dill-0.4.0+computecanada-py3-none-any.whl (from -r requirements.txt (line 7))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/httpx-0.28.1+computecanada-py3-none-any.whl (from datasets->-r requirements.txt (line 6))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/fsspec-2025.10.0+computecanada-py3-none-any.whl (from -r requirements.txt (line 9))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/shellingham-1.5.4+computecanada-py2.py3-none-any.whl (from huggingface_hub->-r requirements.txt (line 11))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/typer_slim-0.23.1+computecanada-py3-none-any.whl (from huggingface_hub->-r requirements.txt (line 11))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/anyio-4.12.1+computecanada-py3-none-any.whl (from httpx<1.0.0->datasets->-r requirements.txt (line 6))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/httpcore-1.0.9+computecanada-py3-none-any.whl (from httpx<1.0.0->datasets->-r requirements.txt (line 6))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/h11-0.16.0+computecanada-py3-none-any.whl (from httpcore==1.*->httpx<1.0.0->datasets->-r requirements.txt (line 6))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/et_xmlfile-2.0.0+computecanada-py3-none-any.whl (from openpyxl->-r requirements.txt (line 19))
+Requirement already satisfied: python-dateutil>=2.8.2 in /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/scipy-stack/2025a/lib/python3.13/site-packages (from pandas->-r requirements.txt (line 21)) (2.9.0.post0+computecanada)
+Requirement already satisfied: mpmath<1.4,>=1.1.0 in /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/scipy-stack/2025a/lib/python3.13/site-packages (from sympy->-r requirements.txt (line 32)) (1.3.0+computecanada)
+Requirement already satisfied: six>=1.5 in /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/scipy-stack/2025a/lib/python3.13/site-packages (from python-dateutil>=2.8.2->pandas->-r requirements.txt (line 21)) (1.17.0+computecanada)
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/typer-0.23.1+computecanada-py3-none-any.whl (from typer-slim->huggingface_hub->-r requirements.txt (line 11))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/click-8.3.1+computecanada-py3-none-any.whl (from typer>=0.23.1->typer-slim->huggingface_hub->-r requirements.txt (line 11))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/rich-14.3.2+computecanada-py3-none-any.whl (from typer>=0.23.1->typer-slim->huggingface_hub->-r requirements.txt (line 11))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/annotated_doc-0.0.4+computecanada-py3-none-any.whl (from typer>=0.23.1->typer-slim->huggingface_hub->-r requirements.txt (line 11))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/markdown_it_py-4.0.0+computecanada-py3-none-any.whl (from rich>=10.11.0->typer>=0.23.1->typer-slim->huggingface_hub->-r requirements.txt (line 11))
+Requirement already satisfied: pygments<3.0.0,>=2.13.0 in /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/ipykernel/2025a/lib/python3.13/site-packages (from rich>=10.11.0->typer>=0.23.1->typer-slim->huggingface_hub->-r requirements.txt (line 11)) (2.19.1+computecanada)
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/mdurl-0.1.2+computecanada-py3-none-any.whl (from markdown-it-py>=2.2.0->rich>=10.11.0->typer>=0.23.1->typer-slim->huggingface_hub->-r requirements.txt (line 11))
+Installing collected packages: xxhash, urllib3, typing_extensions, triton, tqdm, threadpoolctl, sympy, shellingham, setuptools, safetensors, regex, PyYAML, psutil, propcache, packaging, numpy, networkx, multidict, mdurl, MarkupSafe, joblib, idna, hf_xet, h11, fsspec, frozenlist, filelock, et-xmlfile, dill, click, charset_normalizer, certifi, attrs, annotated-doc, aiohappyeyeballs, yarl, scipy, requests, pandas, openpyxl, multiprocess, markdown-it-py, jinja2, httpcore, anyio, aiosignal, torch, scikit_learn, rich, httpx, aiohttp, typer, sklearn, bitsandbytes, typer-slim, huggingface_hub, tokenizers, datasets, accelerate, transformers, trl, peft
+  changing mode of /localscratch/user.23075543.0/python_env/bin/proton to 755
+  changing mode of /localscratch/user.23075543.0/python_env/bin/proton-viewer to 755
+  changing mode of /localscratch/user.23075543.0/python_env/bin/tqdm to 755
+  Attempting uninstall: sympy
+    Found existing installation: sympy 1.13.3+computecanada
+    Not uninstalling sympy at /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/scipy-stack/2025a/lib/python3.13/site-packages, outside environment /localscratch/user.23075543.0/python_env
+    Can't uninstall 'sympy'. No files were found to uninstall.
+  changing mode of /localscratch/user.23075543.0/python_env/bin/isympy to 755
+  Attempting uninstall: psutil
+    Found existing installation: psutil 6.1.1+computecanada
+    Not uninstalling psutil at /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/ipykernel/2025a/lib/python3.13/site-packages, outside environment /localscratch/user.23075543.0/python_env
+    Can't uninstall 'psutil'. No files were found to uninstall.
+  Attempting uninstall: packaging
+    Found existing installation: packaging 24.2+computecanada
+    Not uninstalling packaging at /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/scipy-stack/2025a/lib/python3.13/site-packages, outside environment /localscratch/user.23075543.0/python_env
+    Can't uninstall 'packaging'. No files were found to uninstall.
+  Attempting uninstall: numpy
+    Found existing installation: numpy 2.2.2+computecanada
+    Not uninstalling numpy at /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/scipy-stack/2025a/lib/python3.13/site-packages, outside environment /localscratch/user.23075543.0/python_env
+    Can't uninstall 'numpy'. No files were found to uninstall.
+  changing mode of /localscratch/user.23075543.0/python_env/bin/f2py to 755
+  changing mode of /localscratch/user.23075543.0/python_env/bin/numpy-config to 755
+  changing mode of /localscratch/user.23075543.0/python_env/bin/normalizer to 755
+  Attempting uninstall: scipy
+    Found existing installation: scipy 1.15.1+computecanada
+    Not uninstalling scipy at /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/scipy-stack/2025a/lib/python3.13/site-packages, outside environment /localscratch/user.23075543.0/python_env
+    Can't uninstall 'scipy'. No files were found to uninstall.
+  Attempting uninstall: pandas
+    Found existing installation: pandas 2.2.3+computecanada
+    Not uninstalling pandas at /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/scipy-stack/2025a/lib/python3.13/site-packages, outside environment /localscratch/user.23075543.0/python_env
+    Can't uninstall 'pandas'. No files were found to uninstall.
+  changing mode of /localscratch/user.23075543.0/python_env/bin/markdown-it to 755
+  changing mode of /localscratch/user.23075543.0/python_env/bin/torchrun to 755
+  changing mode of /localscratch/user.23075543.0/python_env/bin/httpx to 755
+  changing mode of /localscratch/user.23075543.0/python_env/bin/typer to 755
+  changing mode of /localscratch/user.23075543.0/python_env/bin/hf to 755
+  changing mode of /localscratch/user.23075543.0/python_env/bin/tiny-agents to 755
+  changing mode of /localscratch/user.23075543.0/python_env/bin/datasets-cli to 755
+  changing mode of /localscratch/user.23075543.0/python_env/bin/accelerate to 755
+  changing mode of /localscratch/user.23075543.0/python_env/bin/accelerate-config to 755
+  changing mode of /localscratch/user.23075543.0/python_env/bin/accelerate-estimate-memory to 755
+  changing mode of /localscratch/user.23075543.0/python_env/bin/accelerate-launch to 755
+  changing mode of /localscratch/user.23075543.0/python_env/bin/accelerate-merge-weights to 755
+  changing mode of /localscratch/user.23075543.0/python_env/bin/transformers to 755
+  changing mode of /localscratch/user.23075543.0/python_env/bin/trl to 755
+
+Successfully installed MarkupSafe-3.0.3+computecanada PyYAML-6.0.3+computecanada accelerate-1.12.0+computecanada aiohappyeyeballs-2.6.1+computecanada aiohttp-3.13.3+computecanada aiosignal-1.4.0+computecanada annotated-doc-0.0.4+computecanada anyio-4.12.1+computecanada attrs-25.4.0+computecanada bitsandbytes-0.48.2+computecanada certifi-2026.1.4+computecanada charset_normalizer-3.4.4+computecanada click-8.3.1+computecanada datasets-4.5.0+computecanada dill-0.4.0+computecanada et-xmlfile-2.0.0+computecanada filelock-3.21.2+computecanada frozenlist-1.8.0+computecanada fsspec-2025.10.0+computecanada h11-0.16.0+computecanada hf_xet-1.2.0+computecanada httpcore-1.0.9+computecanada httpx-0.28.1+computecanada huggingface_hub-1.4.1+computecanada idna-3.11+computecanada jinja2-3.1.6+computecanada joblib-1.5.3+computecanada markdown-it-py-4.0.0+computecanada mdurl-0.1.2+computecanada multidict-6.7.1+computecanada multiprocess-0.70.18+computecanada networkx-3.6.1+computecanada numpy-2.4.2+computecanada openpyxl-3.1.5+computecanada packaging-26.0+computecanada pandas-3.0.0+computecanada peft-0.18.0+computecanada propcache-0.4.1+computecanada psutil-7.2.2+computecanada regex-2024.11.6+computecanada requests-2.32.5+computecanada rich-14.3.2+computecanada safetensors-0.7.0+computecanada scikit_learn-1.8.0+computecanada scipy-1.17.0+computecanada setuptools-82.0.0+computecanada shellingham-1.5.4+computecanada sklearn-0.0+computecanada sympy-1.14.0+computecanada threadpoolctl-3.6.0+computecanada tokenizers-0.22.2+computecanada torch-2.10.0+computecanada tqdm-4.67.3+computecanada transformers-5.0.0+computecanada triton-3.6.0+computecanada trl-0.26.1+computecanada typer-0.23.1+computecanada typer-slim-0.23.1+computecanada typing_extensions-4.15.0+computecanada urllib3-2.6.3+computecanada xxhash-3.5.0+computecanada yarl-1.22.0+computecanada
+[... 410 lines omitted from the original log ...]
+Successfully installed bitsandbytes-0.49.1.dev0
+Removed build tracker: '/tmp/pip-build-tracker-00hbatkn'
+Loading the Model :  2026-02-16 08:40:43.693716
+
+Loading weights:   0%|          | 0/363 [00:00<?, ?it/s]
+Loading weights:   0%|          | 1/363 [00:00<00:00, 16008.79it/s, Materializing param=lm_head.weight]
+Loading weights:   0%|          | 1/363 [00:00<00:00, 7281.78it/s, Materializing param=lm_head.weight] 
+[... 803 lines omitted from the original log ...]
+Loading weights:  99%|█████████▉| 361/363 [00:32<00:00, 15.42it/s, Materializing param=model.layers.39.self_attn.q_proj.weight]
+Loading weights:  99%|█████████▉| 361/363 [00:32<00:00, 15.42it/s, Materializing param=model.layers.39.self_attn.q_proj.weight]
+Loading weights: 100%|█████████▉| 362/363 [00:32<00:00, 15.42it/s, Materializing param=model.layers.39.self_attn.v_proj.weight]
+Loading weights: 100%|█████████▉| 362/363 [00:32<00:00, 15.42it/s, Materializing param=model.layers.39.self_attn.v_proj.weight]
+Loading weights: 100%|██████████| 363/363 [00:32<00:00, 15.42it/s, Materializing param=model.norm.weight]                      
+Loading weights: 100%|██████████| 363/363 [00:32<00:00, 15.42it/s, Materializing param=model.norm.weight]
+Loading weights: 100%|██████████| 363/363 [00:32<00:00, 11.26it/s, Materializing param=model.norm.weight]
+Done Loading the Model :  2026-02-16 08:41:18.571779
+Starting to Load the Tokeizer :  2026-02-16 08:41:18.571863
+Done Loading the Tokenizer :  2026-02-16 08:41:19.489924
+Starting Loading Data :  2026-02-16 08:41:19.490053
+Done Loading the Data :  2026-02-16 08:41:19.506964
+*************************************INPUTS****************************************
+tensor([[     1,      1,     17,   1010,   1595,  83779,   1877,   1293,   3213,
+           1584,   1261,   3121,  40172,   1258,   1046,   3213,   1736,   5595,
+           1261,   3121,  40172,   1317,  21294,   1261,  71829,   4057,   1408,
+           1278,   7259,   5662,   1294,   1278,   2071,   1307,   4098,   1045,
+          24613,  10217,   1626,   1293,   9825,   6255,   1395,   1317,   7137,
+           1278,  77233,   1307,   1261,   4983,   4057,   1408,   1278,   5662,
+           4098,   1045,  24613,  10217,   7259,   1046,   1531,  71829,   1710,
+           1402,   1925,   1307,   1278,  20344,   1058,   1576,   7848,   2096,
+           1576,  13297,   2096,   1576,  17854,   1676,   3333,   9528,   1032,
+           1010,   1293,   5469,   1593,   1536,   3629,   1877,   1293,   1462,
+         101460,   1576,   7848,   1039,   2342,   1693,   1278,  11157,   7259,
+          10886,   1505,   7115,  10886,  17448,   1321,   2019,  16646,   1278,
+           4983,   1435,   6298,   1626,   1293,   1462, 101460,   1576,  13297,
+           1039,   1693,   1877,   1293,   4254,   1531,  11157,   7259,  35499,
+           1115,   1505,  63518,   3741,   1278,   4983,   1626,   1293,   4254,
+           1531,   4983,   1395,  70157,   4057,   1408,   1278,  11157,   7259,
+           1626,   1293,   4254,   1531,   7259,   1395,   4382,  10824,   1505,
+          36204,   1317,   3471,   1278,   4983,   1626,   1293,   1462, 101460,
+           1576,  17854,   1676,   3333,   1039,   1693,   1278,   7259,   1395,
+          61103,   1044,  38543,   1044,   1505,  25685,  38394,   1044,   6187,
+           1494,  16501,   1317,   8497,   1693,   1278,   4983,   1395,  10886,
+           2925,   1505,   3276,   1626,   1293,  53119,  77763,   1317,   1278,
+           3629,  10469,   1877,   1293,   1462,  13516,   3686,   2342,   1562,
+           1278,  10281,   7259,   1058,  86725,  59979,   3686,   1455,   1395,
+           1605,  47210,   1536,   1278,   7259,   1046,   3213,   2188,   2210,
+           2009,   2232,   3533,   7807,   1044,   5572,   1626,   1293,   1462,
+          86725,  54272,  14019,   1626,   1293,  49287,   1278,   4005,   1294,
+           1278,   8174,   1462,  33735,   2335,   1058,   1534,   1465,  36467,
+           1561,     18,      3,   1010,   1595,  71829,   1058,   1429,   1784,
+           2767,  24926,  20646,  95772,  64606,  16711,  21233,  34743,  66360,
+           2084,   4362,   1278,   1608,   3051,   1046,   2081,   2224,   1032,
+           1056,   1048,   1048,   1044,   1048,   1048,   1048,  20516,   4043,
+           1595,  30190,   1058,   2697,   1278,  64793,  18089,   9750,  28714,
+           1455,   1843,   1325,   1413,   1667,   2084,   4362,   1278,   1333,
+           1913,   1046,   2081,   2224,   1032,   1056,   1048,   1048,   1044,
+           1048,   1048,   1048,  20516,   1063,   1013,   1267,   1595,   3450,
+           1058,   6421,   9781,   1593,   2637,   1044,   1278,   3518,   1307,
+           1278,  64793,  18089,   9750,  94776,   3066,  64558,   1455,  11708,
+           1307,   1843,   1325,   1413,   1667,   2168,   4362,   1032,   1056,
+           1048,   1048,   1044,   1048,   1048,   1048,  20516,   1046,   1032,
+          20213,   1595,  30190,   1058,   1032,   1395,   1278,  64793,  18089,
+           9750,   6090,   1261,   2767,  24926,  20646,  13304,   1063,   1013,
+           1267,   1595,   3450,   1058,   1278,  64793,  18089,   9750,   1395,
+           2767,   3332,  20646,   1044,   1321,  22444,   1429,   1259,  14058,
+          12865,   1307,  18089,   1760,   1321,   9870,   8520,   1317,   3471,
+           1278,  64793,  18089,   2832,   2613,   1766,   1057,   1093,   2744,
+           2637,   1044,   1278,  24628,  37247,  12501,   1321,   4362,  20828,
+           1394,   9614,  27865,   1044,   3816,  79694,   2258,   9200,  28063,
+           1626,   1595,  30190,   1058,   1032,   1395,   2156,   7259,   1317,
+           3471,   1278,   4983,   1455,   1843,   1325,   1413,   1667,   2084,
+           4362,   1278,   1333,   1913,   1046,   2081,   2224,   1032,   1056,
+           1048,   1048,   1044,   1048,   1048,   1048,  20516,   9551,   1595,
+           3450,   1058,   6421,   9781,   1593,   2637,   1044,   1278,   3518,
+           1307,   1278,  64793,  18089,   9750,  94776,   3066,  64558,   1455,
+          11708,   1307,   1843,   1325,   1413,   1667,   2168,   4362,   1032,
+           1056,   1048,   1048,   1044,   1048,   1048,   1048,  20516,   1046,
+           1032,   6421,      4]], device='cuda:0')
+Before calling model.generate
+Before calling tokenizer.decode
+******************************OUTPUT*****************************
+<s><s>[SYSTEM_PROMPT]
+### Instruction:
+    You are a fact-checker. You have done a fact-check to verify a Claim based on the evidence provided in the form of question-answer pair.
+    Your task is to predict the verdict of a claim based on the provided question-answer pair evidence. The Claim can be one of the labels: 'True', 'False', 'Conflicting'. 
+    Do this by following:
+    - Respond 'True' only if the relevant evidence fully or almost fully supports and verifies the claim as correct.
+    - Respond 'False' if:
+    -- The relevant evidence contradicts or disproves the claim.
+    -- The claim is misleading based on the relevant evidence.
+    -- The evidence is too weak or insufficient to support the claim.
+    - Respond 'Conflicting' if the evidence is ambiguous, incomplete, or inconclusive, making it impossible to determine if the claim is fully true or false.
+    Always adhere to the following rules:
+    - Use information only from the recorded evidence: Avoid inserting information that is not implied by the evidence. You may use commonsense knowledge, though.
+    - Avoid repeating yourself.
+    Give the response in the format - Verdict: <verdict>
+[/SYSTEM_PROMPT][INST]
+### Claim: "The non-partisan Congressional Budget Office concluded ObamaCare will cost the U.S. more than 800,000 jobs."
+
+### Question: did the congressional budget office conclude that obamacare will cost the u.s. more than 800,000 jobs?
+
+### Answer: ... earlier this year, the head of the congressional budget office testified before congress that implementation of obamacare would cost 800,000 jobs.  ...
+### Question:  is the congressional budget office considered a non-partisan entity?
+
+### Answer: the congressional budget office is nonpartisan, and produces "independent analyses of budgetary and economic issues to support the congressional budget process." [9] each year, the agency releases reports and cost estimates for proposed legislation, without issuing any policy recommendations.
+### Question:  is there evidence to support the claim that obamacare will cost the u.s. more than 800,000 jobs?
+### Answer: ... earlier this year, the head of the congressional budget office testified before congress that implementation of obamacare would cost 800,000 jobs.  ...[/INST]
+### Response: Verdict: Conflicting</s>
+******************************INPUTS ITEMS*****************************
+/project/0000000/user/inferenceFactCheckerThanh.py:133: UserWarning: Using a non-tuple sequence for multidimensional indexing is deprecated and will be changed in pytorch 2.9; use x[tuple(seq)] instead of x[seq]. In pytorch 2.9 this will be interpreted as tensor index, x[torch.tensor(seq)], which will result either in an error or a different result (Triggered internally at /tmp/build_wheels_tmp.5905/python-3.13/torch/torch/csrc/autograd/python_variable_indexing.cpp:347.)
+  print(inputs["input_ids"])
+[rank0]: Traceback (most recent call last):
+[rank0]:   File "/project/0000000/user/inferenceFactCheckerThanh.py", line 133, in <module>
+[rank0]:     print(inputs["input_ids"])
+[rank0]:           ~~~~~~^^^^^^^^^^^^^
+[rank0]: IndexError: too many indices for tensor of dimension 2
+[rank0]:[W216 08:41:21.561428958 ProcessGroupNCCL.cpp:1553] Warning: WARNING: destroy_process_group() was not called before program exit, which can leak resources. For more info, please see https://pytorch.org/docs/stable/distributed.html#shutdown (function operator())
+E0216 08:41:22.325000 3839484 torch/distributed/elastic/multiprocessing/api.py:984] failed (exitcode: 1) local_rank: 0 (pid: 3839487) of binary: /localscratch/user.23075543.0/python_env/bin/python
+Traceback (most recent call last):
+  File "/localscratch/user.23075543.0/python_env/bin/torchrun", line 6, in <module>
+    sys.exit(main())
+             ~~~~^^
+  File "/localscratch/user.23075543.0/python_env/lib/python3.13/site-packages/torch/distributed/elastic/multiprocessing/errors/__init__.py", line 362, in wrapper
+    return f(*args, **kwargs)
+  File "/localscratch/user.23075543.0/python_env/lib/python3.13/site-packages/torch/distributed/run.py", line 991, in main
+    run(args)
+    ~~~^^^^^^
+  File "/localscratch/user.23075543.0/python_env/lib/python3.13/site-packages/torch/distributed/run.py", line 982, in run
+    elastic_launch(
+    ~~~~~~~~~~~~~~~
+        config=config,
+        ~~~~~~~~~~~~~~
+        entrypoint=cmd,
+        ~~~~~~~~~~~~~~~
+    )(*cmd_args)
+    ~^^^^^^^^^^^
+  File "/localscratch/user.23075543.0/python_env/lib/python3.13/site-packages/torch/distributed/launcher/api.py", line 170, in __call__
+    return launch_agent(self._config, self._entrypoint, list(args))
+  File "/localscratch/user.23075543.0/python_env/lib/python3.13/site-packages/torch/distributed/launcher/api.py", line 317, in launch_agent
+    raise ChildFailedError(
+    ...<2 lines>...
+    )
+torch.distributed.elastic.multiprocessing.errors.ChildFailedError: 
+============================================================
+inferenceFactCheckerThanh.py FAILED
+------------------------------------------------------------
+Failures:
+  <NO_OTHER_FAILURES>
+------------------------------------------------------------
+Root Cause (first observed failure):
+[0]:
+  time      : 2026-02-16_08:41:22
+  host      : fc00000.int.fir.alliancecan.ca
+  rank      : 0 (local_rank: 0)
+  exitcode  : 1 (pid: 3839487)
+  error_file: <N/A>
+  traceback : To enable traceback see: https://pytorch.org/docs/stable/elastic/errors.html
+============================================================

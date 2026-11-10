@@ -18,3 +18,5 @@
 *.png   binary
 *.jpg   binary
 *.safetensors binary
+# Frozen log fixtures keep their original CRLF bytes (issue #29)
+tests/fixtures/logs/** -text

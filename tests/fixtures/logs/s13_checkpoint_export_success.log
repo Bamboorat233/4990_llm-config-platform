@@ -1,0 +1,301 @@
+Lmod Warning:
+-------------------------------------------------------------------------------
+The following dependent module(s) are not currently loaded: ipykernel/2026a
+(required by: ipython-kernel/3.13)
+-------------------------------------------------------------------------------
+
+
+
+created virtual environment CPython3.13.2.final.0-64 in 14033ms
+  creator CPython3Posix(dest=/localscratch/user.27151501.0/python_env, clear=False, no_vcs_ignore=False, global=False)
+  seeder FromAppData(download=False, pip=bundle, via=copy, app_data_dir=/home/user/.local/share/virtualenv)
+    added seed packages: pip==26.0.1
+  activators BashActivator,CShellActivator,FishActivator,NushellActivator,PowerShellActivator,PythonActivator
+Using pip 26.0.1 from /localscratch/user.27151501.0/python_env/lib/python3.13/site-packages/pip (python 3.13)
+Looking in links: /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/x86-64-v4, /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/x86-64-v3, /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/generic, /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic
+Requirement already satisfied: pip in /localscratch/user.27151501.0/python_env/lib/python3.13/site-packages (26.0.1)
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/pip-26.0.1+computecanada-py3-none-any.whl
+Installing collected packages: pip
+  Attempting uninstall: pip
+    Found existing installation: pip 26.0.1
+    Uninstalling pip-26.0.1:
+      Removing file or directory /localscratch/user.27151501.0/python_env/bin/pip
+      Removing file or directory /localscratch/user.27151501.0/python_env/bin/pip-3.13
+      Removing file or directory /localscratch/user.27151501.0/python_env/bin/pip3
+      Removing file or directory /localscratch/user.27151501.0/python_env/bin/pip3.13
+      Removing file or directory /localscratch/user.27151501.0/python_env/lib/python3.13/site-packages/pip-26.0.1.dist-info/
+      Removing file or directory /localscratch/user.27151501.0/python_env/lib/python3.13/site-packages/pip-26.0.1.virtualenv
+      Removing file or directory /localscratch/user.27151501.0/python_env/lib/python3.13/site-packages/pip/
+      Successfully uninstalled pip-26.0.1
+  changing mode of /localscratch/user.27151501.0/python_env/bin/pip to 755
+  changing mode of /localscratch/user.27151501.0/python_env/bin/pip3 to 755
+  changing mode of /localscratch/user.27151501.0/python_env/bin/pip3.13 to 755
+Successfully installed pip-26.0.1+computecanada
+Using pip 26.0.1 from /localscratch/user.27151501.0/python_env/lib/python3.13/site-packages/pip (python 3.13)
+Looking in links: /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/x86-64-v4, /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/x86-64-v3, /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/generic, /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/accelerate-1.13.0+computecanada-py3-none-any.whl (from -r requirements.txt (line 1))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/x86-64-v3/aiohttp-3.13.3+computecanada-cp313-cp313-linux_x86_64.whl (from -r requirements.txt (line 2))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/generic/bitsandbytes-0.48.2+computecanada-py3-none-linux_x86_64.whl (from -r requirements.txt (line 3))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/certifi-2026.1.4+computecanada-py3-none-any.whl (from -r requirements.txt (line 4))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/charset_normalizer-3.4.4+computecanada-py3-none-any.whl (from -r requirements.txt (line 5))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/datasets-4.7.0+computecanada-py3-none-any.whl (from -r requirements.txt (line 6))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/dill-0.4.1+computecanada-py3-none-any.whl (from -r requirements.txt (line 7))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/filelock-3.25.1+computecanada-py3-none-any.whl (from -r requirements.txt (line 8))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/fsspec-2026.2.0+computecanada-py3-none-any.whl (from -r requirements.txt (line 9))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/hf_xet-1.3.2+computecanada-cp37-abi3-linux_x86_64.whl (from -r requirements.txt (line 10))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/huggingface_hub-1.5.0+computecanada-py3-none-any.whl (from -r requirements.txt (line 11))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/idna-3.11+computecanada-py3-none-any.whl (from -r requirements.txt (line 12))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/jinja2-3.1.6+computecanada-py3-none-any.whl (from -r requirements.txt (line 13))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/joblib-1.5.3+computecanada-py3-none-any.whl (from -r requirements.txt (line 14))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/markupsafe-3.0.3+computecanada-cp313-cp313-linux_x86_64.whl (from -r requirements.txt (line 15))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/multiprocess-0.70.18+computecanada-py3-none-any.whl (from -r requirements.txt (line 16))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/networkx-3.6.1+computecanada-py3-none-any.whl (from -r requirements.txt (line 17))
+Requirement already satisfied: numpy in /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/scipy-stack/2025a/lib/python3.13/site-packages (from -r requirements.txt (line 18)) (2.2.2+computecanada)
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/generic/numpy-2.4.2+computecanada-cp313-cp313-linux_x86_64.whl (from -r requirements.txt (line 18))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/openpyxl-3.1.5+computecanada-py2.py3-none-any.whl (from -r requirements.txt (line 19))
+Requirement already satisfied: packaging in /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/scipy-stack/2025a/lib/python3.13/site-packages (from -r requirements.txt (line 20)) (24.2+computecanada)
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/packaging-26.0+computecanada-py3-none-any.whl (from -r requirements.txt (line 20))
+Requirement already satisfied: pandas in /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/scipy-stack/2025a/lib/python3.13/site-packages (from -r requirements.txt (line 21)) (2.2.3+computecanada)
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/x86-64-v3/pandas-3.0.0+computecanada-cp313-cp313-linux_x86_64.whl (from -r requirements.txt (line 21))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/peft-0.18.1+computecanada-py3-none-any.whl (from -r requirements.txt (line 22))
+Requirement already satisfied: psutil in /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/ipykernel/2025a/lib/python3.13/site-packages (from -r requirements.txt (line 23)) (6.1.1+computecanada)
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/generic/psutil-7.2.2+computecanada-cp36-abi3-linux_x86_64.whl (from -r requirements.txt (line 23))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/pyyaml-6.0.3+computecanada-cp313-cp313-linux_x86_64.whl (from -r requirements.txt (line 24))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/regex-2026.1.15+computecanada-cp313-cp313-linux_x86_64.whl (from -r requirements.txt (line 25))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/requests-2.32.5+computecanada-py3-none-any.whl (from -r requirements.txt (line 26))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/generic/safetensors-0.7.0+computecanada-cp38-abi3-linux_x86_64.whl (from -r requirements.txt (line 27))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/generic/scikit_learn-1.8.0+computecanada-cp313-cp313-linux_x86_64.whl (from -r requirements.txt (line 28))
+Requirement already satisfied: scipy in /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/scipy-stack/2025a/lib/python3.13/site-packages (from -r requirements.txt (line 29)) (1.15.1+computecanada)
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/generic/scipy-1.17.0+computecanada-cp313-cp313-linux_x86_64.whl (from -r requirements.txt (line 29))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/setuptools-82.0.1+computecanada-py3-none-any.whl (from -r requirements.txt (line 30))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/sklearn-0.0+computecanada-py2.py3-none-any.whl (from -r requirements.txt (line 31))
+Requirement already satisfied: sympy in /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/scipy-stack/2025a/lib/python3.13/site-packages (from -r requirements.txt (line 32)) (1.13.3+computecanada)
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/sympy-1.14.0+computecanada-py3-none-any.whl (from -r requirements.txt (line 32))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/threadpoolctl-3.6.0+computecanada-py3-none-any.whl (from -r requirements.txt (line 33))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/generic/tokenizers-0.22.2+computecanada-cp39-abi3-linux_x86_64.whl (from -r requirements.txt (line 34))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/x86-64-v3/torch-2.10.0+computecanada-cp313-cp313-linux_x86_64.whl (from -r requirements.txt (line 35))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/tqdm-4.67.3+computecanada-py3-none-any.whl (from -r requirements.txt (line 36))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/transformers-5.3.0+computecanada-py3-none-any.whl (from -r requirements.txt (line 37))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/triton-3.6.0+computecanada-cp313-cp313-linux_x86_64.whl (from -r requirements.txt (line 38))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/trl-0.29.0+computecanada-py3-none-any.whl (from -r requirements.txt (line 39))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/typing_extensions-4.15.0+computecanada-py3-none-any.whl (from -r requirements.txt (line 40))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/urllib3-2.6.3+computecanada-py3-none-any.whl (from -r requirements.txt (line 41))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/xxhash-3.5.0+computecanada-cp313-cp313-linux_x86_64.whl (from -r requirements.txt (line 42))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/aiohappyeyeballs-2.6.1+computecanada-py3-none-any.whl (from aiohttp->-r requirements.txt (line 2))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/aiosignal-1.4.0+computecanada-py3-none-any.whl (from aiohttp->-r requirements.txt (line 2))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/attrs-25.4.0+computecanada-py3-none-any.whl (from aiohttp->-r requirements.txt (line 2))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/frozenlist-1.8.0+computecanada-cp313-cp313-linux_x86_64.whl (from aiohttp->-r requirements.txt (line 2))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/multidict-6.7.1+computecanada-cp313-cp313-linux_x86_64.whl (from aiohttp->-r requirements.txt (line 2))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/propcache-0.4.1+computecanada-py3-none-any.whl (from aiohttp->-r requirements.txt (line 2))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/x86-64-v3/yarl-1.23.0+computecanada-cp313-cp313-linux_x86_64.whl (from aiohttp->-r requirements.txt (line 2))
+Requirement already satisfied: pyarrow>=21.0.0 in /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/arrow/23.0.1/lib/python3.13/site-packages (from datasets->-r requirements.txt (line 6)) (23.0.1)
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/dill-0.4.0+computecanada-py3-none-any.whl (from -r requirements.txt (line 7))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/httpx-0.28.1+computecanada-py3-none-any.whl (from datasets->-r requirements.txt (line 6))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/typer-0.24.1+computecanada-py3-none-any.whl (from huggingface_hub->-r requirements.txt (line 11))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/anyio-4.12.1+computecanada-py3-none-any.whl (from httpx<1.0.0->datasets->-r requirements.txt (line 6))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/httpcore-1.0.9+computecanada-py3-none-any.whl (from httpx<1.0.0->datasets->-r requirements.txt (line 6))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/h11-0.16.0+computecanada-py3-none-any.whl (from httpcore==1.*->httpx<1.0.0->datasets->-r requirements.txt (line 6))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/et_xmlfile-2.0.0+computecanada-py3-none-any.whl (from openpyxl->-r requirements.txt (line 19))
+Requirement already satisfied: python-dateutil>=2.8.2 in /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/scipy-stack/2025a/lib/python3.13/site-packages (from pandas->-r requirements.txt (line 21)) (2.9.0.post0+computecanada)
+Requirement already satisfied: mpmath<1.4,>=1.1.0 in /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/scipy-stack/2025a/lib/python3.13/site-packages (from sympy->-r requirements.txt (line 32)) (1.3.0+computecanada)
+Requirement already satisfied: six>=1.5 in /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/scipy-stack/2025a/lib/python3.13/site-packages (from python-dateutil>=2.8.2->pandas->-r requirements.txt (line 21)) (1.17.0+computecanada)
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/click-8.3.1+computecanada-py3-none-any.whl (from typer->huggingface_hub->-r requirements.txt (line 11))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/shellingham-1.5.4+computecanada-py2.py3-none-any.whl (from typer->huggingface_hub->-r requirements.txt (line 11))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/rich-14.3.3+computecanada-py3-none-any.whl (from typer->huggingface_hub->-r requirements.txt (line 11))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/annotated_doc-0.0.4+computecanada-py3-none-any.whl (from typer->huggingface_hub->-r requirements.txt (line 11))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/markdown_it_py-4.0.0+computecanada-py3-none-any.whl (from rich>=12.3.0->typer->huggingface_hub->-r requirements.txt (line 11))
+Requirement already satisfied: pygments<3.0.0,>=2.13.0 in /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/ipykernel/2025a/lib/python3.13/site-packages (from rich>=12.3.0->typer->huggingface_hub->-r requirements.txt (line 11)) (2.19.1+computecanada)
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/mdurl-0.1.2+computecanada-py3-none-any.whl (from markdown-it-py>=2.2.0->rich>=12.3.0->typer->huggingface_hub->-r requirements.txt (line 11))
+Installing collected packages: xxhash, urllib3, typing_extensions, triton, tqdm, threadpoolctl, sympy, shellingham, setuptools, safetensors, regex, PyYAML, psutil, propcache, packaging, numpy, networkx, multidict, mdurl, MarkupSafe, joblib, idna, hf_xet, h11, fsspec, frozenlist, filelock, et-xmlfile, dill, click, charset_normalizer, certifi, attrs, annotated-doc, aiohappyeyeballs, yarl, scipy, requests, pandas, openpyxl, multiprocess, markdown-it-py, jinja2, httpcore, anyio, aiosignal, torch, scikit_learn, rich, httpx, aiohttp, typer, sklearn, bitsandbytes, huggingface_hub, tokenizers, datasets, accelerate, transformers, trl, peft
+  changing mode of /localscratch/user.27151501.0/python_env/bin/proton to 755
+  changing mode of /localscratch/user.27151501.0/python_env/bin/proton-viewer to 755
+  changing mode of /localscratch/user.27151501.0/python_env/bin/tqdm to 755
+  Attempting uninstall: sympy
+    Found existing installation: sympy 1.13.3+computecanada
+    Not uninstalling sympy at /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/scipy-stack/2025a/lib/python3.13/site-packages, outside environment /localscratch/user.27151501.0/python_env
+    Can't uninstall 'sympy'. No files were found to uninstall.
+  changing mode of /localscratch/user.27151501.0/python_env/bin/isympy to 755
+  Attempting uninstall: psutil
+    Found existing installation: psutil 6.1.1+computecanada
+    Not uninstalling psutil at /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/ipykernel/2025a/lib/python3.13/site-packages, outside environment /localscratch/user.27151501.0/python_env
+    Can't uninstall 'psutil'. No files were found to uninstall.
+  Attempting uninstall: packaging
+    Found existing installation: packaging 24.2+computecanada
+    Not uninstalling packaging at /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/scipy-stack/2025a/lib/python3.13/site-packages, outside environment /localscratch/user.27151501.0/python_env
+    Can't uninstall 'packaging'. No files were found to uninstall.
+  Attempting uninstall: numpy
+    Found existing installation: numpy 2.2.2+computecanada
+    Not uninstalling numpy at /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/scipy-stack/2025a/lib/python3.13/site-packages, outside environment /localscratch/user.27151501.0/python_env
+    Can't uninstall 'numpy'. No files were found to uninstall.
+  changing mode of /localscratch/user.27151501.0/python_env/bin/f2py to 755
+  changing mode of /localscratch/user.27151501.0/python_env/bin/numpy-config to 755
+  changing mode of /localscratch/user.27151501.0/python_env/bin/normalizer to 755
+  Attempting uninstall: scipy
+    Found existing installation: scipy 1.15.1+computecanada
+    Not uninstalling scipy at /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/scipy-stack/2025a/lib/python3.13/site-packages, outside environment /localscratch/user.27151501.0/python_env
+    Can't uninstall 'scipy'. No files were found to uninstall.
+  Attempting uninstall: pandas
+    Found existing installation: pandas 2.2.3+computecanada
+    Not uninstalling pandas at /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/scipy-stack/2025a/lib/python3.13/site-packages, outside environment /localscratch/user.27151501.0/python_env
+    Can't uninstall 'pandas'. No files were found to uninstall.
+  changing mode of /localscratch/user.27151501.0/python_env/bin/markdown-it to 755
+  changing mode of /localscratch/user.27151501.0/python_env/bin/torchrun to 755
+  changing mode of /localscratch/user.27151501.0/python_env/bin/httpx to 755
+  changing mode of /localscratch/user.27151501.0/python_env/bin/typer to 755
+  changing mode of /localscratch/user.27151501.0/python_env/bin/hf to 755
+  changing mode of /localscratch/user.27151501.0/python_env/bin/tiny-agents to 755
+  changing mode of /localscratch/user.27151501.0/python_env/bin/datasets-cli to 755
+  changing mode of /localscratch/user.27151501.0/python_env/bin/accelerate to 755
+  changing mode of /localscratch/user.27151501.0/python_env/bin/accelerate-config to 755
+  changing mode of /localscratch/user.27151501.0/python_env/bin/accelerate-estimate-memory to 755
+[... 315 lines omitted from the original log ...]
+  copying build/lib.linux-x86_64-cpython-313/bitsandbytes/_ops.py -> build/bdist.linux-x86_64/wheel/./bitsandbytes
+  copying build/lib.linux-x86_64-cpython-313/bitsandbytes/consts.py -> build/bdist.linux-x86_64/wheel/./bitsandbytes
+  copying build/lib.linux-x86_64-cpython-313/bitsandbytes/libbitsandbytes_cuda126.so -> build/bdist.linux-x86_64/wheel/./bitsandbytes
+  creating build/bdist.linux-x86_64/wheel/bitsandbytes/research
+  creating build/bdist.linux-x86_64/wheel/bitsandbytes/research/nn
+  copying build/lib.linux-x86_64-cpython-313/bitsandbytes/research/nn/modules.py -> build/bdist.linux-x86_64/wheel/./bitsandbytes/research/nn
+  copying build/lib.linux-x86_64-cpython-313/bitsandbytes/research/nn/__init__.py -> build/bdist.linux-x86_64/wheel/./bitsandbytes/research/nn
+  creating build/bdist.linux-x86_64/wheel/bitsandbytes/research/autograd
+  copying build/lib.linux-x86_64-cpython-313/bitsandbytes/research/autograd/_functions.py -> build/bdist.linux-x86_64/wheel/./bitsandbytes/research/autograd
+  copying build/lib.linux-x86_64-cpython-313/bitsandbytes/research/autograd/__init__.py -> build/bdist.linux-x86_64/wheel/./bitsandbytes/research/autograd
+  copying build/lib.linux-x86_64-cpython-313/bitsandbytes/research/__init__.py -> build/bdist.linux-x86_64/wheel/./bitsandbytes/research
+  copying build/lib.linux-x86_64-cpython-313/bitsandbytes/__main__.py -> build/bdist.linux-x86_64/wheel/./bitsandbytes
+  copying build/lib.linux-x86_64-cpython-313/bitsandbytes/functional.py -> build/bdist.linux-x86_64/wheel/./bitsandbytes
+  running install_egg_info
+  Copying bitsandbytes.egg-info to build/bdist.linux-x86_64/wheel/./bitsandbytes-0.49.1.dev0-py3.13.egg-info
+  running install_scripts
+  creating build/bdist.linux-x86_64/wheel/bitsandbytes-0.49.1.dev0.dist-info/WHEEL
+  creating '/tmp/pip-ephem-wheel-cache-t55qxge6/wheels/87/c0/8a/eaf13b76b98e0e33a3a616fdf26063f8a0b8d49382f14436ee/tmpsqpi97rm/.tmp-7a6ykqns/bitsandbytes-0.49.1.dev0-cp313-cp313-linux_x86_64.whl' and adding 'build/bdist.linux-x86_64/wheel' to it
+  adding 'bitsandbytes/__init__.py'
+  adding 'bitsandbytes/__main__.py'
+  adding 'bitsandbytes/_ops.py'
+  adding 'bitsandbytes/cextension.py'
+  adding 'bitsandbytes/consts.py'
+  adding 'bitsandbytes/cuda_specs.py'
+  adding 'bitsandbytes/functional.py'
+  adding 'bitsandbytes/libbitsandbytes_cpu.so'
+  adding 'bitsandbytes/libbitsandbytes_cuda126.so'
+  adding 'bitsandbytes/libbitsandbytes_cuda129.so'
+  adding 'bitsandbytes/py.typed'
+  adding 'bitsandbytes/utils.py'
+  adding 'bitsandbytes/autograd/__init__.py'
+  adding 'bitsandbytes/autograd/_functions.py'
+  adding 'bitsandbytes/backends/__init__.py'
+  adding 'bitsandbytes/backends/utils.py'
+  adding 'bitsandbytes/backends/cpu/__init__.py'
+  adding 'bitsandbytes/backends/cpu/ops.py'
+  adding 'bitsandbytes/backends/cuda/__init__.py'
+  adding 'bitsandbytes/backends/cuda/ops.py'
+  adding 'bitsandbytes/backends/default/__init__.py'
+  adding 'bitsandbytes/backends/default/ops.py'
+  adding 'bitsandbytes/backends/hpu/__init__.py'
+  adding 'bitsandbytes/backends/hpu/ops.py'
+  adding 'bitsandbytes/backends/triton/__init__.py'
+  adding 'bitsandbytes/backends/triton/kernels_4bit.py'
+  adding 'bitsandbytes/backends/triton/kernels_8bit_quant.py'
+  adding 'bitsandbytes/backends/triton/kernels_optim.py'
+  adding 'bitsandbytes/backends/triton/ops.py'
+  adding 'bitsandbytes/backends/xpu/__init__.py'
+  adding 'bitsandbytes/backends/xpu/ops.py'
+  adding 'bitsandbytes/diagnostics/__init__.py'
+  adding 'bitsandbytes/diagnostics/cuda.py'
+  adding 'bitsandbytes/diagnostics/main.py'
+  adding 'bitsandbytes/diagnostics/utils.py'
+  adding 'bitsandbytes/nn/__init__.py'
+  adding 'bitsandbytes/nn/modules.py'
+  adding 'bitsandbytes/nn/parametrize.py'
+  adding 'bitsandbytes/nn/triton_based_modules.py'
+  adding 'bitsandbytes/optim/__init__.py'
+  adding 'bitsandbytes/optim/adagrad.py'
+  adding 'bitsandbytes/optim/adam.py'
+  adding 'bitsandbytes/optim/adamw.py'
+  adding 'bitsandbytes/optim/ademamix.py'
+  adding 'bitsandbytes/optim/lamb.py'
+  adding 'bitsandbytes/optim/lars.py'
+  adding 'bitsandbytes/optim/lion.py'
+  adding 'bitsandbytes/optim/optimizer.py'
+  adding 'bitsandbytes/optim/rmsprop.py'
+  adding 'bitsandbytes/optim/sgd.py'
+  adding 'bitsandbytes/research/__init__.py'
+  adding 'bitsandbytes/research/autograd/__init__.py'
+  adding 'bitsandbytes/research/autograd/_functions.py'
+  adding 'bitsandbytes/research/nn/__init__.py'
+  adding 'bitsandbytes/research/nn/modules.py'
+  adding 'bitsandbytes/triton/__init__.py'
+  adding 'bitsandbytes/triton/dequantize_rowwise.py'
+  adding 'bitsandbytes/triton/int8_matmul_mixed_dequantize.py'
+  adding 'bitsandbytes/triton/int8_matmul_rowwise_dequantize.py'
+  adding 'bitsandbytes/triton/matmul_perf_model.py'
+  adding 'bitsandbytes/triton/quantize_columnwise_and_transpose.py'
+  adding 'bitsandbytes/triton/quantize_global.py'
+  adding 'bitsandbytes/triton/quantize_rowwise.py'
+  adding 'bitsandbytes/triton/triton_utils.py'
+  adding 'bitsandbytes-0.49.1.dev0.dist-info/licenses/LICENSE'
+  adding 'bitsandbytes-0.49.1.dev0.dist-info/METADATA'
+  adding 'bitsandbytes-0.49.1.dev0.dist-info/WHEEL'
+  adding 'bitsandbytes-0.49.1.dev0.dist-info/top_level.txt'
+  adding 'bitsandbytes-0.49.1.dev0.dist-info/RECORD'
+  removing build/bdist.linux-x86_64/wheel
+  Building wheel for bitsandbytes (pyproject.toml): finished with status 'done'
+  Created wheel for bitsandbytes: filename=bitsandbytes-0.49.1.dev0-cp313-cp313-linux_x86_64.whl size=20091625 sha256=e16bcc06d510f2ac5a40dc45e66e065da6090b2b7e25282aad38339358001e45
+  Stored in directory: /tmp/pip-ephem-wheel-cache-t55qxge6/wheels/87/c0/8a/eaf13b76b98e0e33a3a616fdf26063f8a0b8d49382f14436ee
+Successfully built bitsandbytes
+Installing collected packages: bitsandbytes
+  Attempting uninstall: bitsandbytes
+    Found existing installation: bitsandbytes 0.48.2+computecanada
+    Uninstalling bitsandbytes-0.48.2+computecanada:
+      Created temporary directory: /localscratch/user.27151501.0/python_env/lib/python3.13/site-packages/~itsandbytes-0.48.2+computecanada.dist-info
+      Removing file or directory /localscratch/user.27151501.0/python_env/lib/python3.13/site-packages/bitsandbytes-0.48.2+computecanada.dist-info/
+      Created temporary directory: /localscratch/user.27151501.0/python_env/lib/python3.13/site-packages/~itsandbytes
+      Removing file or directory /localscratch/user.27151501.0/python_env/lib/python3.13/site-packages/bitsandbytes/
+      Successfully uninstalled bitsandbytes-0.48.2+computecanada
+
+Successfully installed bitsandbytes-0.49.1.dev0
+Removed build tracker: '/tmp/pip-build-tracker-ky7t6bm3'
+
+Loading weights:   0%|          | 0/363 [00:00<?, ?it/s]
+Loading weights:   2%|▏         | 9/363 [00:00<00:04, 75.83it/s]
+Loading weights:   5%|▍         | 17/363 [00:00<00:04, 74.35it/s]
+Loading weights:   7%|▋         | 25/363 [00:00<00:05, 62.91it/s]
+Loading weights:   9%|▉         | 32/363 [00:00<00:06, 52.46it/s]
+Loading weights:  13%|█▎        | 49/363 [00:00<00:04, 72.86it/s]
+Loading weights:  16%|█▌        | 57/363 [00:00<00:05, 60.41it/s]
+Loading weights:  18%|█▊        | 64/363 [00:01<00:05, 55.98it/s]
+Loading weights:  22%|██▏       | 80/363 [00:01<00:04, 69.26it/s]
+Loading weights:  27%|██▋       | 97/363 [00:01<00:02, 90.86it/s]
+Loading weights:  30%|██▉       | 108/363 [00:01<00:03, 69.32it/s]
+Loading weights:  32%|███▏      | 117/363 [00:01<00:04, 58.40it/s]
+Loading weights:  34%|███▍      | 124/363 [00:01<00:04, 59.09it/s]
+Loading weights:  36%|███▋      | 132/363 [00:02<00:03, 61.31it/s]
+Loading weights:  38%|███▊      | 139/363 [00:02<00:04, 51.99it/s]
+Loading weights:  40%|███▉      | 145/363 [00:02<00:04, 50.84it/s]
+Loading weights:  44%|████▍     | 160/363 [00:02<00:03, 58.21it/s]
+Loading weights:  47%|████▋     | 171/363 [00:02<00:03, 54.77it/s]
+Loading weights:  50%|█████     | 183/363 [00:02<00:02, 64.79it/s]
+Loading weights:  53%|█████▎    | 191/363 [00:03<00:03, 55.95it/s]
+Loading weights:  55%|█████▌    | 201/363 [00:03<00:03, 51.66it/s]
+Loading weights:  59%|█████▉    | 215/363 [00:03<00:02, 65.07it/s]
+Loading weights:  61%|██████▏   | 223/363 [00:03<00:02, 47.04it/s]
+Loading weights:  63%|██████▎   | 230/363 [00:03<00:02, 50.17it/s]
+Loading weights:  65%|██████▌   | 237/363 [00:04<00:02, 46.45it/s]
+Loading weights:  69%|██████▊   | 249/363 [00:04<00:01, 59.27it/s]
+Loading weights:  72%|███████▏  | 261/363 [00:04<00:01, 56.93it/s]
+Loading weights:  74%|███████▍  | 268/363 [00:04<00:01, 54.44it/s]
+Loading weights:  75%|███████▌  | 274/363 [00:04<00:01, 51.49it/s]
+Loading weights:  77%|███████▋  | 281/363 [00:04<00:01, 49.95it/s]
+Loading weights:  79%|███████▉  | 288/363 [00:05<00:01, 50.35it/s]
+Loading weights:  81%|████████  | 294/363 [00:05<00:01, 48.80it/s]
+Loading weights:  82%|████████▏ | 299/363 [00:05<00:01, 43.60it/s]
+Loading weights:  86%|████████▌ | 312/363 [00:05<00:00, 58.56it/s]
+Loading weights:  89%|████████▊ | 322/363 [00:05<00:00, 62.97it/s]
+Loading weights:  91%|█████████ | 329/363 [00:05<00:00, 64.43it/s]
+Loading weights:  93%|█████████▎| 338/363 [00:05<00:00, 53.53it/s]
+Loading weights:  95%|█████████▍| 344/363 [00:06<00:00, 35.07it/s]
+Loading weights: 100%|██████████| 363/363 [00:06<00:00, 57.96it/s]
+The tokenizer you are loading from 'Mistral-Small-24B-Instruct-2501' with an incorrect regex pattern: https://huggingface.co/mistralai/Mistral-Small-3.1-24B-Instruct-2503/discussions/84#69121093e8b480e709447d5e. This will lead to incorrect tokenization. You should set the `fix_mistral_regex=True` flag when loading this tokenizer to fix this issue.
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]
+Writing model shards: 100%|██████████| 1/1 [00:54<00:00, 54.96s/it]
+Writing model shards: 100%|██████████| 1/1 [00:54<00:00, 54.96s/it]
+[rank0]:[W311 11:32:31.621227192 ProcessGroupNCCL.cpp:1553] Warning: WARNING: destroy_process_group() was not called before program exit, which can leak resources. For more info, please see https://pytorch.org/docs/stable/distributed.html#shutdown (function operator())

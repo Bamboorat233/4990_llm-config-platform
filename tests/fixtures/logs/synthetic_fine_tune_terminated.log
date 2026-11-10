@@ -1,0 +1,328 @@
+# SYNTHETIC FIXTURE - not a real log. Fine-tune run cut off by the SLURM time limit.
+# Built from sampleOutput10 up to a mid-training step, plus a time-limit line.
+
+The following have been reloaded with a version change:
+  1) python/3.11.5 => python/3.13.2
+
+created virtual environment CPython3.13.2.final.0-64 in 4870ms
+  creator CPython3Posix(dest=/localscratch/user.21002266.0/python_env, clear=False, no_vcs_ignore=False, global=False)
+  seeder FromAppData(download=False, pip=bundle, via=copy, app_data_dir=/home/user/.local/share/virtualenv)
+    added seed packages: pip==25.3
+  activators BashActivator,CShellActivator,FishActivator,NushellActivator,PowerShellActivator,PythonActivator
+Using pip 25.3 from /localscratch/user.21002266.0/python_env/lib/python3.13/site-packages/pip (python 3.13)
+Looking in links: /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/x86-64-v4, /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/x86-64-v3, /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/generic, /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic
+Requirement already satisfied: pip in /localscratch/user.21002266.0/python_env/lib/python3.13/site-packages (25.3)
+Using pip 25.3 from /localscratch/user.21002266.0/python_env/lib/python3.13/site-packages/pip (python 3.13)
+Looking in links: /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/x86-64-v4, /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/x86-64-v3, /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/generic, /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/accelerate-1.12.0+computecanada-py3-none-any.whl (from -r requirements.txt (line 1))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/x86-64-v3/aiohttp-3.13.2+computecanada-cp313-cp313-linux_x86_64.whl (from -r requirements.txt (line 2))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/generic/bitsandbytes-0.48.2+computecanada-py3-none-linux_x86_64.whl (from -r requirements.txt (line 3))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/certifi-2026.1.4+computecanada-py3-none-any.whl (from -r requirements.txt (line 4))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/charset_normalizer-3.4.4+computecanada-py3-none-any.whl (from -r requirements.txt (line 5))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/datasets-4.5.0+computecanada-py3-none-any.whl (from -r requirements.txt (line 6))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/dill-0.4.1+computecanada-py3-none-any.whl (from -r requirements.txt (line 7))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/filelock-3.20.3+computecanada-py3-none-any.whl (from -r requirements.txt (line 8))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/fsspec-2026.1.0+computecanada-py3-none-any.whl (from -r requirements.txt (line 9))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/generic/hf_xet-1.2.0+computecanada-cp37-abi3-linux_x86_64.whl (from -r requirements.txt (line 10))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/huggingface_hub-1.3.4+computecanada-py3-none-any.whl (from -r requirements.txt (line 11))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/idna-3.11+computecanada-py3-none-any.whl (from -r requirements.txt (line 12))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/jinja2-3.1.6+computecanada-py3-none-any.whl (from -r requirements.txt (line 13))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/joblib-1.5.3+computecanada-py3-none-any.whl (from -r requirements.txt (line 14))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/MarkupSafe-3.0.2+computecanada-cp313-cp313-linux_x86_64.whl (from -r requirements.txt (line 15))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/multiprocess-0.70.18+computecanada-py3-none-any.whl (from -r requirements.txt (line 16))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/networkx-3.6.1+computecanada-py3-none-any.whl (from -r requirements.txt (line 17))
+Requirement already satisfied: numpy in /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/scipy-stack/2025a/lib/python3.13/site-packages (from -r requirements.txt (line 18)) (2.2.2+computecanada)
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/generic/numpy-2.3.3+computecanada-cp313-cp313-linux_x86_64.whl (from -r requirements.txt (line 18))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/openpyxl-3.1.5+computecanada-py2.py3-none-any.whl (from -r requirements.txt (line 19))
+Requirement already satisfied: packaging in /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/scipy-stack/2025a/lib/python3.13/site-packages (from -r requirements.txt (line 20)) (24.2+computecanada)
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/packaging-26.0+computecanada-py3-none-any.whl (from -r requirements.txt (line 20))
+Requirement already satisfied: pandas in /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/scipy-stack/2025a/lib/python3.13/site-packages (from -r requirements.txt (line 21)) (2.2.3+computecanada)
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/x86-64-v3/pandas-2.3.3+computecanada-cp313-cp313-linux_x86_64.whl (from -r requirements.txt (line 21))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/peft-0.18.0+computecanada-py3-none-any.whl (from -r requirements.txt (line 22))
+Requirement already satisfied: psutil in /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/ipykernel/2025a/lib/python3.13/site-packages (from -r requirements.txt (line 23)) (6.1.1+computecanada)
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/psutil-7.0.0+computecanada-cp36-abi3-linux_x86_64.whl (from -r requirements.txt (line 23))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/x86-64-v3/PyYAML-6.0.2+computecanada-cp313-cp313-linux_x86_64.whl (from -r requirements.txt (line 24))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/regex-2024.11.6+computecanada-cp313-cp313-linux_x86_64.whl (from -r requirements.txt (line 25))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/requests-2.32.5+computecanada-py3-none-any.whl (from -r requirements.txt (line 26))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/generic/safetensors-0.7.0+computecanada-cp38-abi3-linux_x86_64.whl (from -r requirements.txt (line 27))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/generic/scikit_learn-1.7.1+computecanada-cp313-cp313-linux_x86_64.whl (from -r requirements.txt (line 28))
+Requirement already satisfied: scipy in /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/scipy-stack/2025a/lib/python3.13/site-packages (from -r requirements.txt (line 29)) (1.15.1+computecanada)
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/generic/scipy-1.16.2+computecanada-cp313-cp313-linux_x86_64.whl (from -r requirements.txt (line 29))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/setuptools-80.10.2+computecanada-py3-none-any.whl (from -r requirements.txt (line 30))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/sklearn-0.0+computecanada-py2.py3-none-any.whl (from -r requirements.txt (line 31))
+Requirement already satisfied: sympy in /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/scipy-stack/2025a/lib/python3.13/site-packages (from -r requirements.txt (line 32)) (1.13.3+computecanada)
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/sympy-1.14.0+computecanada-py3-none-any.whl (from -r requirements.txt (line 32))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/threadpoolctl-3.6.0+computecanada-py3-none-any.whl (from -r requirements.txt (line 33))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/generic/tokenizers-0.22.2+computecanada-cp39-abi3-linux_x86_64.whl (from -r requirements.txt (line 34))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/generic/torch-2.9.1+computecanada-cp313-cp313-linux_x86_64.whl (from -r requirements.txt (line 35))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/tqdm-4.67.1+computecanada-py3-none-any.whl (from -r requirements.txt (line 36))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/transformers-5.0.0+computecanada-py3-none-any.whl (from -r requirements.txt (line 37))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/triton-3.5.0+computecanada-cp313-cp313-linux_x86_64.whl (from -r requirements.txt (line 38))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/trl-0.26.1+computecanada-py3-none-any.whl (from -r requirements.txt (line 39))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/typing_extensions-4.15.0+computecanada-py3-none-any.whl (from -r requirements.txt (line 40))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/urllib3-2.6.3+computecanada-py3-none-any.whl (from -r requirements.txt (line 41))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/xxhash-3.5.0+computecanada-cp313-cp313-linux_x86_64.whl (from -r requirements.txt (line 42))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/aiohappyeyeballs-2.6.1+computecanada-py3-none-any.whl (from aiohttp->-r requirements.txt (line 2))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/aiosignal-1.4.0+computecanada-py3-none-any.whl (from aiohttp->-r requirements.txt (line 2))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/attrs-25.4.0+computecanada-py3-none-any.whl (from aiohttp->-r requirements.txt (line 2))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/frozenlist-1.8.0+computecanada-py3-none-any.whl (from aiohttp->-r requirements.txt (line 2))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/multidict-6.7.1+computecanada-cp313-cp313-linux_x86_64.whl (from aiohttp->-r requirements.txt (line 2))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/propcache-0.4.1+computecanada-py3-none-any.whl (from aiohttp->-r requirements.txt (line 2))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/x86-64-v3/yarl-1.22.0+computecanada-cp313-cp313-linux_x86_64.whl (from aiohttp->-r requirements.txt (line 2))
+Requirement already satisfied: pyarrow>=21.0.0 in /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/arrow/22.0.0/lib/python3.13/site-packages (from datasets->-r requirements.txt (line 6)) (22.0.0)
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/dill-0.4.0+computecanada-py3-none-any.whl (from -r requirements.txt (line 7))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/httpx-0.28.1+computecanada-py3-none-any.whl (from datasets->-r requirements.txt (line 6))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/fsspec-2025.10.0+computecanada-py3-none-any.whl (from -r requirements.txt (line 9))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/shellingham-1.5.4+computecanada-py2.py3-none-any.whl (from huggingface_hub->-r requirements.txt (line 11))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/typer_slim-0.21.1+computecanada-py3-none-any.whl (from huggingface_hub->-r requirements.txt (line 11))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/anyio-4.12.1+computecanada-py3-none-any.whl (from httpx<1.0.0->datasets->-r requirements.txt (line 6))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/httpcore-1.0.9+computecanada-py3-none-any.whl (from httpx<1.0.0->datasets->-r requirements.txt (line 6))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/h11-0.16.0+computecanada-py3-none-any.whl (from httpcore==1.*->httpx<1.0.0->datasets->-r requirements.txt (line 6))
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/et_xmlfile-2.0.0+computecanada-py3-none-any.whl (from openpyxl->-r requirements.txt (line 19))
+Requirement already satisfied: python-dateutil>=2.8.2 in /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/scipy-stack/2025a/lib/python3.13/site-packages (from pandas->-r requirements.txt (line 21)) (2.9.0.post0+computecanada)
+Requirement already satisfied: pytz>=2020.1 in /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/scipy-stack/2025a/lib/python3.13/site-packages (from pandas->-r requirements.txt (line 21)) (2025.1+computecanada)
+Requirement already satisfied: tzdata>=2022.7 in /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/scipy-stack/2025a/lib/python3.13/site-packages (from pandas->-r requirements.txt (line 21)) (2025.1+computecanada)
+Requirement already satisfied: mpmath<1.4,>=1.1.0 in /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/scipy-stack/2025a/lib/python3.13/site-packages (from sympy->-r requirements.txt (line 32)) (1.3.0+computecanada)
+Requirement already satisfied: six>=1.5 in /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/scipy-stack/2025a/lib/python3.13/site-packages (from python-dateutil>=2.8.2->pandas->-r requirements.txt (line 21)) (1.17.0+computecanada)
+Processing /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic/click-8.3.1+computecanada-py3-none-any.whl (from typer-slim->huggingface_hub->-r requirements.txt (line 11))
+Installing collected packages: xxhash, urllib3, typing_extensions, triton, tqdm, threadpoolctl, sympy, shellingham, setuptools, safetensors, regex, PyYAML, psutil, propcache, packaging, numpy, networkx, multidict, MarkupSafe, joblib, idna, hf_xet, h11, fsspec, frozenlist, filelock, et-xmlfile, dill, click, charset_normalizer, certifi, attrs, aiohappyeyeballs, yarl, typer-slim, scipy, requests, pandas, openpyxl, multiprocess, jinja2, httpcore, anyio, aiosignal, torch, scikit_learn, httpx, aiohttp, sklearn, huggingface_hub, bitsandbytes, tokenizers, datasets, accelerate, transformers, trl, peft
+  changing mode of /localscratch/user.21002266.0/python_env/bin/proton to 755
+  changing mode of /localscratch/user.21002266.0/python_env/bin/proton-viewer to 755
+  changing mode of /localscratch/user.21002266.0/python_env/bin/tqdm to 755
+  Attempting uninstall: sympy
+    Found existing installation: sympy 1.13.3+computecanada
+    Not uninstalling sympy at /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/scipy-stack/2025a/lib/python3.13/site-packages, outside environment /localscratch/user.21002266.0/python_env
+    Can't uninstall 'sympy'. No files were found to uninstall.
+  changing mode of /localscratch/user.21002266.0/python_env/bin/isympy to 755
+  Attempting uninstall: psutil
+    Found existing installation: psutil 6.1.1+computecanada
+    Not uninstalling psutil at /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/ipykernel/2025a/lib/python3.13/site-packages, outside environment /localscratch/user.21002266.0/python_env
+    Can't uninstall 'psutil'. No files were found to uninstall.
+  Attempting uninstall: packaging
+    Found existing installation: packaging 24.2+computecanada
+    Not uninstalling packaging at /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/scipy-stack/2025a/lib/python3.13/site-packages, outside environment /localscratch/user.21002266.0/python_env
+    Can't uninstall 'packaging'. No files were found to uninstall.
+  Attempting uninstall: numpy
+    Found existing installation: numpy 2.2.2+computecanada
+    Not uninstalling numpy at /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/scipy-stack/2025a/lib/python3.13/site-packages, outside environment /localscratch/user.21002266.0/python_env
+    Can't uninstall 'numpy'. No files were found to uninstall.
+  changing mode of /localscratch/user.21002266.0/python_env/bin/f2py to 755
+  changing mode of /localscratch/user.21002266.0/python_env/bin/numpy-config to 755
+  changing mode of /localscratch/user.21002266.0/python_env/bin/normalizer to 755
+  Attempting uninstall: scipy
+    Found existing installation: scipy 1.15.1+computecanada
+    Not uninstalling scipy at /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/scipy-stack/2025a/lib/python3.13/site-packages, outside environment /localscratch/user.21002266.0/python_env
+    Can't uninstall 'scipy'. No files were found to uninstall.
+  Attempting uninstall: pandas
+    Found existing installation: pandas 2.2.3+computecanada
+    Not uninstalling pandas at /cvmfs/soft.computecanada.ca/easybuild/software/2023/x86-64-v4/Compiler/gcccore/scipy-stack/2025a/lib/python3.13/site-packages, outside environment /localscratch/user.21002266.0/python_env
+    Can't uninstall 'pandas'. No files were found to uninstall.
+  changing mode of /localscratch/user.21002266.0/python_env/bin/torchrun to 755
+  changing mode of /localscratch/user.21002266.0/python_env/bin/httpx to 755
+  changing mode of /localscratch/user.21002266.0/python_env/bin/hf to 755
+  changing mode of /localscratch/user.21002266.0/python_env/bin/tiny-agents to 755
+  changing mode of /localscratch/user.21002266.0/python_env/bin/datasets-cli to 755
+  changing mode of /localscratch/user.21002266.0/python_env/bin/accelerate to 755
+  changing mode of /localscratch/user.21002266.0/python_env/bin/accelerate-config to 755
+  changing mode of /localscratch/user.21002266.0/python_env/bin/accelerate-estimate-memory to 755
+  changing mode of /localscratch/user.21002266.0/python_env/bin/accelerate-launch to 755
+  changing mode of /localscratch/user.21002266.0/python_env/bin/accelerate-merge-weights to 755
+  changing mode of /localscratch/user.21002266.0/python_env/bin/transformers to 755
+  changing mode of /localscratch/user.21002266.0/python_env/bin/trl to 755
+
+Successfully installed MarkupSafe-3.0.2+computecanada PyYAML-6.0.2+computecanada accelerate-1.12.0+computecanada aiohappyeyeballs-2.6.1+computecanada aiohttp-3.13.2+computecanada aiosignal-1.4.0+computecanada anyio-4.12.1+computecanada attrs-25.4.0+computecanada bitsandbytes-0.48.2+computecanada certifi-2026.1.4+computecanada charset_normalizer-3.4.4+computecanada click-8.3.1+computecanada datasets-4.5.0+computecanada dill-0.4.0+computecanada et-xmlfile-2.0.0+computecanada filelock-3.20.3+computecanada frozenlist-1.8.0+computecanada fsspec-2025.10.0+computecanada h11-0.16.0+computecanada hf_xet-1.2.0+computecanada httpcore-1.0.9+computecanada httpx-0.28.1+computecanada huggingface_hub-1.3.4+computecanada idna-3.11+computecanada jinja2-3.1.6+computecanada joblib-1.5.3+computecanada multidict-6.7.1+computecanada multiprocess-0.70.18+computecanada networkx-3.6.1+computecanada numpy-2.3.3+computecanada openpyxl-3.1.5+computecanada packaging-26.0+computecanada pandas-2.3.3+computecanada peft-0.18.0+computecanada propcache-0.4.1+computecanada psutil-7.0.0+computecanada regex-2024.11.6+computecanada requests-2.32.5+computecanada safetensors-0.7.0+computecanada scikit_learn-1.7.1+computecanada scipy-1.16.2+computecanada setuptools-80.10.2+computecanada shellingham-1.5.4+computecanada sklearn-0.0+computecanada sympy-1.14.0+computecanada threadpoolctl-3.6.0+computecanada tokenizers-0.22.2+computecanada torch-2.9.1+computecanada tqdm-4.67.1+computecanada transformers-5.0.0+computecanada triton-3.5.0+computecanada trl-0.26.1+computecanada typer-slim-0.21.1+computecanada typing_extensions-4.15.0+computecanada urllib3-2.6.3+computecanada xxhash-3.5.0+computecanada yarl-1.22.0+computecanada
+Using pip 25.3 from /localscratch/user.21002266.0/python_env/lib/python3.13/site-packages/pip (python 3.13)
+Non-user install because user site-packages disabled
+Ignoring indexes: https://pypi.org/simple
+Created temporary directory: /tmp/pip-build-tracker-7z9_7ry8
+Initialized build tracking at /tmp/pip-build-tracker-7z9_7ry8
+Created build tracker: /tmp/pip-build-tracker-7z9_7ry8
+Entered build tracker: /tmp/pip-build-tracker-7z9_7ry8
+Created temporary directory: /tmp/pip-install-9wnntasd
+Created temporary directory: /tmp/pip-ephem-wheel-cache-15o4sm68
+Looking in links: /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/x86-64-v4, /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/x86-64-v3, /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/gentoo2023/generic, /cvmfs/soft.computecanada.ca/custom/python/wheelhouse/generic
+Processing ./deps/bitsandbytes
+  Added file:///project/0000000/user/deps/bitsandbytes to build tracker '/tmp/pip-build-tracker-7z9_7ry8'
+  Created temporary directory: /tmp/pip-build-env-950m1xfk
+  Installing build dependencies: started
+  Running command installing build dependencies
+  Using pip 25.3 from /localscratch/user.21002266.0/python_env/lib/python3.13/site-packages/pip (python 3.13)
+  Non-user install by explicit request
+  Ignoring indexes: https://pypi.org/simple
+  Created build tracker: /tmp/pip-build-tracker-7z9_7ry8
+[... 386 lines omitted from the original log ...]
+Successfully installed bitsandbytes-0.49.1.dev0
+Removed build tracker: '/tmp/pip-build-tracker-7z9_7ry8'
+Start - Loading the model -  2026-01-28 17:58:25.364861
+
+Loading weights:   0%|          | 0/363 [00:00<?, ?it/s]
+Loading weights:   0%|          | 1/363 [00:00<00:00, 17050.02it/s, Materializing param=lm_head.weight]
+Loading weights:   0%|          | 1/363 [00:00<00:00, 7584.64it/s, Materializing param=lm_head.weight] 
+[... 796 lines omitted from the original log ...]
+Loading weights: 100%|██████████| 363/363 [00:27<00:00, 19.22it/s, Materializing param=model.norm.weight]                      
+Loading weights: 100%|██████████| 363/363 [00:27<00:00, 19.22it/s, Materializing param=model.norm.weight]
+Loading weights: 100%|██████████| 363/363 [00:27<00:00, 13.10it/s, Materializing param=model.norm.weight]
+End - Loading the model -  2026-01-28 17:58:54.934804
+Starting to Load the Tokeizer :  2026-01-28 17:58:54.934894
+The tokenizer you are loading from 'Mistral-Small-24B-Instruct-2501' with an incorrect regex pattern: https://huggingface.co/mistralai/Mistral-Small-3.1-24B-Instruct-2503/discussions/84#69121093e8b480e709447d5e. This will lead to incorrect tokenization. You should set the `fix_mistral_regex=True` flag when loading this tokenizer to fix this issue.
+Done Loading the Tokenizer :  2026-01-28 17:58:55.709028
+Done Loading the Train Data :  2026-01-28 17:58:59.355616
+Done Loading the Train Data :  2026-01-28 17:58:59.461775
+Done Loading the Eval Data :  2026-01-28 17:58:59.461887
+Done Loading the Eval Data :  2026-01-28 17:58:59.520116
+
+Tokenizing train dataset:   0%|          | 0/9935 [00:00<?, ? examples/s]
+Tokenizing train dataset:   1%|          | 108/9935 [00:00<00:09, 1066.90 examples/s]
+Tokenizing train dataset:   2%|▏         | 224/9935 [00:00<00:08, 1115.60 examples/s]
+[... 68 lines omitted from the original log ...]
+Tokenizing train dataset:  92%|█████████▏| 9175/9935 [00:08<00:00, 1085.22 examples/s]
+Tokenizing train dataset:  94%|█████████▎| 9294/9935 [00:08<00:00, 1111.30 examples/s]
+Tokenizing train dataset:  95%|█████████▍| 9419/9935 [00:08<00:00, 1146.86 examples/s]
+Tokenizing train dataset:  96%|█████████▌| 9538/9935 [00:08<00:00, 1155.17 examples/s]
+Tokenizing train dataset:  98%|█████████▊| 9708/9935 [00:08<00:00, 1140.93 examples/s]
+Tokenizing train dataset:  99%|█████████▉| 9830/9935 [00:08<00:00, 1160.16 examples/s]
+Tokenizing train dataset: 100%|██████████| 9935/9935 [00:08<00:00, 1128.86 examples/s]
+
+Truncating train dataset:   0%|          | 0/9935 [00:00<?, ? examples/s]
+Truncating train dataset: 100%|██████████| 9935/9935 [00:00<00:00, 401425.84 examples/s]
+
+Tokenizing eval dataset:   0%|          | 0/3084 [00:00<?, ? examples/s]
+Tokenizing eval dataset:   4%|▍         | 121/3084 [00:00<00:02, 1193.31 examples/s]
+Tokenizing eval dataset:  10%|▉         | 303/3084 [00:00<00:02, 1202.57 examples/s]
+Tokenizing eval dataset:  16%|█▌        | 487/3084 [00:00<00:02, 1210.92 examples/s]
+Tokenizing eval dataset:  20%|█▉        | 611/3084 [00:00<00:02, 1218.68 examples/s]
+Tokenizing eval dataset:  24%|██▍       | 733/3084 [00:00<00:01, 1217.01 examples/s]
+Tokenizing eval dataset:  28%|██▊       | 857/3084 [00:00<00:01, 1220.80 examples/s]
+Tokenizing eval dataset:  32%|███▏      | 980/3084 [00:00<00:01, 1221.28 examples/s]
+Tokenizing eval dataset:  36%|███▋      | 1119/3084 [00:00<00:01, 1058.76 examples/s]
+Tokenizing eval dataset:  40%|████      | 1243/3084 [00:01<00:01, 1103.32 examples/s]
+Tokenizing eval dataset:  44%|████▍     | 1367/3084 [00:01<00:01, 1137.49 examples/s]
+Tokenizing eval dataset:  48%|████▊     | 1489/3084 [00:01<00:01, 1155.10 examples/s]
+Tokenizing eval dataset:  52%|█████▏    | 1612/3084 [00:01<00:01, 1173.88 examples/s]
+Tokenizing eval dataset:  56%|█████▌    | 1732/3084 [00:01<00:01, 1179.37 examples/s]
+Tokenizing eval dataset:  60%|██████    | 1861/3084 [00:01<00:01, 1208.42 examples/s]
+Tokenizing eval dataset:  64%|██████▍   | 1987/3084 [00:01<00:00, 1219.81 examples/s]
+Tokenizing eval dataset:  69%|██████▊   | 2119/3084 [00:01<00:00, 1051.43 examples/s]
+Tokenizing eval dataset:  73%|███████▎  | 2245/3084 [00:01<00:00, 1103.71 examples/s]
+Tokenizing eval dataset:  77%|███████▋  | 2368/3084 [00:02<00:00, 1136.85 examples/s]
+Tokenizing eval dataset:  81%|████████  | 2492/3084 [00:02<00:00, 1163.59 examples/s]
+Tokenizing eval dataset:  85%|████████▍ | 2616/3084 [00:02<00:00, 1182.42 examples/s]
+Tokenizing eval dataset:  91%|█████████ | 2794/3084 [00:02<00:00, 1181.36 examples/s]
+Tokenizing eval dataset:  95%|█████████▍| 2919/3084 [00:02<00:00, 1195.32 examples/s]
+Tokenizing eval dataset:  99%|█████████▉| 3057/3084 [00:02<00:00, 1055.84 examples/s]
+Tokenizing eval dataset: 100%|██████████| 3084/3084 [00:02<00:00, 1144.80 examples/s]
+
+Truncating eval dataset:   0%|          | 0/3084 [00:00<?, ? examples/s]
+Truncating eval dataset: 100%|██████████| 3084/3084 [00:00<00:00, 472830.85 examples/s]
+The tokenizer has new PAD/BOS/EOS tokens that differ from the model config and generation config. The model config and generation config were aligned accordingly, being updated with the tokenizer's values. Updated tokens: {'pad_token_id': 2}.
+
+  0%|          | 0/9936 [00:00<?, ?it/s]
+  0%|          | 1/9936 [00:02<8:08:56,  2.95s/it]
+                                                  
+{'loss': '2.012', 'grad_norm': '0.4727', 'learning_rate': '0', 'entropy': '1.662', 'num_tokens': '1024', 'mean_token_accuracy': '0.6076', 'epoch': '0.0002013'}
+
+  0%|          | 1/9936 [00:02<8:08:56,  2.95s/it]
+  0%|          | 2/9936 [00:05<7:32:01,  2.73s/it]
+                                                  
+{'loss': '1.974', 'grad_norm': '1.078', 'learning_rate': '4e-05', 'entropy': '1.6', 'num_tokens': '1987', 'mean_token_accuracy': '0.615', 'epoch': '0.0004026'}
+
+  0%|          | 2/9936 [00:05<7:32:01,  2.73s/it]
+  0%|          | 3/9936 [00:08<7:28:30,  2.71s/it]
+                                                  
+{'loss': '2.085', 'grad_norm': '0.4375', 'learning_rate': '8e-05', 'entropy': '1.775', 'num_tokens': '3132', 'mean_token_accuracy': '0.5888', 'epoch': '0.0006039'}
+
+  0%|          | 3/9936 [00:08<7:28:30,  2.71s/it]
+  0%|          | 4/9936 [00:10<7:26:43,  2.70s/it]
+                                                  
+{'loss': '1.768', 'grad_norm': '0.3926', 'learning_rate': '0.00012', 'entropy': '1.622', 'num_tokens': '4235', 'mean_token_accuracy': '0.6322', 'epoch': '0.0008052'}
+
+  0%|          | 4/9936 [00:10<7:26:43,  2.70s/it]
+  0%|          | 5/9936 [00:13<7:18:39,  2.65s/it]
+                                                  
+{'loss': '1.848', 'grad_norm': '0.5078', 'learning_rate': '0.00016', 'entropy': '1.834', 'num_tokens': '5184', 'mean_token_accuracy': '0.6103', 'epoch': '0.001006'}
+
+  0%|          | 5/9936 [00:13<7:18:39,  2.65s/it]
+  0%|          | 6/9936 [00:16<7:13:32,  2.62s/it]
+                                                  
+{'loss': '1.257', 'grad_norm': '0.7852', 'learning_rate': '0.0002', 'entropy': '1.41', 'num_tokens': '6163', 'mean_token_accuracy': '0.7318', 'epoch': '0.001208'}
+
+  0%|          | 6/9936 [00:16<7:13:32,  2.62s/it]
+  0%|          | 7/9936 [00:18<7:05:55,  2.57s/it]
+                                                  
+{'loss': '1.403', 'grad_norm': '1.164', 'learning_rate': '0.0002', 'entropy': '1.425', 'num_tokens': '7074', 'mean_token_accuracy': '0.7272', 'epoch': '0.001409'}
+
+  0%|          | 7/9936 [00:18<7:05:55,  2.57s/it]
+  0%|          | 8/9936 [00:21<7:08:31,  2.59s/it]
+                                                  
+{'loss': '0.9006', 'grad_norm': '0.6445', 'learning_rate': '0.0002', 'entropy': '1.046', 'num_tokens': '8142', 'mean_token_accuracy': '0.8152', 'epoch': '0.00161'}
+
+  0%|          | 8/9936 [00:21<7:08:31,  2.59s/it]
+  0%|          | 9/9936 [00:23<7:02:07,  2.55s/it]
+                                                  
+{'loss': '0.6957', 'grad_norm': '0.4746', 'learning_rate': '0.0001999', 'entropy': '0.7232', 'num_tokens': '9051', 'mean_token_accuracy': '0.8721', 'epoch': '0.001812'}
+
+  0%|          | 9/9936 [00:23<7:02:07,  2.55s/it]
+  0%|          | 10/9936 [00:26<7:06:58,  2.58s/it]
+                                                   
+{'loss': '0.6159', 'grad_norm': '0.3809', 'learning_rate': '0.0001999', 'entropy': '0.6691', 'num_tokens': '1.013e+04', 'mean_token_accuracy': '0.8706', 'epoch': '0.002013'}
+
+  0%|          | 10/9936 [00:26<7:06:58,  2.58s/it]
+  0%|          | 11/9936 [00:28<7:01:36,  2.55s/it]
+                                                   
+{'loss': '0.7471', 'grad_norm': '0.3848', 'learning_rate': '0.0001999', 'entropy': '0.6419', 'num_tokens': '1.11e+04', 'mean_token_accuracy': '0.8532', 'epoch': '0.002214'}
+
+  0%|          | 11/9936 [00:28<7:01:36,  2.55s/it]
+  0%|          | 12/9936 [00:31<7:10:21,  2.60s/it]
+                                                   
+{'loss': '0.5151', 'grad_norm': '0.5742', 'learning_rate': '0.0001999', 'entropy': '0.4825', 'num_tokens': '1.227e+04', 'mean_token_accuracy': '0.8976', 'epoch': '0.002415'}
+
+  0%|          | 12/9936 [00:31<7:10:21,  2.60s/it]
+  0%|          | 13/9936 [00:34<7:08:47,  2.59s/it]
+                                                   
+{'loss': '0.6484', 'grad_norm': '0.459', 'learning_rate': '0.0001999', 'entropy': '0.586', 'num_tokens': '1.32e+04', 'mean_token_accuracy': '0.8607', 'epoch': '0.002617'}
+
+  0%|          | 13/9936 [00:34<7:08:47,  2.59s/it]
+  0%|          | 14/9936 [00:36<7:19:20,  2.66s/it]
+                                                   
+{'loss': '0.8149', 'grad_norm': '0.5352', 'learning_rate': '0.0001998', 'entropy': '0.7638', 'num_tokens': '1.449e+04', 'mean_token_accuracy': '0.8234', 'epoch': '0.002818'}
+
+  0%|          | 14/9936 [00:36<7:19:20,  2.66s/it]
+  0%|          | 15/9936 [00:39<7:15:42,  2.64s/it]
+                                                   
+{'loss': '0.7467', 'grad_norm': '0.418', 'learning_rate': '0.0001998', 'entropy': '0.6522', 'num_tokens': '1.548e+04', 'mean_token_accuracy': '0.8478', 'epoch': '0.003019'}
+
+  0%|          | 15/9936 [00:39<7:15:42,  2.64s/it]
+  0%|          | 16/9936 [00:42<7:27:23,  2.71s/it]
+                                                   
+{'loss': '0.7573', 'grad_norm': '0.3047', 'learning_rate': '0.0001998', 'entropy': '0.6972', 'num_tokens': '1.685e+04', 'mean_token_accuracy': '0.8234', 'epoch': '0.003221'}
+
+  0%|          | 16/9936 [00:42<7:27:23,  2.71s/it]
+  0%|          | 17/9936 [00:45<7:30:35,  2.73s/it]
+                                                   
+{'loss': '0.6409', 'grad_norm': '0.3398', 'learning_rate': '0.0001998', 'entropy': '0.6244', 'num_tokens': '1.806e+04', 'mean_token_accuracy': '0.8547', 'epoch': '0.003422'}
+
+  0%|          | 17/9936 [00:45<7:30:35,  2.73s/it]
+  0%|          | 18/9936 [00:47<7:23:24,  2.68s/it]
+                                                   
+{'loss': '0.5461', 'grad_norm': '0.5898', 'learning_rate': '0.0001998', 'entropy': '0.5036', 'num_tokens': '1.906e+04', 'mean_token_accuracy': '0.887', 'epoch': '0.003623'}
+
+  0%|          | 18/9936 [00:47<7:23:24,  2.68s/it]
+  0%|          | 19/9936 [00:50<7:21:11,  2.67s/it]
+                                                   
+{'loss': '0.7083', 'grad_norm': '0.2559', 'learning_rate': '0.0001997', 'entropy': '0.6236', 'num_tokens': '2.006e+04', 'mean_token_accuracy': '0.8636', 'epoch': '0.003824'}
+
+  0%|          | 19/9936 [00:50<7:21:11,  2.67s/it]
+  0%|          | 20/9936 [00:52<7:19:01,  2.66s/it]
+                                                   
+{'loss': '0.5999', 'grad_norm': '0.2598', 'learning_rate': '0.0001997', 'entropy': '0.5883', 'num_tokens': '2.108e+04', 'mean_token_accuracy': '0.8583', 'epoch': '0.004026'}
+
+  0%|          | 20/9936 [00:52<7:19:01,  2.66s/it]
+  0%|          | 21/9936 [00:55<7:13:18,  2.62s/it]
+                                                   
+{'loss': '0.5807', 'grad_norm': '1.602', 'learning_rate': '0.0001997', 'entropy': '0.5815', 'num_tokens': '2.208e+04', 'mean_token_accuracy': '0.8739', 'epoch': '0.004227'}
+
+  0%|          | 21/9936 [00:55<7:13:18,  2.62s/it]
+  0%|          | 22/9936 [00:57<7:06:25,  2.58s/it]
+                                                   
+{'loss': '0.7695', 'grad_norm': '0.2754', 'learning_rate': '0.0001997', 'entropy': '0.7218', 'num_tokens': '2.297e+04', 'mean_token_accuracy': '0.8354', 'epoch': '0.004428'}
+slurmstepd: error: *** JOB 99999999 ON fc00000 CANCELLED AT 2026-03-27T18:48:59 DUE TO TIME LIMIT ***
