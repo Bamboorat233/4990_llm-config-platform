@@ -188,7 +188,8 @@ PHASE_ORDER: dict[str, tuple[str, ...]] = {
 #   fine_tune.model_saving          clean exit (no literal marker)
 #   inference.setup                 DONE_LOADING_MODEL and DONE_LOADING_TOKENIZER
 #   inference.data_preparation      DONE_PREPARING_INPUT
-#   inference.generation            progress bar where done == total
+#   inference.generation            implied by verdict output (no inference
+#                                   fixture prints a generation progress bar)
 #   inference.verdict_output        VERDICTS_BANNER (or both verdict tables)
 #   checkpoint_export.setup         model-load markers, as for fine_tune
 #   checkpoint_export.model_saving  SHARD_WRITING_COMPLETE

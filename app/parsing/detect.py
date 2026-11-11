@@ -84,6 +84,22 @@ _CORE_PHASE: Final = {
     FAMILY_CHECKPOINT_EXPORT: "model_saving",
 }
 
+#: ``progress`` keys per family (contract rule 8).  The detector emits every
+#: key unfilled; the family parsers of issue #31 supply the values.
+_PROGRESS_KEYS: Final = {
+    FAMILY_FINE_TUNE: ("step", "total_steps", "epoch", "last_loss", "eval_losses"),
+    FAMILY_INFERENCE: ("records_done", "records_expected"),
+    FAMILY_CHECKPOINT_EXPORT: (),
+    FAMILY_UNKNOWN: (),
+}
+
+
+def _empty_progress(key: str) -> list[float] | None:
+    """Return the "not observed" value of a ``progress`` key."""
+
+    return [] if key == "eval_losses" else None
+
+
 _FAILED: Final = "failed"
 _TERMINATED: Final = "terminated"
 _SUCCEEDED: Final = "succeeded"
@@ -386,7 +402,7 @@ class _Tracker:
             done["data_preparation"] = self._first_of(
                 "done_preparing_input", "banner_inputs"
             )
-            verdict = self._first_of("verdicts_banner", "table_row")
+            verdict = self._first_of("banner_verdicts", "table_row")
             if usable(verdict):
                 done["verdict_output"] = verdict
                 done["generation"] = verdict
@@ -463,6 +479,8 @@ class _Tracker:
         done, implied = self._done_lines(family, terminal)
         outcomes: dict[str, str] = {}
         clean_exit = False
+        clean_eof_unverified = False
+        result["progress"] = {key: _empty_progress(key) for key in _PROGRESS_KEYS[family]}
 
         if terminal is not None:
             current: int | None = None
@@ -486,26 +504,30 @@ class _Tracker:
                     else:
                         outcomes[name] = _NOT_REACHED
         else:
-            if family == FAMILY_INFERENCE:
-                clean_exit = self._clean_tail()
-            elif family == FAMILY_FINE_TUNE:
-                clean_exit = (
-                    done["fine_tuning"] is not None
-                    and done["checkpoint_creation"] is not None
-                )
-            elif family == FAMILY_CHECKPOINT_EXPORT:
-                clean_exit = done["model_saving"] is not None
+            # Without a terminal event, a log whose every phase has a
+            # completion line succeeded, whatever trails the last marker.
+            # Otherwise only a clean end of file can stand in for the
+            # missing markers.
+            current = next(
+                (index for index, name in enumerate(phases) if done[name] is None),
+                None,
+            )
+            if current is not None:
+                if family == FAMILY_INFERENCE:
+                    clean_exit = self._clean_tail()
+                    clean_eof_unverified = clean_exit
+                elif family == FAMILY_FINE_TUNE:
+                    clean_exit = (
+                        done["fine_tuning"] is not None
+                        and done["checkpoint_creation"] is not None
+                    )
 
-            if clean_exit:
+            if current is None or clean_exit:
                 for name in phases:
                     outcomes[name] = _SUCCEEDED
             else:
-                current = next(
-                    (index for index, name in enumerate(phases) if done[name] is None),
-                    None,
-                )
                 for index, name in enumerate(phases):
-                    if current is None or index < current:
+                    if index < current:
                         outcomes[name] = _SUCCEEDED
                     elif index == current:
                         outcomes[name] = _TERMINATED
@@ -610,7 +632,7 @@ class _Tracker:
                     "rank": terminal.rank,
                 }
             )
-        elif not clean_exit and self.last_nonempty is not None:
+        elif failed_phase is not None and self.last_nonempty is not None:
             result["errors"].append(
                 {
                     "kind": "truncated",
@@ -664,6 +686,18 @@ class _Tracker:
         elif status == "terminated":
             result["notes"].append(
                 "The run stopped before completion: SLURM time limit or a truncated log."
+            )
+
+        if clean_eof_unverified:
+            # s02/s03: the log ends on a whole output record but shows no
+            # VERDICTS section or verdict table.  The oracle calls that a
+            # success; a run cut off between records looks identical, so the
+            # record count against the gold set (ScoreReport.complete) is
+            # what confirms it.
+            result["notes"].append(
+                "The log ends on a complete output record but shows no verdict "
+                "section, so generation and verdict output are inferred from the "
+                "clean end of the log; scoring checks the record count."
             )
 
         # Timestamps: a fatal line without a timestamp leaves finished_at None.
