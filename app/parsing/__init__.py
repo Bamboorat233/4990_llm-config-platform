@@ -12,15 +12,16 @@ Pipeline position (``design/M1.5-2_Spec_and_roadmap.md`` section 1)::
 
 This module owns the public entry point and the result shape. The detection
 patterns, script-to-family map, phase order and completion markers live in
-:mod:`app.parsing.errors`; the detector and the family parsers arrive in
-issue #30. Nothing here imports NiceGUI: parsing must run in a worker thread
-through ``run.io_bound`` and stay usable from the command line.
+:mod:`app.parsing.errors`; the detector is :mod:`app.parsing.detect` (issue
+#30) and the family parsers that fill ``progress`` arrive in issue #31.
+Nothing here imports NiceGUI: parsing must run in a worker thread through
+``run.io_bound`` and stay usable from the command line.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Literal, TypedDict
+from typing import Literal, TypedDict, cast
 
 __all__ = ["ParseResult", "parse_log_file"]
 
@@ -78,9 +79,10 @@ def parse_log_file(path: str | Path) -> ParseResult:
       those are caller errors, not log-content errors.
     - has no side effects: no writes, no NiceGUI import, no global state.
 
-    The implementation lands in issue #30 (detector plus family parsers).
+    The implementation lives in :func:`app.parsing.detect.detect`; the family
+    parsers (issue #31) will later fill ``progress``, which the detector
+    leaves empty.
     """
-    raise NotImplementedError(
-        "parse_log_file is not implemented yet; issue #30 adds the "
-        "streaming detector and the family parsers."
-    )
+    from app.parsing.detect import detect
+
+    return cast(ParseResult, detect(path))
