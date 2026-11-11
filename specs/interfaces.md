@@ -1,9 +1,9 @@
 # Interface contracts
 
-Status: agreed in issue #1 (milestone M0.5). Owner: A.
-Consumers: `app/registry.py` (#2), `app/schemas.py` (#3, #4, #5), `app/ui/*` (#6–#8, #12), `app/store.py` (#10, #11).
+Status: sections 1–3 agreed in issue #1 (milestone M0.5); sections 4–5 added in issue #28 (milestone M1.5). Owner: A.
+Consumers: `app/registry.py` (#2), `app/schemas.py` (#3, #4, #5), `app/ui/*` (#6–#8, #12), `app/store.py` (#10, #11), `app/parsing/*` (#28, #30).
 
-These three contracts are the only cross-module agreements. Anything not written here is an implementation detail of the module that owns it.
+These five contracts are the only cross-module agreements. Anything not written here is an implementation detail of the module that owns it.
 
 ---
 
@@ -165,4 +165,229 @@ def validate_cross_fields(cfg: ConfigRecord) -> list[ValidationIssue]: ...
         "msg": "DeepSeek concatenates the system prompt right after BOS with no separator; prefer putting the instruction in the user prompt.",
     },
 ]
+```
+
+---
+
+## 4. `ParseResult`
+
+```python
+class ParseResult(TypedDict):
+    source_path: str
+    script: str | None
+    model_id: str | None
+    family: Literal["fine_tune", "inference", "checkpoint_export", "unknown"]
+    status: Literal["success", "error", "terminated", "unknown"]
+    scenario: str
+    phases: list[dict]
+    failed_phase: str | None
+    output_format: Literal["banner", "think", "table_only"] | None
+    started_at: str | None
+    finished_at: str | None
+    duration_seconds: float | None
+    progress: dict
+    errors: list[dict]
+    warnings: list[dict]
+    evidence: list[dict]
+    notes: list[str]
+
+
+def parse_log_file(path: str | Path) -> ParseResult: ...
+```
+
+Consumers: `app/parsing/detect.py` (#30), `app/parsing/training_log.py`, `app/parsing/inference_log.py`, `app/parsing/checkpoint_log.py`, `app/store.py` (`runs.payload_json`), `app/ui/results.py`.
+
+### Rules
+
+1. All seventeen keys are always present, in this spelling. `None` means "not observed in this log"; an omitted key is a bug.
+2. `scenario` is always `f"{family}_{status}"` (`fine_tune_success`, `inference_terminated`, ...). It is derived, never assigned independently.
+3. `phases` is ordered and contains exactly the phases of `PHASE_ORDER[family]`:
+   - `fine_tune` — `setup`, `fine_tuning`, `checkpoint_creation`, `model_saving`;
+   - `inference` — `setup`, `data_preparation`, `generation`, `verdict_output`;
+   - `checkpoint_export` — `setup`, `model_saving`.
+
+   Each item is `{"name": str, "outcome": str, "evidence_line": int | None}`, for example `{"name": "checkpoint_creation", "outcome": "succeeded", "evidence_line": 237}`. `outcome` is `Literal["succeeded", "failed", "terminated", "not_reached"]`. `evidence_line` is the 1-based line number that decided the outcome; it is `None` only for `not_reached` and for a `succeeded` phase whose evidence is a clean exit.
+4. `failed_phase` is the name of the first phase whose outcome is `failed` or `terminated`; it is `None` when every phase succeeded or the log could not be classified. `failed_phase` may be set while `status == "success"`: that combination is a **success with warning** (log 12 / s12, where `model_saving` failed after the core phase succeeded).
+5. `status` follows from the phases, with the core phase per family (`fine_tune.fine_tuning`, `inference.generation`, `checkpoint_export.model_saving`):
+   - every phase `succeeded` → `success`;
+   - a `failed` phase before or at the core phase → `error`;
+   - a `failed` phase after the core phase → `success` with a warning;
+   - a `terminated` phase before or at the core phase → `terminated`;
+   - a `terminated` phase after the core phase → `success` with a warning;
+   - no phase evidence at all → `unknown`.
+
+   **Note.** Phase outcomes are spelled `succeeded`, `failed`, `terminated`, `not_reached`. This follows the fixture oracle (`tests/fixtures/logs/expected.json`, #29) and supersedes the `success` / `failure` wording in design section 3.2. The three `status` values remain `success`, `error`, `terminated`.
+6. `output_format` names the inference layout once enough output exists to distinguish it: `banner`, `think` or `table_only`. It is `None` for fine-tune and checkpoint-export runs and for inference runs that stop before the layout is observable (log 01 / s01).
+7. `started_at` and `finished_at` are ISO 8601 timestamps without a timezone suffix when the log exposes a start and an end for the run, otherwise `None`. `duration_seconds` is `finished_at - started_at` when both are present, otherwise `None`.
+8. `progress` has exactly these keys per family, with `None` (or `[]` for `eval_losses`) where a value was not observed:
+   - `fine_tune` — `step`, `total_steps`, `epoch`, `last_loss`, `eval_losses`;
+   - `inference` — `records_done`, `records_expected`;
+   - `checkpoint_export` and `unknown` — `{}`.
+9. `errors` and `warnings` items are `{"kind": str, "message": str, "line": int | None, "rank": int | None}`. `kind` is a stable lowercase token chosen by the detector (`oom`, `missing_library`, `child_failed`, `slurm_time_limit`, ...); `message` is the stripped line or a one-sentence English summary; `line` is 1-based; `rank` is the integer from the `[rankN]: ` prefix, or `None` when the line had no prefix.
+10. `evidence` items are `{"rule": str, "line": int | None, "text": str}`. `rule` is a key of `PATTERNS` in `app/parsing/errors.py`; `line` is 1-based; `text` is the line with the `[rankN]: ` prefix stripped.
+11. `notes` holds short English remarks for the Results panel, including the success-with-warning sentence and the reason for `status="unknown"`. It is `[]` when there is nothing to say.
+12. `parse_log_file` never raises for malformed, truncated or unrecognisable content; such logs are reported through `status`, `errors` and `notes`. It raises only `OSError` for an unreadable path. It makes a single streaming pass with `encoding="utf-8", errors="replace", newline=None` and imports no NiceGUI code.
+
+### Example
+
+The trimmed fixture for log 12: fine-tuning and checkpoint creation succeeded, and model saving failed.
+
+```python
+{
+    "source_path": "tests/fixtures/logs/s12_fine_tune_success_warning.log",
+    "script": "fineTuneMistral.py",
+    "model_id": None,
+    "family": "fine_tune",
+    "status": "success",
+    "scenario": "fine_tune_success",
+    "phases": [
+        {"name": "setup", "outcome": "succeeded", "evidence_line": 173},
+        {"name": "fine_tuning", "outcome": "succeeded", "evidence_line": 259},
+        {"name": "checkpoint_creation", "outcome": "succeeded", "evidence_line": 237},
+        {"name": "model_saving", "outcome": "failed", "evidence_line": 373},
+    ],
+    "failed_phase": "model_saving",
+    "output_format": None,
+    "started_at": "2026-02-07 20:22:20.921747",
+    "finished_at": None,
+    "duration_seconds": None,
+    "progress": {
+        "step": 9936,
+        "total_steps": 9936,
+        "epoch": 2.0,
+        "last_loss": 0.491,
+        "eval_losses": [0.6387, 0.6405],
+    },
+    "errors": [
+        {
+            "kind": "file_not_found",
+            "message": "FileNotFoundError: [Errno 2] No such file or directory: 'fineTuningOutput/checkpoint-4968/pytorch_model.bin'",
+            "line": 373,
+            "rank": 0,
+        },
+    ],
+    "warnings": [
+        {
+            "kind": "phase_failed_after_core",
+            "message": "model_saving failed after the core phase fine_tuning succeeded",
+            "line": 373,
+            "rank": 0,
+        },
+    ],
+    "evidence": [
+        {"rule": "shard_writing", "line": 237, "text": "Writing model shards: 100%|...| 1/1"},
+        {"rule": "exception_line", "line": 373, "text": "FileNotFoundError: [Errno 2] No such file or directory"},
+    ],
+    "notes": [
+        "The core phase fine_tuning succeeded, so the run is reported as success with a warning.",
+    ],
+}
+```
+
+---
+
+## 5. `ScoreReport`
+
+```python
+class ScoreReport(TypedDict):
+    marker: str
+    labels: list[str]
+    source: Literal["parsed", "script_table"]
+    records: int
+    complete: bool
+    exact: int
+    recovered: int
+    empty: int
+    out_of_set: int
+    unparsed: int
+    unfinished: int
+    empty_rate: float
+    invalid_rate: float
+    accuracy: float
+    macro_f1: float
+    micro_f1: float
+    weighted_f1: float
+    precision: dict[str, float]
+    recall: dict[str, float]
+    f1: dict[str, float]
+    confusion: dict[str, dict[str, int]]
+    exact_metrics: dict
+    inclusive_metrics: dict
+```
+
+Consumers: `app/scoring.py`, `app/store.py` (`scores.payload_json`), `app/ui/results.py`.
+
+### Rules
+
+1. All keys are always present. `marker` is the verdict marker searched in each decoded output (from `p.verdict_parse_marker`); `labels` is `cfg.c.label_values` in order and defines the label domain; `source` is `"parsed"` for the `banner` and `think` layouts and `"script_table"` for `table_only`, where the script's second table is the source.
+2. `records` is the size of the gold set and is always the denominator, including for a partial run. More verdicts than gold labels raises `ValueError` before a report exists.
+3. The six kind counts partition `records`: `exact + recovered + empty + out_of_set + unparsed + unfinished == records`. The kinds are defined in design section 3.5.
+4. `complete` is `False` exactly when `unfinished > 0` (log 15). A partial run is never rescored on a shorter denominator, so runs from one experiment remain comparable.
+5. `empty_rate = empty / records`; `invalid_rate = (empty + out_of_set + unparsed + unfinished) / records`. `exact` and `recovered` are never invalid.
+6. Every prediction that is not `exact` or `recovered` is scored as `__INVALID__`: `empty`, `out_of_set`, `unparsed` and `unfinished` are all false predictions.
+7. `accuracy = (exact + recovered) / records`. `macro_f1` is the unweighted mean of the per-class `f1` over `labels`; `micro_f1` equals `accuracy` for this single-label task; `weighted_f1` weights each class by its number of gold records. Division by zero yields `0.0` (`zero_division=0`), never `NaN` and never an exception.
+8. `precision`, `recall` and `f1` are keyed by every label in `labels`, in that order.
+9. `confusion` has one row per gold label in `labels` order and one column per label plus `__INVALID__`. Every cell is present (`0` when empty), and each row sums to that class's gold support.
+10. `exact_metrics` and `inclusive_metrics` are metric blocks with the same keys as the top-level metrics: `accuracy`, `macro_f1`, `micro_f1`, `weighted_f1`, `precision`, `recall`, `f1`, `confusion`. `exact_metrics` counts only `exact` as correct and buckets `recovered` into `__INVALID__`; `inclusive_metrics` counts `exact` and `recovered` as correct. The top-level metric fields mirror `inclusive_metrics`.
+
+### Example
+
+Four gold records: one exact, one recovered, one empty, one out-of-set.
+
+```python
+{
+    "marker": "### Response: Verdict: ",
+    "labels": ["True", "False", "Conflicting"],
+    "source": "parsed",
+    "records": 4,
+    "complete": True,
+    "exact": 1,
+    "recovered": 1,
+    "empty": 1,
+    "out_of_set": 1,
+    "unparsed": 0,
+    "unfinished": 0,
+    "empty_rate": 0.25,
+    "invalid_rate": 0.5,
+    "accuracy": 0.5,
+    "macro_f1": 0.5556,
+    "micro_f1": 0.5,
+    "weighted_f1": 0.5833,
+    "precision": {"True": 1.0, "False": 1.0, "Conflicting": 0.0},
+    "recall": {"True": 0.5, "False": 1.0, "Conflicting": 0.0},
+    "f1": {"True": 0.6667, "False": 1.0, "Conflicting": 0.0},
+    "confusion": {
+        "True": {"True": 1, "False": 0, "Conflicting": 0, "__INVALID__": 1},
+        "False": {"True": 0, "False": 1, "Conflicting": 0, "__INVALID__": 0},
+        "Conflicting": {"True": 0, "False": 0, "Conflicting": 0, "__INVALID__": 1},
+    },
+    "exact_metrics": {
+        "accuracy": 0.25,
+        "macro_f1": 0.2222,
+        "micro_f1": 0.25,
+        "weighted_f1": 0.3333,
+        "precision": {"True": 1.0, "False": 0.0, "Conflicting": 0.0},
+        "recall": {"True": 0.5, "False": 0.0, "Conflicting": 0.0},
+        "f1": {"True": 0.6667, "False": 0.0, "Conflicting": 0.0},
+        "confusion": {
+            "True": {"True": 1, "False": 0, "Conflicting": 0, "__INVALID__": 1},
+            "False": {"True": 0, "False": 0, "Conflicting": 0, "__INVALID__": 1},
+            "Conflicting": {"True": 0, "False": 0, "Conflicting": 0, "__INVALID__": 1},
+        },
+    },
+    "inclusive_metrics": {
+        "accuracy": 0.5,
+        "macro_f1": 0.5556,
+        "micro_f1": 0.5,
+        "weighted_f1": 0.5833,
+        "precision": {"True": 1.0, "False": 1.0, "Conflicting": 0.0},
+        "recall": {"True": 0.5, "False": 1.0, "Conflicting": 0.0},
+        "f1": {"True": 0.6667, "False": 1.0, "Conflicting": 0.0},
+        "confusion": {
+            "True": {"True": 1, "False": 0, "Conflicting": 0, "__INVALID__": 1},
+            "False": {"True": 0, "False": 1, "Conflicting": 0, "__INVALID__": 0},
+            "Conflicting": {"True": 0, "False": 0, "Conflicting": 0, "__INVALID__": 1},
+        },
+    },
+}
 ```
