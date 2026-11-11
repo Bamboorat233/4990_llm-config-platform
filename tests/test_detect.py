@@ -10,6 +10,7 @@ behaviour on pathological input, and the ``parse_log_file`` delegation.
 from __future__ import annotations
 
 import json
+import re
 import time
 from pathlib import Path
 
@@ -17,6 +18,7 @@ import pytest
 
 from app.parsing import parse_log_file
 from app.parsing.detect import detect
+from app.parsing.errors import PATTERNS
 
 FIX = Path(__file__).parent / "fixtures" / "logs"
 EXPECTED = json.loads((FIX / "expected.json").read_text(encoding="utf-8"))
@@ -199,3 +201,136 @@ def test_parse_log_file_delegates_to_detect():
 
     path = FIX / "s12_fine_tune_success_warning.log"
     assert parse_log_file(path) == detect(path)
+
+
+# ---------------------------------------------------------------------------
+# Regressions found in review of #30
+# ---------------------------------------------------------------------------
+
+INFERENCE_SETUP = (
+    "Done Loading the Model :  2026-01-01 00:00:00.000001\n"
+    "Done Loading the Tokenizer :  2026-01-01 00:00:01.000001\n"
+    "Tokenizing Inputs :  2026-01-01 00:00:02.000001\n"
+)
+BANNER_RECORD = (
+    "*****INPUTS*****\n"
+    "tensor([[1, 2]])\n"
+    "*****OUTPUT*****\n"
+    "### Response: Verdict: True\n"
+)
+TRAILING_TIMESTAMP = "Done Writing the Output :  2026-01-01 00:00:09.000001\n"
+CLEAN_EOF_NOTE = "inferred from the clean end of the log"
+
+FAMILY_PROGRESS_KEYS = {
+    "fine_tune": {"step", "total_steps", "epoch", "last_loss", "eval_losses"},
+    "inference": {"records_done", "records_expected"},
+    "checkpoint_export": set(),
+    "unknown": set(),
+}
+
+DECISION_RULE = re.compile(
+    r"^(family_(script|phase_timestamp|content|none)"
+    r"|phase_[a-z_]+_(succeeded|failed|terminated)"
+    r"|layout_(banner|think|table_only)"
+    r"|status_rule)$"
+)
+
+
+def write_log(tmp_path: Path, name: str, text: str) -> Path:
+    """Write a synthetic log and return its path."""
+
+    path = tmp_path / name
+    path.write_text(text, encoding="utf-8")
+    return path
+
+
+def test_verdicts_banner_completes_verdict_output(tmp_path):
+    """A VERDICTS banner closes verdict_output even when lines follow it."""
+
+    text = (
+        INFERENCE_SETUP
+        + BANNER_RECORD
+        + "*****VERDICTS*****\n"
+        + "### Response: Verdict: True\n"
+        + TRAILING_TIMESTAMP
+    )
+    result = detect(write_log(tmp_path, "banner_full.log", text))
+    verdicts_line = text.splitlines().index("*****VERDICTS*****") + 1
+    assert result["status"] == "success"
+    assert outcomes(result) == ["succeeded"] * 4
+    assert result["phases"][3]["evidence_line"] == verdicts_line
+    assert result["errors"] == []
+    assert not any(CLEAN_EOF_NOTE in note for note in result["notes"])
+
+
+def test_completed_table_with_trailing_line_has_no_error(tmp_path):
+    """A finished verdict table followed by more output is a clean success."""
+
+    text = INFERENCE_SETUP + "0 | True\n1 | False\n" + TRAILING_TIMESTAMP
+    result = detect(write_log(tmp_path, "table_tail.log", text))
+    assert result["status"] == "success"
+    assert result["output_format"] == "table_only"
+    assert outcomes(result) == ["succeeded"] * 4
+    assert result["errors"] == []
+
+
+def test_clean_eof_without_verdicts_is_flagged(tmp_path):
+    """A banner log ending on a record with no VERDICTS section says so.
+
+    The oracle (s02, s03) reports this as success; a run cut off between two
+    records looks the same, so the result must carry a note and leave the
+    inferred phases without an evidence line.
+    """
+
+    path = write_log(tmp_path, "banner_cut.log", INFERENCE_SETUP + BANNER_RECORD)
+    result = detect(path)
+    assert result["status"] == "success"
+    assert any(CLEAN_EOF_NOTE in note for note in result["notes"])
+    assert result["phases"][2]["evidence_line"] is None
+    assert result["phases"][3]["evidence_line"] is None
+
+
+@pytest.mark.parametrize(
+    "name", ["s02_inference_success.log", "s03_inference_success.log"]
+)
+def test_s02_s03_carry_the_clean_eof_note(name):
+    """The fixtures that rely on a clean end of file carry the note."""
+
+    result = detect(FIX / name)
+    assert any(CLEAN_EOF_NOTE in note for note in result["notes"])
+
+
+@pytest.mark.parametrize("name", NAMES)
+def test_truncation_error_names_the_cut_phase(name):
+    """A truncation error always names the phase that was cut off."""
+
+    result = detect(FIX / name)
+    for item in result["errors"]:
+        if item["kind"] == "truncated":
+            assert result["failed_phase"] is not None
+            assert "None" not in item["message"]
+
+
+@pytest.mark.parametrize("name", NAMES)
+def test_progress_has_the_family_keys(name):
+    """progress carries exactly the contract keys of the family (rule 8)."""
+
+    result = detect(FIX / name)
+    assert set(result["progress"]) == FAMILY_PROGRESS_KEYS[result["family"]]
+
+
+def test_unknown_family_has_empty_progress(tmp_path):
+    """An unclassifiable log has progress == {}."""
+
+    result = detect(write_log(tmp_path, "junk.log", "nothing to see\n"))
+    assert result["progress"] == {}
+
+
+@pytest.mark.parametrize("name", NAMES)
+def test_evidence_rules_follow_the_contract(name):
+    """Every evidence rule is a PATTERNS key or a documented decision rule."""
+
+    result = detect(FIX / name)
+    for entry in result["evidence"]:
+        rule = entry["rule"]
+        assert rule in PATTERNS or DECISION_RULE.match(rule), rule

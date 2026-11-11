@@ -204,9 +204,10 @@ Consumers: `app/parsing/detect.py` (#30), `app/parsing/training_log.py`, `app/pa
 3. `phases` is ordered and contains exactly the phases of `PHASE_ORDER[family]`:
    - `fine_tune` — `setup`, `fine_tuning`, `checkpoint_creation`, `model_saving`;
    - `inference` — `setup`, `data_preparation`, `generation`, `verdict_output`;
-   - `checkpoint_export` — `setup`, `model_saving`.
+   - `checkpoint_export` — `setup`, `model_saving`;
+   - `unknown` — no phases (`[]`).
 
-   Each item is `{"name": str, "outcome": str, "evidence_line": int | None}`, for example `{"name": "checkpoint_creation", "outcome": "succeeded", "evidence_line": 237}`. `outcome` is `Literal["succeeded", "failed", "terminated", "not_reached"]`. `evidence_line` is the 1-based line number that decided the outcome; it is `None` only for `not_reached` and for a `succeeded` phase whose evidence is a clean exit.
+   Each item is `{"name": str, "outcome": str, "evidence_line": int | None}`, for example `{"name": "checkpoint_creation", "outcome": "succeeded", "evidence_line": 236}`. `outcome` is `Literal["succeeded", "failed", "terminated", "not_reached"]`. `evidence_line` is the 1-based line number that decided the outcome; it is `None` only for `not_reached` and for a `succeeded` phase whose evidence is a clean exit.
 4. `failed_phase` is the name of the first phase whose outcome is `failed` or `terminated`; it is `None` when every phase succeeded or the log could not be classified. `failed_phase` may be set while `status == "success"`: that combination is a **success with warning** (log 12 / s12, where `model_saving` failed after the core phase succeeded).
 5. `status` follows from the phases, with the core phase per family (`fine_tune.fine_tuning`, `inference.generation`, `checkpoint_export.model_saving`):
    - every phase `succeeded` → `success`;
@@ -214,7 +215,10 @@ Consumers: `app/parsing/detect.py` (#30), `app/parsing/training_log.py`, `app/pa
    - a `failed` phase after the core phase → `success` with a warning;
    - a `terminated` phase before or at the core phase → `terminated`;
    - a `terminated` phase after the core phase → `success` with a warning;
+   - every phase `succeeded`, then a terminal event (e.g. a SLURM time limit after the last phase) → `success` with an `ended_after_core` warning and `failed_phase = None`;
    - no phase evidence at all → `unknown`.
+
+   Without a terminal event, a phase that has no completion line is `terminated` (the log was cut off), with one exception: an inference log that ends on a complete output record (a `### Response:` line, a verdict-table row or a `VERDICTS` banner) counts as a clean exit, and its phases without a completion line are `succeeded` with `evidence_line = None` (s02, s03). A run cut off between two records looks the same, so the result carries a note (rule 11) and `ScoreReport.complete` (section 5, rule 4) is what confirms the run finished.
 
    **Note.** Phase outcomes are spelled `succeeded`, `failed`, `terminated`, `not_reached`. This follows the fixture oracle (`tests/fixtures/logs/expected.json`, #29) and supersedes the `success` / `failure` wording in design section 3.2. The three `status` values remain `success`, `error`, `terminated`.
 6. `output_format` names the inference layout once enough output exists to distinguish it: `banner`, `think` or `table_only`. It is `None` for fine-tune and checkpoint-export runs and for inference runs that stop before the layout is observable (log 01 / s01).
@@ -223,9 +227,11 @@ Consumers: `app/parsing/detect.py` (#30), `app/parsing/training_log.py`, `app/pa
    - `fine_tune` — `step`, `total_steps`, `epoch`, `last_loss`, `eval_losses`;
    - `inference` — `records_done`, `records_expected`;
    - `checkpoint_export` and `unknown` — `{}`.
+
+   The detector (#30) emits every key with its "not observed" value; the family parsers (#31) fill the values.
 9. `errors` and `warnings` items are `{"kind": str, "message": str, "line": int | None, "rank": int | None}`. `kind` is a stable lowercase token chosen by the detector (`oom`, `missing_library`, `child_failed`, `slurm_time_limit`, ...); `message` is the stripped line or a one-sentence English summary; `line` is 1-based; `rank` is the integer from the `[rankN]: ` prefix, or `None` when the line had no prefix.
-10. `evidence` items are `{"rule": str, "line": int | None, "text": str}`. `rule` is a key of `PATTERNS` in `app/parsing/errors.py`; `line` is 1-based; `text` is the line with the `[rankN]: ` prefix stripped.
-11. `notes` holds short English remarks for the Results panel, including the success-with-warning sentence and the reason for `status="unknown"`. It is `[]` when there is nothing to say.
+10. `evidence` items are `{"rule": str, "line": int | None, "text": str}`. `rule` is either a key of `PATTERNS` in `app/parsing/errors.py` or one of the detector's decision rules: `family_script`, `family_phase_timestamp`, `family_content`, `family_none`, `phase_<name>_<outcome>` (outcome other than `not_reached`), `layout_<output_format>` and `status_rule`. Rule names are contract; `line` is 1-based; `text` is the line with the `[rankN]: ` prefix stripped.
+11. `notes` holds short English remarks for the Results panel, including the success-with-warning sentence, the clean-end-of-log remark of rule 5 and the reason for `status="unknown"`. It is `[]` when there is nothing to say.
 12. `parse_log_file` never raises for malformed, truncated or unrecognisable content; such logs are reported through `status`, `errors` and `notes`. It raises only `OSError` for an unreadable path. It makes a single streaming pass with `encoding="utf-8", errors="replace", newline=None` and imports no NiceGUI code.
 
 ### Example
@@ -243,7 +249,7 @@ The trimmed fixture for log 12: fine-tuning and checkpoint creation succeeded, a
     "phases": [
         {"name": "setup", "outcome": "succeeded", "evidence_line": 173},
         {"name": "fine_tuning", "outcome": "succeeded", "evidence_line": 259},
-        {"name": "checkpoint_creation", "outcome": "succeeded", "evidence_line": 237},
+        {"name": "checkpoint_creation", "outcome": "succeeded", "evidence_line": 236},
         {"name": "model_saving", "outcome": "failed", "evidence_line": 373},
     ],
     "failed_phase": "model_saving",
@@ -251,6 +257,7 @@ The trimmed fixture for log 12: fine-tuning and checkpoint creation succeeded, a
     "started_at": "2026-02-07 20:22:20.921747",
     "finished_at": None,
     "duration_seconds": None,
+    # Values from the family parser (#31); the detector alone leaves them None / [].
     "progress": {
         "step": 9936,
         "total_steps": 9936,
@@ -275,8 +282,12 @@ The trimmed fixture for log 12: fine-tuning and checkpoint creation succeeded, a
         },
     ],
     "evidence": [
-        {"rule": "shard_writing", "line": 237, "text": "Writing model shards: 100%|...| 1/1"},
-        {"rule": "exception_line", "line": 373, "text": "FileNotFoundError: [Errno 2] No such file or directory"},
+        {"rule": "family_script", "line": 351, "text": 'File "/project/0000000/user/fineTuneMistral.py", line 214, in <module>'},
+        {"rule": "phase_setup_succeeded", "line": 173, "text": "Done Loading the Eval Data :  2026-02-07 20:23:07.639352"},
+        {"rule": "phase_fine_tuning_succeeded", "line": 259, "text": "100%|...| 9936/9936 [6:36:35<00:00,  2.22s/it]"},
+        {"rule": "phase_checkpoint_creation_succeeded", "line": 236, "text": "Writing model shards: 100%|...| 1/1 [00:01<00:00,  1.17s/it]"},
+        {"rule": "phase_model_saving_failed", "line": 373, "text": "FileNotFoundError: [Errno 2] No such file or directory: 'fineTuningOutput/checkpoint-4968/pytorch_model.bin'"},
+        {"rule": "status_rule", "line": 373, "text": "success: core phase fine_tuning, failed_phase model_saving"},
     ],
     "notes": [
         "The core phase fine_tuning succeeded, so the run is reported as success with a warning.",

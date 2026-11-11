@@ -80,8 +80,8 @@ def parse_log_file(path: str | Path) -> ParseResult:
     - has no side effects: no writes, no NiceGUI import, no global state.
 
     The implementation lives in :func:`app.parsing.detect.detect`; the family
-    parsers (issue #31) will later fill ``progress``, which the detector
-    leaves empty.
+    parsers (issue #31) will later fill ``progress``; the detector emits
+    every key of the family with its "not observed" value.
     """
     from app.parsing.detect import detect
 
