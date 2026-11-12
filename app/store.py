@@ -1,4 +1,3 @@
-
 """SQLite storage for saved LLM configuration records.
 
 Public API (database requirements in ``specs/parameters.md`` sections 1 and 13;
@@ -15,30 +14,34 @@ interface contract in ``specs/interfaces.md`` section 2; GitHub issue #10):
 import os
 import sqlite3
 from contextlib import closing
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
 
 from app.schemas import ConfigRecord, config_fingerprint
 
-
 DEFAULT_DB_PATH = Path(__file__).resolve().parent.parent / "data" / "platform.db"
 
 
 def _database_path(db_path: str | Path | None = None) -> Path:
-    """Find the requested database, an environment override, or the default."""
+    """Find the requested database, an environment override, or the default.
+
+    Allows unit tests to inject a temporary database path via `LLM_CONFIG_DB_PATH`
+    without modifying production data files in `data/platform.db`.
+    """
     if db_path is not None:
         return Path(db_path)
     return Path(os.environ.get("LLM_CONFIG_DB_PATH", str(DEFAULT_DB_PATH)))
 
 
 def init_db(db_path: str | Path | None = None) -> None:
-
+    """Initialize the SQLite database schema if not already present."""
     path = _database_path(db_path)
     path.parent.mkdir(parents=True, exist_ok=True)
 
     with closing(sqlite3.connect(path)) as conn:
         with conn:
+            # config_hash is marked UNIQUE so identical hyperparameter configs cannot be inserted twice
             conn.execute(
                 """
                 CREATE TABLE IF NOT EXISTS configs (
@@ -56,9 +59,7 @@ def init_db(db_path: str | Path | None = None) -> None:
             )
 
 
-def find_by_hash(
-    config_hash: str, db_path: str | Path | None = None
-) -> str | None:
+def find_by_hash(config_hash: str, db_path: str | Path | None = None) -> str | None:
     init_db(db_path)
     with closing(sqlite3.connect(_database_path(db_path))) as conn:
         row = conn.execute(
@@ -80,33 +81,31 @@ def insert_config(cfg: ConfigRecord, db_path: str | Path | None = None) -> str:
     saved_cfg = cfg.model_copy(update={"config_hash": fingerprint}, deep=True)
 
     try:
-        with closing(sqlite3.connect(_database_path(db_path))) as conn:
-            with conn:
-                conn.execute(
-                    """
+        with closing(sqlite3.connect(_database_path(db_path))) as conn, conn:
+            conn.execute(
+                """
                     INSERT INTO configs (
                         config_id, config_hash, model_id, task_type,
                         run_status, created_at, created_by, notes, payload_json
                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
-                    (
-                        saved_cfg.config_id,
-                        fingerprint,
-                        saved_cfg.model_id,
-                        saved_cfg.task_type,
-                        saved_cfg.run_status,
-                        saved_cfg.created_at,
-                        saved_cfg.created_by,
-                        saved_cfg.notes,
-                        saved_cfg.model_dump_json(),
-                    ),
-                )
+                (
+                    saved_cfg.config_id,
+                    fingerprint,
+                    saved_cfg.model_id,
+                    saved_cfg.task_type,
+                    saved_cfg.run_status,
+                    saved_cfg.created_at,
+                    saved_cfg.created_by,
+                    saved_cfg.notes,
+                    saved_cfg.model_dump_json(),
+                ),
+            )
     except sqlite3.IntegrityError as exc:
         existing_id = find_by_hash(fingerprint, db_path)
         if existing_id is not None:
             raise ValueError(
-                f"An identical experiment config already exists "
-                f"(ID: {existing_id})"
+                f"An identical experiment config already exists (ID: {existing_id})"
             ) from exc
         raise
 
@@ -151,26 +150,23 @@ def delete_config(config_id: str, db_path: str | Path | None = None) -> None:
         conn.execute("DELETE FROM configs WHERE config_id = ?", (config_id,))
 
 
-def duplicate_config(
-    config_id: str, db_path: str | Path | None = None
-) -> ConfigRecord:
+def duplicate_config(config_id: str, db_path: str | Path | None = None) -> ConfigRecord:
     """Build an unsaved copy with new identity and a fresh UTC timestamp.
 
-    The settings remain identical, so the fingerprint is cleared and the copy
+    The settings remain identical, so the fingerprint is cleared ("") and the copy
     must be edited before it can be saved without triggering deduplication.
     """
     original = get_config(config_id, db_path)
     if original is None:
         raise ValueError(f"Configuration not found: {config_id}")
 
+    # Generate a fresh UUID and UTC timestamp for the draft copy
     return original.model_copy(
         deep=True,
         update={
             "config_id": str(uuid4()),
             "config_hash": "",
-            "created_at": datetime.now(timezone.utc)
-            .isoformat()
-            .replace("+00:00", "Z"),
+            "created_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
             "run_status": "pending",
         },
     )
