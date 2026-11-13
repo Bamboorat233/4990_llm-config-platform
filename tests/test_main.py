@@ -232,3 +232,34 @@ def test_kwargs_panel_stays_bound_after_model_switch(isolated_db: Any) -> None:
     assert platform.form_state["h"]["load_model"] == {"torch_dtype": ""}
     assert platform.build_config_record().h["load_model"] == {"torch_dtype": ""}
 
+
+def test_per_model_and_task_prompt_visibility(isolated_db: Any) -> None:
+    """Prompt visibility follows app/model_prompts.json across (model, task_type)."""
+    from app.main import create_app
+
+    platform = create_app()
+
+    # 1. Mistral + fine_tune: all 3 prompts visible
+    assert platform.system_prompt_container.visible is True
+    assert platform.user_prompt_container.visible is True
+    assert platform.assistant_prompt_container.visible is True
+
+    # 2. Mistral + inference: 2 prompts visible (System + User; Assistant hidden)
+    platform.on_task_type_changed(SimpleNamespace(value="inference"))
+    assert platform.system_prompt_container.visible is True
+    assert platform.user_prompt_container.visible is True
+    assert platform.assistant_prompt_container.visible is False
+
+    # 3. DeepSeek + inference: 1 prompt visible (User only; System + Assistant hidden)
+    platform.on_model_changed(SimpleNamespace(value=DEEPSEEK_ID))
+    assert platform.system_prompt_container.visible is False
+    assert platform.user_prompt_container.visible is True
+    assert platform.assistant_prompt_container.visible is False
+
+    # 4. DeepSeek + fine_tune: 2 prompts visible (User + Assistant; System hidden)
+    platform.on_task_type_changed(SimpleNamespace(value="fine_tune"))
+    assert platform.system_prompt_container.visible is False
+    assert platform.user_prompt_container.visible is True
+    assert platform.assistant_prompt_container.visible is True
+
+

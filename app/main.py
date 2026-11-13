@@ -22,6 +22,7 @@ from __future__ import annotations
 import copy
 import json
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any
 
 from nicegui import binding, ui
@@ -72,6 +73,31 @@ EVIDENCE_CONFIG_OPTIONS = {
 DEFAULT_USER_TEMPLATE = (
     "### Claim: {claim}\n### Question: {question}\n### Answer: {answer}\n"
 )
+
+MODEL_PROMPTS_CONFIG_PATH = Path(__file__).with_name("model_prompts.json")
+
+
+def load_model_prompts_config() -> dict[str, dict[str, dict[str, bool]]]:
+    """Load per-model, per-task prompt visibility rules from app/model_prompts.json."""
+    with MODEL_PROMPTS_CONFIG_PATH.open("r", encoding="utf-8") as fh:
+        return json.load(fh)
+
+
+def get_prompt_visibility(model_id: str, task_type: str) -> dict[str, bool]:
+    """Return which prompts (system_prompt, user_prompt_template, assistant_prompt) are shown."""
+    config = load_model_prompts_config()
+    model_cfg = config.get(model_id, {})
+    task_cfg = model_cfg.get(task_type, {})
+    return {
+        "system_prompt": bool(task_cfg.get("system_prompt", True)),
+        "user_prompt_template": bool(
+            task_cfg.get("user_prompt_template", True)
+        ),
+        "assistant_prompt": bool(
+            task_cfg.get("assistant_prompt", task_type == "fine_tune")
+        ),
+    }
+
 
 # Pipeline tabs: (component key, icon, short title)
 PIPELINE_TABS = [
@@ -127,7 +153,6 @@ PAGE_CSS = """
   --text-secondary: var(--slate-600);
   --border-default: var(--slate-200);
   --border-input: var(--slate-300);
-  --icon-badge-bg: rgba(37, 99, 235, 0.1);
 }
 
 body.body--dark {
@@ -140,7 +165,6 @@ body.body--dark {
   --text-secondary: var(--zinc-400);
   --border-default: var(--zinc-800);
   --border-input: var(--zinc-700);
-  --icon-badge-bg: rgba(59, 130, 246, 0.16);
 }
 
 /* === LAYER 3: GLOBAL OVERRIDES & COMPONENT TOKENS === */
@@ -197,16 +221,6 @@ body {
 
 .text-secondary-token {
   color: var(--text-secondary) !important;
-}
-
-.icon-badge {
-  background-color: var(--icon-badge-bg);
-  width: 32px;
-  height: 32px;
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 /* Clean, grounded inputs with transparent example placeholders */
@@ -447,6 +461,8 @@ class PlatformUI:
         self.side_tabs: Any = None
         self.data_fine_tune_container: Any = None
         self.data_inference_container: Any = None
+        self.system_prompt_container: Any = None
+        self.user_prompt_container: Any = None
         self.assistant_prompt_container: Any = None
         self.saved_configs_container: Any = None
         self.console: Any = None
@@ -544,6 +560,10 @@ class PlatformUI:
                     finally:
                         self.is_batch_updating = False
                     self._set_path_value(path, default_val)
+                    if path == "p.assistant_prompt":
+                        self._set_path_value(
+                            "p.verdict_parse_marker", default_val
+                        )
                     self._refresh_console_soon()
                     return
 
@@ -566,6 +586,8 @@ class PlatformUI:
                             self.is_batch_updating = False
             else:
                 self._set_path_value(path, val)
+                if path == "p.assistant_prompt":
+                    self._set_path_value("p.verdict_parse_marker", val)
             self._refresh_console_soon()
 
         widget.on_value_change(on_change)
@@ -921,12 +943,29 @@ class PlatformUI:
             self.optimizer_expansion,
             self.optimizer_tab,
             self.data_fine_tune_container,
-            self.assistant_prompt_container,
         ):
             if element is not None:
                 element.set_visibility(is_fine_tune)
         if self.data_inference_container is not None:
             self.data_inference_container.set_visibility(not is_fine_tune)
+
+        # Apply per-model, per-task prompt visibility from app/model_prompts.json
+        prompt_vis = get_prompt_visibility(
+            self.current_model_id, self.current_task_type
+        )
+        if self.system_prompt_container is not None:
+            self.system_prompt_container.set_visibility(
+                prompt_vis["system_prompt"]
+            )
+        if self.user_prompt_container is not None:
+            self.user_prompt_container.set_visibility(
+                prompt_vis["user_prompt_template"]
+            )
+        if self.assistant_prompt_container is not None:
+            self.assistant_prompt_container.set_visibility(
+                prompt_vis["assistant_prompt"]
+            )
+
         if (
             not is_fine_tune
             and self.pipeline_tabs is not None
@@ -1112,12 +1151,9 @@ class PlatformUI:
 # ======================================================================
 # Layout Builders
 # ======================================================================
-def _section_header(icon: str, title: str) -> None:
-    """Card header with subtle icon badge."""
-    with ui.row().classes("w-full items-center gap-2.5 no-wrap"):
-        with ui.element("div").classes("icon-badge shrink-0"):
-            ui.icon(icon, color="primary").classes("text-base")
-        ui.label(title).classes("text-sm font-semibold tracking-tight")
+def _section_header(title: str) -> None:
+    """Clean typographic card header without decorative icon badges."""
+    ui.label(title).classes("text-sm font-semibold tracking-tight")
 
 
 def _metric_cell(
@@ -1161,9 +1197,7 @@ def _build_drawer(platform: PlatformUI) -> Any:
         .props("width=310")
         .classes("p-4 gap-3 surface-drawer") as drawer
     ):
-        with ui.row().classes("w-full items-center gap-2 no-wrap"):
-            ui.icon("bookmarks", color="primary").classes("text-lg")
-            ui.label("Saved Configurations").classes("text-sm font-semibold")
+        ui.label("Saved Configurations").classes("text-sm font-semibold tracking-tight")
 
         ui.separator()
         platform.saved_configs_container = ui.column().classes("w-full gap-2")
@@ -1196,7 +1230,7 @@ def _build_drawer(platform: PlatformUI) -> Any:
 def _build_experiment_card(platform: PlatformUI) -> None:
     """Card 1: Model selector, animated execution mode toggle, metric tiles, and metadata."""
     with ui.card().props("flat").classes("w-full p-4 gap-3.5 rounded-lg surface-card"):
-        _section_header("science", "Experiment & Target Model")
+        _section_header("Experiment & Target Model")
 
         # No redundant Target LLM / Execution Mode headings above these two controls
         with ui.grid(columns=2).classes("w-full gap-4 items-center"):
@@ -1272,45 +1306,42 @@ def _build_experiment_card(platform: PlatformUI) -> None:
 
 
 def _build_prompt_card(platform: PlatformUI) -> None:
-    """Card 2: Prompts with greyed-out placeholders (press Space to populate) and live auto-format."""
+    """Card 2: Prompts driven by app/model_prompts.json (3 prompts in fine-tune, 2 in inference, per-model)."""
     with ui.card().props("flat").classes("w-full p-4 gap-3.5 rounded-lg surface-card"):
-        _section_header("chat", "Prompts")
+        _section_header("Prompts")
 
-        platform.text_field(
-            "p.system_prompt",
-            "System Prompt",
-            textarea=True,
-            placeholder="You are a fact-checking assistant. Given a numerical claim and its retrieved evidence, output a verdict.",
-        )
-
-        user_tpl_widget = platform.text_field(
-            "p.user_prompt_template",
-            "User Prompt Template",
-            textarea=True,
-            placeholder=(
-                "Claim: The unemployment rate fell to 3.5% in 2019.\n"
-                "Question: What was the unemployment rate in 2019?\n"
-                "Answer: The rate averaged 3.7% across 2019."
-            ),
-        )
-        user_tpl_widget.on("blur", lambda _: platform.format_user_prompt_field())
-
-        with ui.row().classes("w-full gap-4 no-wrap"):
-            platform.assistant_prompt_container = ui.column().classes(
-                "flex-1 min-w-0 gap-0"
+        platform.system_prompt_container = ui.column().classes("w-full min-w-0 gap-0")
+        with platform.system_prompt_container:
+            platform.text_field(
+                "p.system_prompt",
+                "System Prompt",
+                textarea=True,
+                placeholder="You are a fact-checking assistant. Given a numerical claim and its retrieved evidence, output a verdict.",
             )
-            with platform.assistant_prompt_container:
-                platform.text_field(
-                    "p.assistant_prompt",
-                    "Assistant Target Prefix (fine-tune)",
-                    placeholder="### Response: Verdict: ",
-                )
-            with ui.column().classes("flex-1 min-w-0 gap-0"):
-                platform.text_field(
-                    "p.verdict_parse_marker",
-                    "Verdict Parse Marker",
-                    placeholder="### Response: Verdict: ",
-                )
+
+        platform.user_prompt_container = ui.column().classes("w-full min-w-0 gap-0")
+        with platform.user_prompt_container:
+            user_tpl_widget = platform.text_field(
+                "p.user_prompt_template",
+                "User Prompt Template",
+                textarea=True,
+                placeholder=(
+                    "Claim: The unemployment rate fell to 3.5% in 2019.\n"
+                    "Question: What was the unemployment rate in 2019?\n"
+                    "Answer: The rate averaged 3.7% across 2019."
+                ),
+            )
+            user_tpl_widget.on("blur", lambda _: platform.format_user_prompt_field())
+
+        platform.assistant_prompt_container = ui.column().classes(
+            "w-full min-w-0 gap-0"
+        )
+        with platform.assistant_prompt_container:
+            platform.text_field(
+                "p.assistant_prompt",
+                "Assistant Prompt",
+                placeholder="### Response: Verdict: ",
+            )
 
 
 def _build_component_panel(platform: PlatformUI, key: str) -> None:
@@ -1488,7 +1519,7 @@ def _build_pipeline_card(platform: PlatformUI) -> None:
         .classes("w-full p-0 gap-0 rounded-lg overflow-hidden surface-card")
     ):
         with ui.row().classes("w-full px-4 py-3 border-b border-token"):
-            _section_header("tune", "Pipeline Parameters")
+            _section_header("Pipeline Parameters")
         with ui.row().classes("w-full no-wrap gap-0 items-stretch"):
             with (
                 ui.tabs(value="a")
