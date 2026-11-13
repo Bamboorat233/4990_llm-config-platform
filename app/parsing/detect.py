@@ -48,6 +48,8 @@ from app.parsing.errors import (
     VERDICTS_BANNER,
     family_for_script,
 )
+from app.parsing.inference_log import InferenceProgress
+from app.parsing.training_log import TrainingProgress
 from app.registry import MODELS
 
 __all__ = ["detect"]
@@ -174,6 +176,8 @@ class _Tracker:
         self.last_ts: str | None = None
         self.last_ts_line: int | None = None
 
+        self.training = TrainingProgress()
+        self.inference = InferenceProgress()
         self.max_training_total = 0
         self.training_complete: _Hit | None = None
         self.last_nonempty: _Hit | None = None
@@ -193,6 +197,8 @@ class _Tracker:
     def feed(self, text: str, line: int, rank: int | None) -> None:
         """Consume one line whose ``[rankN]: `` prefix has been stripped."""
 
+        self.training.feed(text, line)
+        self.inference.feed(text, line)
         stripped = text.strip()
         if stripped:
             self.last_nonempty = _Hit(line, stripped, rank)
@@ -481,6 +487,10 @@ class _Tracker:
         clean_exit = False
         clean_eof_unverified = False
         result["progress"] = {key: _empty_progress(key) for key in _PROGRESS_KEYS[family]}
+        if family == FAMILY_FINE_TUNE:
+            result["progress"].update(self.training.result())
+        elif family == FAMILY_INFERENCE:
+            result["progress"].update(self.inference.result())
 
         if terminal is not None:
             current: int | None = None
