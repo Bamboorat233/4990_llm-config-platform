@@ -263,3 +263,25 @@ def test_per_model_and_task_prompt_visibility(isolated_db: Any) -> None:
     assert platform.assistant_prompt_container.visible is True
 
 
+def test_results_tab_mounted_in_main_app(isolated_db: Any) -> None:
+    """Milestone 1.5: `app/ui/results.py` is mounted as the `results` tab in `app/main.py`."""
+    from app.main import create_app
+    from app.ui.results import FIXTURE_LOGS_DIR
+
+    platform = create_app()
+    assert platform.results_panel is not None
+    assert platform.results_panel.current_summary is not None
+
+    # Switching to the Run Results tab and loading Log 12 produces a yellow warning summary
+    platform.side_tabs.value = "results"
+    summary_12 = platform.results_panel.load_file(
+        FIXTURE_LOGS_DIR / "s12_fine_tune_success_warning.log"
+    )
+    assert summary_12.family == "fine_tune"
+    assert summary_12.status == "success"
+    assert summary_12.status_tone == "warning"
+    assert summary_12.first_alert is not None
+    assert summary_12.first_alert.is_warning is True
+
+
+

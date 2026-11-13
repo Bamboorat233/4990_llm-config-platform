@@ -45,6 +45,7 @@ from app.ui.prompt_preview import (
     autoformat_user_prompt,
     render_prompt_preview,
 )
+from app.ui.results import build_results_panel
 from app.validation import validate_cross_fields
 
 # Options for the model selector (value -> label)
@@ -124,6 +125,18 @@ PAGE_CSS = """
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
+  /* Strict border-radius scale (ui-ux-pro-max primitive tokens) */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-full: 9999px;
+
+  /* Component-level radius tokens */
+  --card-radius: var(--radius-lg);
+  --input-radius: var(--radius-md);
+  --button-radius: var(--radius-md);
+  --badge-radius: var(--radius-full);
+
   --slate-50: #f8fafc;
   --slate-100: #f1f5f9;
   --slate-200: #e2e8f0;
@@ -153,6 +166,7 @@ PAGE_CSS = """
   --text-secondary: var(--slate-600);
   --border-default: var(--slate-200);
   --border-input: var(--slate-300);
+  --card-shadow: 0 1px 2px 0 rgba(15, 23, 42, 0.03);
 }
 
 body.body--dark {
@@ -165,6 +179,7 @@ body.body--dark {
   --text-secondary: var(--zinc-400);
   --border-default: var(--zinc-800);
   --border-input: var(--zinc-700);
+  --card-shadow: none;
 }
 
 /* === LAYER 3: GLOBAL OVERRIDES & COMPONENT TOKENS === */
@@ -173,6 +188,11 @@ body,
 .q-field,
 .q-tab,
 .q-item,
+.q-uploader,
+.q-expansion-item,
+.q-card,
+.q-badge,
+.q-chip,
 input,
 textarea {
   font-family: var(--font-sans) !important;
@@ -199,13 +219,15 @@ body {
 .surface-card {
   background-color: var(--bg-surface) !important;
   border: 1px solid var(--border-default) !important;
+  border-radius: var(--card-radius) !important;
   color: var(--text-primary) !important;
-  box-shadow: none !important;
+  box-shadow: var(--card-shadow) !important;
 }
 
 .surface-subtle {
   background-color: var(--bg-subtle) !important;
   border: 1px solid var(--border-default) !important;
+  border-radius: var(--input-radius) !important;
   color: var(--text-primary) !important;
 }
 
@@ -223,10 +245,14 @@ body {
   color: var(--text-secondary) !important;
 }
 
+.q-btn:not(.q-btn--round) {
+  border-radius: var(--button-radius) !important;
+}
+
 /* Clean, grounded inputs with transparent example placeholders */
 .q-field--outlined .q-field__control {
   background-color: var(--bg-input) !important;
-  border-radius: 6px !important;
+  border-radius: var(--input-radius) !important;
   min-height: 36px !important;
   padding: 0 10px !important;
 }
@@ -372,6 +398,101 @@ input[type="number"] {
   font-weight: 400 !important;
   line-height: 1.5 !important;
 }
+
+/* Atera-inspired soft status pills & phase rows (Milestone 1.5 Run Results) */
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 9px;
+  border-radius: var(--badge-radius);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.pill-success {
+  background-color: rgba(16, 185, 129, 0.12);
+  color: #047857;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+}
+body.body--dark .pill-success {
+  color: #34d399;
+}
+
+.pill-warning,
+.pill-terminated {
+  background-color: rgba(245, 158, 11, 0.14);
+  color: #b45309;
+  border: 1px solid rgba(245, 158, 11, 0.30);
+}
+body.body--dark .pill-warning,
+body.body--dark .pill-terminated {
+  color: #fbbf24;
+}
+
+.pill-error {
+  background-color: rgba(239, 68, 68, 0.12);
+  color: #b91c1c;
+  border: 1px solid rgba(239, 68, 68, 0.28);
+}
+body.body--dark .pill-error {
+  color: #f87171;
+}
+
+.pill-neutral {
+  background-color: var(--bg-subtle);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-default);
+}
+
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  display: inline-block;
+  flex-shrink: 0;
+}
+.dot-success { background-color: #10b981; }
+.dot-warning, .dot-terminated { background-color: #f59e0b; }
+.dot-error { background-color: #ef4444; }
+.dot-neutral { background-color: #94a3b8; }
+
+.phase-row {
+  background-color: var(--bg-surface);
+  transition: background-color 0.12s ease;
+}
+.phase-row:hover {
+  background-color: var(--bg-subtle);
+}
+
+/* Remove Quasar q-uploader's empty white list area; uploaded files render in our custom list inside the dropdown */
+.compact-uploader .q-uploader__list {
+  display: none !important;
+}
+.compact-uploader {
+  min-height: 0 !important;
+  box-shadow: none !important;
+  width: 100% !important;
+}
+.compact-uploader .q-uploader__header {
+  border-radius: 0 !important;
+}
+
+/* Properly center and pad the Upload Log File expansion header & content away from the border */
+.upload-expansion .q-item {
+  min-height: 42px !important;
+  padding: 8px 14px !important;
+  align-items: center !important;
+}
+.upload-expansion .q-item__section--avatar {
+  min-width: 28px !important;
+  padding-right: 10px !important;
+}
+.upload-expansion .q-expansion-item__content {
+  padding: 2px 12px 12px 12px !important;
+}
 """
 
 
@@ -467,6 +588,7 @@ class PlatformUI:
         self.saved_configs_container: Any = None
         self.console: Any = None
         self.prompt_preview: Any = None
+        self.results_panel: Any = None
         self.delete_dialog: Any = None
         self.delete_dialog_label: Any = None
 
@@ -1078,6 +1200,8 @@ class PlatformUI:
         self.saved_configs_container.clear()
         configs = list_configs()
         self.saved_count = len(configs)
+        if self.results_panel is not None:
+            self.results_panel.refresh_config_options()
 
         with self.saved_configs_container:
             if not configs:
@@ -1549,7 +1673,7 @@ def _build_pipeline_card(platform: PlatformUI) -> None:
 
 
 def _build_side_panel(platform: PlatformUI) -> None:
-    """Right sticky column: Validation & JSON, Prompt Preview, and blank HPC Terminal."""
+    """Right sticky column: Validation & JSON, Prompt Preview, Run Results, and HPC Terminal."""
     with (
         ui.card()
         .props("flat")
@@ -1568,6 +1692,9 @@ def _build_side_panel(platform: PlatformUI) -> None:
                 "text-xs font-medium"
             )
             ui.tab("preview", label="Prompt Preview", icon="visibility").classes(
+                "text-xs font-medium"
+            )
+            ui.tab("results", label="Run Results", icon="assessment").classes(
                 "text-xs font-medium"
             )
             ui.tab("terminal", label="HPC Terminal", icon="terminal").classes(
@@ -1594,6 +1721,12 @@ def _build_side_panel(platform: PlatformUI) -> None:
             with ui.tab_panel("preview").classes("p-4 gap-3"):
                 platform.prompt_preview = ui.code("", language="plaintext").classes(
                     "prompt-preview-box w-full text-xs rounded-md border-token"
+                )
+
+            with ui.tab_panel("results").classes("p-4"):
+                platform.results_panel = build_results_panel(
+                    container=ui.column().classes("w-full"),
+                    list_configs_fn=list_configs,
                 )
 
             with ui.tab_panel("terminal").classes("p-4"):
