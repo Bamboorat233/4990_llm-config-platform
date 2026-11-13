@@ -1,10 +1,17 @@
-"""Main NiceGUI entry point: page layout, form skeleton, and linkage.
+"""Main NiceGUI entry point: developer workbench for LLM fact-checking configs.
 
 GitHub issues implemented:
 - Issue #6: main.py page layout and form skeleton (M0.5 milestone)
 - Issue #7: Model / task switching linkage (M0.5 milestone)
 - Issue #11: Save, deduplicate, load and duplicate in the UI (M1.0 milestone)
 - Issue #12: Component h (**kwargs) dynamic key-value panels (M1.0 milestone)
+
+Task-type visibility rules (specs/parameters.md sections 5, 6, 11 and 14):
+- Component d (Optimizer) is shown only for fine_tune.
+- c.train_data_file / c.eval_data_file only for fine_tune;
+  c.test_data_file / c.evidence_config only for inference.
+- p.assistant_prompt only for fine_tune ("not used" for inference).
+- e.add_generation_prompt is derived from the task type, so it is read-only.
 
 Run with:
     python -m app.main
@@ -17,13 +24,9 @@ import json
 from collections.abc import Callable
 from typing import Any
 
-from nicegui import ui
+from nicegui import binding, ui
 
-from app.registry import (
-    DEEPSEEK_ID,
-    MISTRAL_ID,
-    defaults_for,
-)
+from app.registry import DEEPSEEK_ID, MISTRAL_ID, MODELS, defaults_for
 from app.schemas import ConfigRecord, config_fingerprint
 from app.store import (
     delete_config,
@@ -36,13 +39,20 @@ from app.store import (
 )
 from app.ui.console import build_console
 from app.ui.kwargs_panel import KwargsSubPanel, validate_kwargs_section
+from app.ui.prompt_preview import (
+    SAMPLE_VALUES,
+    autoformat_user_prompt,
+    render_prompt_preview,
+)
 from app.validation import validate_cross_fields
 
-# Available models for selection
+# Options for the model selector (value -> label)
 AVAILABLE_MODELS = {
-    MISTRAL_ID: f"Mistral Small 24B ({MISTRAL_ID})",
-    DEEPSEEK_ID: f"DeepSeek R1 Distill Qwen 32B ({DEEPSEEK_ID})",
+    MISTRAL_ID: "Mistral Small 24B (mistralai/Mistral-Small-24B-Instruct-2501)",
+    DEEPSEEK_ID: "DeepSeek R1 Distill 32B (deepseek-ai/DeepSeek-R1-Distill-Qwen-32B)",
 }
+MODEL_ID_OPTIONS = [MISTRAL_ID, DEEPSEEK_ID]
+SHORT_MODEL_NAMES = {MISTRAL_ID: "Mistral-24B", DEEPSEEK_ID: "DeepSeek-32B"}
 
 TASK_TYPE_OPTIONS = {
     "fine_tune": "Fine-Tune",
@@ -59,57 +69,396 @@ EVIDENCE_CONFIG_OPTIONS = {
     "all_questions_all_but_last_answer": "All Questions + All But Last Answer",
 }
 
+DEFAULT_USER_TEMPLATE = (
+    "### Claim: {claim}\n### Question: {question}\n### Answer: {answer}\n"
+)
+
+# Pipeline tabs: (component key, icon, short title)
+PIPELINE_TABS = [
+    ("a", "dns", "Model"),
+    ("b", "text_fields", "Tokenizer"),
+    ("c", "dataset", "Data"),
+    ("d", "tune", "Optimizer"),
+    ("e", "code", "Encoding"),
+    ("f", "auto_awesome", "Generation"),
+    ("g", "subtitles", "Decoding"),
+    ("h", "data_object", "Extra kwargs"),
+]
+
+# Single UI font ('Inter') across all controls + 'JetBrains Mono' (weight 400 only) for code blocks
+FONT_HEAD_HTML = """
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+"""
+
+PAGE_CSS = """
+/* === LAYER 1: PRIMITIVE TOKENS === */
+:root {
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  --slate-50: #f8fafc;
+  --slate-100: #f1f5f9;
+  --slate-200: #e2e8f0;
+  --slate-300: #cbd5e1;
+  --slate-600: #475569;
+  --slate-700: #334155;
+  --slate-800: #1e293b;
+  --slate-900: #0f172a;
+
+  --zinc-100: #f4f4f5;
+  --zinc-300: #d4d4d8;
+  --zinc-400: #a1a1aa;
+  --zinc-700: #3f3f46;
+  --zinc-800: #27272a;
+  --zinc-900: #141417;
+  --zinc-950: #09090b;
+}
+
+/* === LAYER 2: SEMANTIC TOKENS (LIGHT & DARK) === */
+:root {
+  --bg-canvas: #f3f5f8;
+  --bg-surface: #ffffff;
+  --bg-subtle: #f8fafc;
+  --bg-input: #f8fafc;
+  --bg-header: #0f172a;
+  --text-primary: var(--slate-900);
+  --text-secondary: var(--slate-600);
+  --border-default: var(--slate-200);
+  --border-input: var(--slate-300);
+  --icon-badge-bg: rgba(37, 99, 235, 0.1);
+}
+
+body.body--dark {
+  --bg-canvas: var(--zinc-950);
+  --bg-surface: var(--zinc-900);
+  --bg-subtle: #1c1c21;
+  --bg-input: #1c1c21;
+  --bg-header: var(--zinc-950);
+  --text-primary: var(--zinc-100);
+  --text-secondary: var(--zinc-400);
+  --border-default: var(--zinc-800);
+  --border-input: var(--zinc-700);
+  --icon-badge-bg: rgba(59, 130, 246, 0.16);
+}
+
+/* === LAYER 3: GLOBAL OVERRIDES & COMPONENT TOKENS === */
+body,
+.q-btn,
+.q-field,
+.q-tab,
+.q-item,
+input,
+textarea {
+  font-family: var(--font-sans) !important;
+  letter-spacing: -0.011em !important;
+  font-variant-numeric: tabular-nums;
+}
+
+body {
+  background-color: var(--bg-canvas) !important;
+  color: var(--text-primary) !important;
+}
+
+.mono {
+  font-family: var(--font-mono) !important;
+  font-weight: 400 !important;
+}
+
+.surface-header {
+  background-color: var(--bg-header) !important;
+  border-bottom: 1px solid #1e293b !important;
+  color: #f8fafc !important;
+}
+
+.surface-card {
+  background-color: var(--bg-surface) !important;
+  border: 1px solid var(--border-default) !important;
+  color: var(--text-primary) !important;
+  box-shadow: none !important;
+}
+
+.surface-subtle {
+  background-color: var(--bg-subtle) !important;
+  border: 1px solid var(--border-default) !important;
+  color: var(--text-primary) !important;
+}
+
+.surface-drawer {
+  background-color: var(--bg-surface) !important;
+  border-right: 1px solid var(--border-default) !important;
+  color: var(--text-primary) !important;
+}
+
+.border-token {
+  border: 1px solid var(--border-default) !important;
+}
+
+.text-secondary-token {
+  color: var(--text-secondary) !important;
+}
+
+.icon-badge {
+  background-color: var(--icon-badge-bg);
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Clean, grounded inputs with transparent example placeholders */
+.q-field--outlined .q-field__control {
+  background-color: var(--bg-input) !important;
+  border-radius: 6px !important;
+  min-height: 36px !important;
+  padding: 0 10px !important;
+}
+
+.q-field--outlined .q-field__control:before {
+  border: 1px solid var(--border-default) !important;
+  transition: border-color 0.15s ease;
+}
+
+.q-field--outlined:hover .q-field__control:before {
+  border-color: var(--border-input) !important;
+}
+
+.q-field__native,
+.q-field__prefix,
+.q-field__suffix,
+.q-field__input {
+  color: var(--text-primary) !important;
+  font-size: 13px !important;
+  font-weight: 400 !important;
+  padding: 4px 0 !important;
+}
+
+.q-field__native::placeholder,
+.q-field__input::placeholder {
+  color: var(--text-secondary) !important;
+  opacity: 0.45 !important;
+}
+
+/* Transparent example text appearance for untouched default prompt values */
+.is-example-text .q-field__native,
+.is-example-text .q-field__input {
+  color: var(--text-secondary) !important;
+  opacity: 0.45 !important;
+  transition: opacity 0.15s ease, color 0.15s ease;
+}
+
+.is-example-text.q-field--focused .q-field__native,
+.is-example-text.q-field--focused .q-field__input {
+  color: var(--text-primary) !important;
+  opacity: 1 !important;
+}
+
+.q-field__marginal {
+  height: 36px !important;
+  color: var(--text-secondary) !important;
+}
+
+/* Animated sliding pill toggle: Fine-Tune (Green) <-> Inference (Blue) with zero bleed */
+.task-toggle {
+  position: relative;
+  background-color: var(--bg-subtle) !important;
+  border: 1px solid var(--border-default) !important;
+  border-radius: 8px !important;
+  padding: 2px !important;
+  overflow: hidden;
+}
+
+.task-toggle::before {
+  content: "";
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 2px;
+  width: calc(50% - 2px);
+  background-color: #10b981;
+  border-radius: 6px;
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.25s ease;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.task-toggle.mode-inference::before {
+  transform: translateX(100%);
+  background-color: #3b82f6;
+}
+
+.task-toggle .q-btn,
+.task-toggle .q-btn.bg-primary,
+.task-toggle .q-btn::before {
+  background: transparent !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+  z-index: 1;
+  min-height: 32px !important;
+  font-weight: 500 !important;
+  color: var(--text-primary) !important;
+  transition: color 0.2s ease !important;
+}
+
+.task-toggle:not(.mode-inference) .q-btn:first-child,
+.task-toggle.mode-inference .q-btn:last-child {
+  color: #ffffff !important;
+}
+
+/* Ensure dropdown menus and active items are readable in Dark Mode */
+body.body--dark .q-menu {
+  background-color: #1c1c21 !important;
+  border: 1px solid var(--zinc-700) !important;
+  color: var(--zinc-100) !important;
+}
+
+body.body--dark .q-item--active {
+  color: #60a5fa !important;
+  background-color: rgba(59, 130, 246, 0.15) !important;
+}
+
+/* Hide +1/-1 spinner arrows on all number inputs */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none !important;
+  margin: 0 !important;
+}
+input[type="number"] {
+  -moz-appearance: textfield !important;
+}
+
+/* Vertical pipeline tabs */
+.pipeline-tabs .q-tab {
+  justify-content: flex-start;
+  min-height: 40px;
+  padding: 0 12px;
+}
+.pipeline-tabs .q-tab__content {
+  flex-direction: row;
+  gap: 8px;
+}
+
+/* Prompt preview & JSON code blocks: regular weight 400 (no semi-bold bloat) */
+.prompt-preview-box pre,
+.prompt-preview-box code,
+.json-viewer pre,
+.json-viewer code,
+.json-viewer span,
+.q-code pre,
+.q-code code,
+.q-code span {
+  white-space: pre-wrap !important;
+  word-break: break-word !important;
+  overflow-x: hidden !important;
+  font-family: var(--font-mono) !important;
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  line-height: 1.5 !important;
+}
+"""
+
 
 def validate_full_config(cfg: ConfigRecord) -> list[dict[str, str]]:
     """Validate cross-field rules 1-10 plus Component h kwargs whitelist."""
     issues = list(validate_cross_fields(cfg))
-    kwargs_issues = validate_kwargs_section(cfg.h)
-    issues.extend(kwargs_issues)
+    issues.extend(validate_kwargs_section(cfg.h))
     return issues
 
 
-class PlatformUI:
-    """Manages the platform state, widgets, form linkage, and layout.
+def _apply_theme_defaults() -> None:
+    """Vibrant, readable blue/sky highlights that stay clear in both Light and Dark mode."""
+    ui.colors(
+        primary="#3b82f6",  # blue-500
+        secondary="#0ea5e9",  # sky-500
+        accent="#6366f1",  # indigo-500
+        positive="#10b981",  # emerald-500
+        negative="#ef4444",  # red-500
+        warning="#f59e0b",  # amber-500
+    )
+    for element in (ui.input, ui.textarea, ui.number, ui.select):
+        element.default_props("outlined dense")
 
-    Coordinates reactive two-way data binding:
-    - User input -> updates `self.form_state` dictionary.
-    - Model/task switch -> loads fresh defaults from `registry.py` into `self.form_state`.
-    - Live validation -> validates `ConfigRecord` on every change and updates `self.console`.
-    - Left drawer -> displays SQLite saved configs with Load, Duplicate, and Delete actions.
-    """
+
+def _field_label(text: str) -> None:
+    """External WCAG AA field label above an input control."""
+    ui.label(text).classes("text-xs font-medium text-secondary-token mb-1 select-none")
+
+
+class _PromptTextarea(ui.textarea):
+    """Textarea that starts empty (showing placeholder) and populates default on Space."""
+
+    _on_explicit_set: Callable[[Any], None] | None = None
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        super().__setattr__(name, value)
+        if name == "value" and self._on_explicit_set is not None:
+            self._on_explicit_set(value)
+
+
+class _PromptInput(ui.input):
+    """Input that starts empty (showing placeholder) and populates default on Space."""
+
+    _on_explicit_set: Callable[[Any], None] | None = None
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        super().__setattr__(name, value)
+        if name == "value" and self._on_explicit_set is not None:
+            self._on_explicit_set(value)
+
+
+class PlatformUI:
+    """Manages the platform state, widgets, form linkage, and layout."""
+
+    current_model_id = binding.BindableProperty()
+    current_task_type = binding.BindableProperty()
+    status_text = binding.BindableProperty()
+    saved_count = binding.BindableProperty()
 
     def __init__(self) -> None:
-        # Ensure the SQLite database table exists on launch
         init_db()
 
-        # Initial default selections (Mistral + Fine-Tune per design spec)
         self.current_model_id = MISTRAL_ID
         self.current_task_type = "fine_tune"
         self.created_by_val = ""
         self.notes_val = ""
+        self.status_text = "Valid"
+        self.saved_count = 0
 
-        # Populate initial form dictionary with defaults from registry
+        # Sample claim/question/answer used for live formatting & preview
+        self.sample_overrides: dict[str, str] = dict(SAMPLE_VALUES)
+
         self.form_state = defaults_for(self.current_model_id, self.current_task_type)
         if "h" not in self.form_state or not isinstance(self.form_state["h"], dict):
             self.form_state["h"] = {}
 
-        # Widget registry mapping dotted paths (e.g. "b.pad_token") to NiceGUI widget instances.
-        # Used by the validation console to apply red error rings directly on offending inputs.
         self.field_widgets: dict[str, Any] = {}
         self.kwargs_panels: dict[str, KwargsSubPanel] = {}
-
-        # Flag to prevent event loops / re-triggering during programmatic bulk updates
         self.is_batch_updating = False
 
-        # References to dynamically shown/hidden UI containers
-        self.optimizer_expansion: Any = None
+        # References to dynamically shown/hidden UI elements
+        self.optimizer_expansion: Any = (
+            None  # Component d panel (checked by test_main.py)
+        )
+        self.optimizer_tab: Any = None
+        self.pipeline_tabs: Any = None
+        self.side_tabs: Any = None
         self.data_fine_tune_container: Any = None
         self.data_inference_container: Any = None
+        self.assistant_prompt_container: Any = None
         self.saved_configs_container: Any = None
         self.console: Any = None
+        self.prompt_preview: Any = None
+        self.delete_dialog: Any = None
+        self.delete_dialog_label: Any = None
 
+    # ------------------------------------------------------------------
+    # Dotted-path helpers
+    # ------------------------------------------------------------------
     def _set_path_value(self, path: str, value: Any) -> None:
-        """Update a dotted path (e.g., 'd.lora.r') in the nested form_state dictionary."""
+        """Update a dotted path (e.g., 'd.lora.r') in the nested form_state."""
         parts = path.split(".")
         target = self.form_state
         for segment in parts[:-1]:
@@ -119,7 +468,7 @@ class PlatformUI:
         target[parts[-1]] = value
 
     def _get_path_value(self, path: str, default: Any = None) -> Any:
-        """Retrieve a value by dotted path (e.g., 'f.temperature') from form_state."""
+        """Retrieve a value by dotted path (e.g., 'f.temperature')."""
         target = self.form_state
         for segment in path.split("."):
             if isinstance(target, dict) and segment in target:
@@ -139,24 +488,22 @@ class PlatformUI:
         """
         if self.console is None:
             return
-        ui.timer(0.01, self.console.refresh, once=True)
+        self.refresh_console()
+        ui.timer(0.01, self.refresh_console, once=True)
 
+    # ------------------------------------------------------------------
+    # Widget registration and field factories
+    # ------------------------------------------------------------------
     def _register_input(
         self,
         path: str,
         widget: Any,
         cast_func: Callable[[Any], Any] | None = None,
     ) -> Any:
-        """Register a widget in field_widgets and set up value change callback.
-
-        - Binds the widget's value changes to update `form_state`.
-        - Applies optional type casting (e.g., int, float) to enforce schema types.
-        - Automatically triggers a live validation console refresh.
-        """
+        """Register a widget in field_widgets and wire its change callback."""
         self.field_widgets[path] = widget
 
         def on_change(e: Any) -> None:
-            # Skip if we are programmatically updating widgets (e.g. during load_state)
             if self.is_batch_updating:
                 return
             val = e.value if hasattr(e, "value") else widget.value
@@ -165,27 +512,305 @@ class PlatformUI:
                     val = cast_func(val)
                 except (ValueError, TypeError):
                     pass
-            self._set_path_value(path, val)
-            # Re-evaluate rules and update live JSON preview on the next tick so
-            # the error props are not suppressed by the element's own update.
+
+            # Selecting a different model in a.model_id or b.tokenizer_id switches the platform model
+            if (
+                path in {"a.model_id", "b.tokenizer_id"}
+                and val in AVAILABLE_MODELS
+                and val != self.current_model_id
+            ):
+                from types import SimpleNamespace
+
+                self.on_model_changed(SimpleNamespace(value=val))
+                return
+
+            # Pressing Space in an empty prompt field populates its default text into the box
+            if path.startswith("p.") and val == " ":
+                p_key = path.split(".", 1)[1]
+                default_val = (
+                    defaults_for(self.current_model_id, self.current_task_type)
+                    .get("p", {})
+                    .get(p_key)
+                )
+                if default_val:
+                    populated = (
+                        default_val.rstrip("\n")
+                        if isinstance(default_val, str)
+                        else str(default_val)
+                    )
+                    self.is_batch_updating = True
+                    try:
+                        widget.value = populated
+                    finally:
+                        self.is_batch_updating = False
+                    self._set_path_value(path, default_val)
+                    self._refresh_console_soon()
+                    return
+
+            if path == "p.user_prompt_template":
+                raw_str = str(val or "").strip()
+                if not raw_str:
+                    self._set_path_value(path, DEFAULT_USER_TEMPLATE)
+                else:
+                    formatted, updated_samples = autoformat_user_prompt(
+                        str(val), self.sample_overrides
+                    )
+                    self.sample_overrides = updated_samples
+                    self._set_path_value(path, formatted)
+                    # When the user presses Enter (newline), auto-format the completed line in-place
+                    if str(val).endswith("\n") and formatted != str(val):
+                        self.is_batch_updating = True
+                        try:
+                            widget.value = formatted
+                        finally:
+                            self.is_batch_updating = False
+            else:
+                self._set_path_value(path, val)
             self._refresh_console_soon()
 
         widget.on_value_change(on_change)
+        if isinstance(widget, (_PromptTextarea, _PromptInput)):
+
+            def _handle_explicit_set(v: Any) -> None:
+                if self.is_batch_updating:
+                    return
+                if v == "":
+                    if path == "p.user_prompt_template":
+                        self._set_path_value(path, DEFAULT_USER_TEMPLATE)
+                    else:
+                        self._set_path_value(path, "")
+                    self._refresh_console_soon()
+
+            widget._on_explicit_set = _handle_explicit_set
         return widget
 
-    def build_config_record(self) -> ConfigRecord:
-        """Assemble the current UI state into a validated Pydantic ConfigRecord.
+    def text_field(
+        self,
+        path: str,
+        label: str,
+        *,
+        textarea: bool = False,
+        readonly: bool = False,
+        placeholder: str | None = None,
+    ) -> Any:
+        """External-label text input (or textarea) bound to `path`."""
+        value = self._get_path_value(path)
+        if isinstance(value, list):
+            value = ", ".join(str(x) for x in value)
+        if isinstance(value, str) and textarea:
+            value = value.rstrip("\n")
+        init_val = "" if value is None else value
+        is_prompt = path.startswith("p.")
+        if is_prompt:
+            # Start visually empty (greyed-out placeholder) when holding the default value;
+            # pressing Space inside the box populates the default text for editing.
+            p_key = path.split(".", 1)[1]
+            default_p = defaults_for(self.current_model_id, self.current_task_type).get(
+                "p", {}
+            )
+            default_val = default_p.get(p_key) or ""
+            if str(init_val).strip() == str(default_val).strip():
+                init_val = ""
+        with ui.column().classes("w-full min-w-0 gap-0"):
+            _field_label(label)
+            if is_prompt:
+                factory = _PromptTextarea if textarea else _PromptInput
+            else:
+                factory = ui.textarea if textarea else ui.input
+            widget = factory(value=init_val, placeholder=placeholder)
+            widget.props("outlined dense").classes("w-full")
+            if textarea:
+                widget.props("autogrow")
+            if readonly:
+                widget.props("readonly")
+        return self._register_input(path, widget)
 
-        Handles string-to-list parsing for comma-separated fields (like label_values
-        and target_modules) and applies model-specific quirks like DeepSeek top_k nullability.
-        """
+    def number_field(
+        self,
+        path: str,
+        label: str,
+        cast: Callable[[Any], Any] = int,
+        *,
+        readonly: bool = False,
+        fmt: str | None = None,
+    ) -> Any:
+        """External-label numeric input bound to `path`."""
+        kwargs = {"format": fmt} if fmt else {}
+        with ui.column().classes("w-full min-w-0 gap-0"):
+            _field_label(label)
+            widget = ui.number(value=self._get_path_value(path), **kwargs)
+            widget.props("outlined dense").classes("w-full")
+            if readonly:
+                widget.props("readonly")
+        return self._register_input(path, widget, cast_func=cast)
+
+    def select_field(
+        self,
+        path: str,
+        label: str,
+        options: Any,
+        default: Any = None,
+    ) -> Any:
+        """External-label dropdown bound to `path`."""
+        value = self._get_path_value(path)
+        with ui.column().classes("w-full min-w-0 gap-0"):
+            _field_label(label)
+            widget = (
+                ui.select(
+                    options=options,
+                    value=default if value is None else value,
+                )
+                .props("outlined dense")
+                .classes("w-full")
+            )
+        return self._register_input(path, widget)
+
+    def switch_field(self, path: str, label: str, *, disabled: bool = False) -> Any:
+        """Boolean switch bound to `path`."""
+        widget = ui.switch(label, value=bool(self._get_path_value(path)))
+        widget.props("color=primary dense").classes("text-xs font-medium")
+        if disabled:
+            widget.props("disable")
+        return self._register_input(path, widget)
+
+    def slider_field(
+        self, path: str, label: str, min_v: float, max_v: float, step: float
+    ) -> Any:
+        """Clean slider + number input without cramped border box."""
+        with ui.column().classes("w-full min-w-0 gap-1.5 py-1"):
+            _field_label(label)
+            with ui.row().classes("w-full items-center no-wrap gap-4"):
+                number = (
+                    ui.number(
+                        value=self._get_path_value(path),
+                        format="%.2f",
+                        min=min_v,
+                        max=max_v,
+                        step=step,
+                    )
+                    .props("outlined dense")
+                    .classes("w-28 shrink-0")
+                )
+                ui.slider(min=min_v, max=max_v, step=step).props(
+                    "label color=primary dense"
+                ).classes("flex-grow").bind_value(
+                    number,
+                    forward=lambda v: v,
+                    backward=lambda v: min_v if v is None else v,
+                )
+        return self._register_input(path, number, cast_func=float)
+
+    # ------------------------------------------------------------------
+    # Auto-formatting for User Prompt Template (Claim / Question / Answer)
+    # ------------------------------------------------------------------
+    def format_user_prompt_field(self) -> None:
+        """Auto-prefix `Claim:` / `Question:` / `Answer:` lines with `### ` and update JSON/preview."""
+        widget = self.field_widgets.get("p.user_prompt_template")
+        raw = (
+            widget.value
+            if widget is not None and widget.value is not None
+            else (self._get_path_value("p.user_prompt_template", "") or "")
+        )
+        if not str(raw).strip():
+            self._set_path_value("p.user_prompt_template", DEFAULT_USER_TEMPLATE)
+            self.refresh_console()
+            return
+        formatted, updated_samples = autoformat_user_prompt(
+            str(raw), self.sample_overrides
+        )
+        self.sample_overrides = updated_samples
+        self._set_path_value("p.user_prompt_template", formatted)
+        if widget is not None:
+            self.is_batch_updating = True
+            try:
+                widget.value = formatted.rstrip("\n")
+            finally:
+                self.is_batch_updating = False
+        self.refresh_console()
+
+    # ------------------------------------------------------------------
+    # Direct Error Navigation (jumps to tab + scrolls to widget)
+    # ------------------------------------------------------------------
+    def navigate_to_field(self, field_path: str) -> None:
+        """Open the pipeline tab containing `field_path` and scroll/focus the widget."""
+        prefix = field_path.split(".")[0] if "." in field_path else ""
+        if (
+            prefix in {"a", "b", "c", "d", "e", "f", "g", "h"}
+            and self.pipeline_tabs is not None
+        ):
+            if not (prefix == "d" and self.current_task_type != "fine_tune"):
+                self.pipeline_tabs.value = prefix
+
+        widget = self.field_widgets.get(field_path)
+        if (
+            widget is not None
+            and hasattr(widget, "id")
+            and getattr(ui.context.client, "has_socket_connection", False)
+        ):
+            wid = widget.id
+            ui.run_javascript(
+                f"""
+                setTimeout(() => {{
+                    const el = getElement({wid});
+                    if (el && el.$el) {{
+                        el.$el.scrollIntoView({{ behavior: 'smooth', block: 'center' }});
+                        const inp = el.$el.querySelector('input, textarea');
+                        if (inp) inp.focus();
+                    }}
+                }}, 120);
+                """
+            )
+        ui.notify(f"Focused field: {field_path}", type="warning", position="top")
+
+    # ------------------------------------------------------------------
+    # Live refresh
+    # ------------------------------------------------------------------
+    def refresh_console(self) -> None:
+        """Re-validate, update the JSON preview and prompt preview."""
+        if self.console is None:
+            return
+        state = self.console.refresh()
+        n_err, n_warn = len(state.errors), len(state.warnings)
+        if n_err:
+            self.status_text = f"{n_err} Error{'s' if n_err > 1 else ''}"
+        elif n_warn:
+            self.status_text = f"{n_warn} Warning{'s' if n_warn > 1 else ''}"
+        else:
+            self.status_text = "Valid"
+
+        if self.prompt_preview is not None:
+            self.prompt_preview.content = render_prompt_preview(
+                self.form_state,
+                self.current_model_id,
+                self.current_task_type,
+                self.sample_overrides,
+            )
+
+    def _on_metadata_changed(self, attr: str, value: Any) -> None:
+        """Store created_by / notes and refresh the JSON preview."""
+        setattr(self, attr, value or "")
+        if not self.is_batch_updating:
+            self.refresh_console()
+
+    # ------------------------------------------------------------------
+    # Config assembly and state loading
+    # ------------------------------------------------------------------
+    def build_config_record(self) -> ConfigRecord:
+        """Assemble the current UI state into a validated Pydantic ConfigRecord."""
         payload = copy.deepcopy(self.form_state)
         payload["model_id"] = self.current_model_id
         payload["task_type"] = self.current_task_type
         payload["created_by"] = self.created_by_val or None
         payload["notes"] = self.notes_val or None
 
-        # Parse comma-separated strings into lists expected by Pydantic schemas
+        p = payload.get("p", {})
+        if isinstance(p.get("user_prompt_template"), str):
+            formatted, updated_samples = autoformat_user_prompt(
+                p["user_prompt_template"], self.sample_overrides
+            )
+            self.sample_overrides = updated_samples
+            p["user_prompt_template"] = formatted
+
         c = payload.get("c", {})
         if isinstance(c.get("label_values"), str):
             c["label_values"] = [
@@ -201,7 +826,6 @@ class PlatformUI:
                 if item.strip()
             ]
 
-        # DeepSeek R1 quirk: top_k is disabled / nullable (empty or 0 means None)
         f = payload.get("f", {})
         if f.get("top_k") == "" or f.get("top_k") == 0:
             if self.current_model_id == DEEPSEEK_ID:
@@ -210,11 +834,7 @@ class PlatformUI:
         return ConfigRecord(**payload)
 
     def load_state(self, new_state: dict[str, Any]) -> None:
-        """Populate all form widgets from a dictionary state.
-
-        Uses `is_batch_updating = True` while populating fields to avoid firing
-        redundant individual `on_value_change` events during bulk updates.
-        """
+        """Populate all form widgets from a dictionary state."""
         self.is_batch_updating = True
         try:
             # Mutate the existing dictionaries in place instead of rebinding
@@ -240,7 +860,6 @@ class PlatformUI:
             self.created_by_val = new_state.get("created_by") or ""
             self.notes_val = new_state.get("notes") or ""
 
-            # Update top-level control widgets if available
             if "model_id" in self.field_widgets:
                 self.field_widgets["model_id"].value = self.current_model_id
             if "task_type" in self.field_widgets:
@@ -250,7 +869,9 @@ class PlatformUI:
             if "notes" in self.field_widgets:
                 self.field_widgets["notes"].value = self.notes_val
 
-            # Update registered leaf inputs (Components a through g and p)
+            default_p = defaults_for(self.current_model_id, self.current_task_type).get(
+                "p", {}
+            )
             for path, widget in self.field_widgets.items():
                 if path in {
                     "model_id",
@@ -261,13 +882,18 @@ class PlatformUI:
                     continue
                 val = self._get_path_value(path)
                 if val is not None and hasattr(widget, "value"):
-                    # Format lists (like target_modules or label_values) into comma-separated text
                     if isinstance(val, list):
                         widget.value = ", ".join(str(x) for x in val)
+                    elif path.startswith("p."):
+                        p_key = path.split(".", 1)[1]
+                        default_val = default_p.get(p_key) or ""
+                        if str(val).strip() == str(default_val).strip():
+                            widget.value = ""
+                        else:
+                            widget.value = val
                     else:
                         widget.value = val
 
-            # Refresh dynamic Component h (**kwargs) sub-panels
             for stage, panel in self.kwargs_panels.items():
                 panel.clear()
                 existing_kwargs = self.form_state.get("h", {}).get(stage, {})
@@ -275,86 +901,82 @@ class PlatformUI:
                     val_str = json.dumps(v) if isinstance(v, (dict, list)) else str(v)
                     panel.add_row(initial_key=k, initial_val=val_str)
 
-            # Re-apply conditional section visibility (e.g. Optimizer hidden during inference)
             self._update_visibility()
         finally:
             self.is_batch_updating = False
 
-        # Refresh console to update JSON preview and re-check rules against newly loaded state
-        if self.console is not None:
-            self.console.refresh()
+        self.refresh_console()
 
     def _update_visibility(self) -> None:
-        """Toggle visibility of optimizer and data fields based on task_type.
-
-        Per spec:
-        - Optimizer (Component d) is only visible for 'fine_tune'.
-        - 'train_data_file' and 'eval_data_file' are only for 'fine_tune'.
-        - 'test_data_file' and 'evidence_config' are only for 'inference'.
-        """
+        """Show or hide task-specific fields (see module docstring for rules)."""
         is_fine_tune = self.current_task_type == "fine_tune"
-        if self.optimizer_expansion is not None:
-            self.optimizer_expansion.set_visibility(is_fine_tune)
-        if self.data_fine_tune_container is not None:
-            self.data_fine_tune_container.set_visibility(is_fine_tune)
+        task_widget = self.field_widgets.get("task_type")
+        if task_widget is not None:
+            if is_fine_tune:
+                task_widget.classes(remove="mode-inference")
+            else:
+                task_widget.classes(add="mode-inference")
+
+        for element in (
+            self.optimizer_expansion,
+            self.optimizer_tab,
+            self.data_fine_tune_container,
+            self.assistant_prompt_container,
+        ):
+            if element is not None:
+                element.set_visibility(is_fine_tune)
         if self.data_inference_container is not None:
             self.data_inference_container.set_visibility(not is_fine_tune)
+        if (
+            not is_fine_tune
+            and self.pipeline_tabs is not None
+            and self.pipeline_tabs.value == "d"
+        ):
+            self.pipeline_tabs.value = "a"
+
+    # ------------------------------------------------------------------
+    # Model / task switching (Issue #7)
+    # ------------------------------------------------------------------
+    def _switch_defaults(self) -> None:
+        """Reload registry defaults while preserving user metadata."""
+        saved_by, saved_notes = self.created_by_val, self.notes_val
+        self.load_state(defaults_for(self.current_model_id, self.current_task_type))
+        self.created_by_val, self.notes_val = saved_by, saved_notes
+        if "created_by" in self.field_widgets:
+            self.field_widgets["created_by"].value = saved_by
+        if "notes" in self.field_widgets:
+            self.field_widgets["notes"].value = saved_notes
+        self.refresh_console()
 
     def on_model_changed(self, e: Any) -> None:
-        """Switch model: reloads defaults for current (model, task_type).
-
-        User-entered metadata (created_by, notes) is preserved across switches
-        because those fields are not part of the registry defaults.
-        """
+        """Switch model: reload defaults for the new (model, task_type)."""
         new_model = e.value
         if new_model == self.current_model_id:
             return
-        # Preserve user metadata before load_state overwrites them
-        saved_by = self.created_by_val
-        saved_notes = self.notes_val
         self.current_model_id = new_model
-        defaults = defaults_for(self.current_model_id, self.current_task_type)
-        self.load_state(defaults)
-        # Restore user metadata
-        self.created_by_val = saved_by
-        self.notes_val = saved_notes
-        if "created_by" in self.field_widgets:
-            self.field_widgets["created_by"].value = saved_by
-        if "notes" in self.field_widgets:
-            self.field_widgets["notes"].value = saved_notes
-        ui.notify(f"Switched model to {new_model}", type="info")
+        self._switch_defaults()
+        ui.notify(
+            f"Loaded defaults for {SHORT_MODEL_NAMES.get(new_model, new_model)}",
+            type="info",
+        )
 
     def on_task_type_changed(self, e: Any) -> None:
-        """Switch task type: reloads defaults for current (model, task_type).
-
-        User-entered metadata (created_by, notes) is preserved across switches
-        because those fields are not part of the registry defaults.
-        """
+        """Switch task type: reload defaults for the new (model, task_type)."""
         new_task = e.value
         if new_task == self.current_task_type:
             return
-        # Preserve user metadata before load_state overwrites them
-        saved_by = self.created_by_val
-        saved_notes = self.notes_val
         self.current_task_type = new_task
-        defaults = defaults_for(self.current_model_id, self.current_task_type)
-        self.load_state(defaults)
-        # Restore user metadata
-        self.created_by_val = saved_by
-        self.notes_val = saved_notes
-        if "created_by" in self.field_widgets:
-            self.field_widgets["created_by"].value = saved_by
-        if "notes" in self.field_widgets:
-            self.field_widgets["notes"].value = saved_notes
-        ui.notify(f"Switched task type to {new_task}", type="info")
+        self._switch_defaults()
+        ui.notify(
+            f"Loaded defaults for {TASK_TYPE_OPTIONS.get(new_task, new_task)}",
+            type="info",
+        )
 
+    # ------------------------------------------------------------------
+    # Persistence (Issue #11)
+    # ------------------------------------------------------------------
     def save_to_db(self, cfg: ConfigRecord) -> None:
-        """Persist config to SQLite with SHA256 hash deduplication.
-
-        Computes a SHA-256 fingerprint over the functional experiment parameters.
-        If an identical configuration is already saved, blocks insertion with a warning.
-        Otherwise, writes to SQLite and refreshes the drawer card feed.
-        """
+        """Persist config to SQLite with SHA-256 hash deduplication."""
         fingerprint = config_fingerprint(cfg)
         existing_id = find_by_hash(fingerprint)
         if existing_id is not None:
@@ -373,12 +995,11 @@ class PlatformUI:
 
     def reset_to_defaults(self) -> None:
         """Reset the form back to registry defaults for current model and task."""
-        defaults = defaults_for(self.current_model_id, self.current_task_type)
-        self.load_state(defaults)
+        self.load_state(defaults_for(self.current_model_id, self.current_task_type))
         ui.notify("Form reset to registry defaults.", type="info")
 
     def load_saved_config(self, config_id: str) -> None:
-        """Load a saved config from SQLite by ID into the active editing form."""
+        """Load a saved config from SQLite into the form."""
         cfg = get_config(config_id)
         if cfg is None:
             ui.notify(f"Config {config_id} not found.", type="negative")
@@ -387,695 +1008,592 @@ class PlatformUI:
         ui.notify(f"Loaded config {config_id[:8]}", type="positive")
 
     def duplicate_saved_config(self, config_id: str) -> None:
-        """Clone an existing config with a new ID and timestamp as an unsaved draft.
-
-        Allows the user to easily branch off an existing experiment, adjust one or more
-        hyperparameters (e.g. temperature), and save as a new independent record.
-        """
+        """Clone a saved config as an unsaved draft with a new ID and timestamp."""
         clone = duplicate_config(config_id)
         self.load_state(clone.model_dump())
         ui.notify(
-            f"Duplicated config {config_id[:8]} as new draft ({clone.config_id[:8]}). Edit and save to persist.",
+            f"Duplicated config {config_id[:8]} as new draft ({clone.config_id[:8]}). "
+            "Edit and save to persist.",
             type="info",
         )
 
     def delete_saved_config(self, config_id: str) -> None:
-        """Permanently remove a saved config from SQLite and refresh the drawer list."""
+        """Permanently remove a saved config and refresh the drawer list."""
         delete_config(config_id)
         ui.notify(f"Deleted config {config_id[:8]}", type="warning")
         self.refresh_saved_configs_list()
 
+    async def confirm_delete(self, config_id: str) -> None:
+        """Ask for confirmation before deleting a saved config."""
+        if self.delete_dialog is None:
+            self.delete_saved_config(config_id)
+            return
+        self.delete_dialog_label.text = f"Config {config_id[:8]} will be permanently removed from the SQLite database."
+        if await self.delete_dialog:
+            self.delete_saved_config(config_id)
+
     def refresh_saved_configs_list(self) -> None:
-        """Re-render the list of saved configs in the left drawer."""
+        """Re-render the saved-config cards in the left drawer with filled green/blue badges."""
         if self.saved_configs_container is None:
             return
         self.saved_configs_container.clear()
         configs = list_configs()
+        self.saved_count = len(configs)
 
         with self.saved_configs_container:
             if not configs:
-                ui.label("No saved configs yet.").classes(
-                    "text-sm text-gray-500 italic p-2"
-                )
+                with ui.column().classes(
+                    "w-full items-center gap-1 py-8 text-secondary-token"
+                ):
+                    ui.icon("inventory_2").classes("text-3xl opacity-60")
+                    ui.label("No saved configs yet").classes("text-xs font-medium")
                 return
 
             for item in configs:
                 cid = item["config_id"]
-                short_id = cid[:8]
                 task = item["task_type"]
-                model_name = (
-                    "Mistral-24B" if "Mistral" in item["model_id"] else "DeepSeek-32B"
-                )
-                created_at = item["created_at"][:19].replace("T", " ")
+                is_ds = item["model_id"] == DEEPSEEK_ID
+                created_at = item["created_at"][:16].replace("T", " ")
 
-                with ui.card().classes(
-                    "w-full p-3 mb-2 shadow-sm border border-gray-200"
+                with (
+                    ui.card()
+                    .props("flat")
+                    .classes("w-full p-3 gap-1.5 rounded-lg surface-subtle")
                 ):
                     with ui.row().classes(
                         "w-full items-center justify-between no-wrap"
                     ):
-                        ui.label(model_name).classes("font-semibold text-sm")
-                        badge_color = "positive" if task == "fine_tune" else "primary"
-                        ui.badge(task, color=badge_color).classes("text-xs")
+                        with ui.row().classes("items-center gap-2 no-wrap"):
+                            ui.icon(
+                                "psychology" if is_ds else "bolt",
+                                color="secondary" if is_ds else "primary",
+                            ).classes("text-base")
+                            ui.label(
+                                SHORT_MODEL_NAMES.get(
+                                    item["model_id"], item["model_id"]
+                                )
+                            ).classes("font-semibold text-xs")
+                        ui.badge(
+                            TASK_TYPE_OPTIONS.get(task, task),
+                            color="positive" if task == "fine_tune" else "primary",
+                            text_color="white",
+                        ).props("rounded")
                     with ui.row().classes(
-                        "w-full items-center justify-between text-xs text-gray-500 my-1"
+                        "w-full items-center justify-between text-[11px] text-secondary-token no-wrap"
                     ):
-                        ui.label(f"ID: {short_id}")
+                        ui.label(cid[:8]).classes("mono")
                         ui.label(created_at)
-                    with ui.row().classes("w-full justify-end gap-1 mt-1"):
+                    if item.get("created_by") or item.get("notes"):
+                        ui.label(
+                            " · ".join(
+                                x
+                                for x in (item.get("created_by"), item.get("notes"))
+                                if x
+                            )
+                        ).classes("text-xs text-secondary-token line-clamp-2")
+                    with ui.row().classes("w-full items-center gap-1 pt-1 no-wrap"):
                         ui.button(
                             "Load",
+                            icon="file_open",
                             on_click=lambda _, c=cid: self.load_saved_config(c),
-                        ).props("flat dense size=sm")
+                        ).props("flat dense no-caps size=sm color=primary")
                         ui.button(
                             "Duplicate",
+                            icon="content_copy",
                             on_click=lambda _, c=cid: self.duplicate_saved_config(c),
-                        ).props("flat dense size=sm color=secondary")
+                        ).props("flat dense no-caps size=sm color=secondary")
+                        ui.space()
                         ui.button(
-                            icon="delete",
-                            on_click=lambda _, c=cid: self.delete_saved_config(c),
-                        ).props("flat dense size=sm color=negative")
+                            icon="delete_outline",
+                            on_click=lambda _, c=cid: self.confirm_delete(c),
+                        ).props("flat round dense size=sm color=negative")
 
 
-def create_app() -> PlatformUI:
-    """Construct the full NiceGUI page layout and form skeleton."""
-    platform = PlatformUI()
+# ======================================================================
+# Layout Builders
+# ======================================================================
+def _section_header(icon: str, title: str) -> None:
+    """Card header with subtle icon badge."""
+    with ui.row().classes("w-full items-center gap-2.5 no-wrap"):
+        with ui.element("div").classes("icon-badge shrink-0"):
+            ui.icon(icon, color="primary").classes("text-base")
+        ui.label(title).classes("text-sm font-semibold tracking-tight")
 
-    # Custom page styling
-    ui.colors(primary="#1976D2", secondary="#26A69A", accent="#9C27B0")
 
-    # Header
-    with ui.header().classes(
-        "items-center justify-between px-4 py-2 bg-slate-900 text-white"
+def _metric_cell(
+    platform: PlatformUI, icon: str, label: str, fn: Callable[[str], str]
+) -> None:
+    """Hardware metric tile with icon bound to current_model_id."""
+    with ui.column().classes(
+        "flex-1 min-w-[115px] p-2.5 gap-0.5 rounded-md surface-subtle"
     ):
-        with ui.row().classes("items-center gap-3"):
-            drawer_btn = ui.button(icon="menu").props("flat round color=white")
-            ui.label("LLM Fact-Checking Config Platform").classes(
-                "text-lg font-bold tracking-wide"
+        with ui.row().classes("items-center gap-1 text-secondary-token no-wrap"):
+            ui.icon(icon, color="primary").classes("text-xs")
+            ui.label(label).classes(
+                "text-[10px] font-semibold uppercase tracking-wider"
             )
-        with ui.row().classes("items-center gap-2"):
-            ui.badge("Fir HPC Ready", color="positive").classes("text-xs px-2 py-1")
-            # ui.label("Milestone 0.5 & 1.0").classes("text-xs text-slate-400")
+        ui.label().classes("text-sm font-semibold").bind_text_from(
+            platform, "current_model_id", backward=fn
+        )
 
-    # Left Drawer (saved configs)
-    with ui.left_drawer(value=False).classes("bg-slate-50 p-3") as drawer:
-        drawer_btn.on_click(drawer.toggle)
-        with ui.row().classes("w-full items-center justify-between mb-3"):
-            ui.label("Saved Configurations").classes(
-                "font-bold text-base text-slate-800"
+
+def _build_header(platform: PlatformUI, dark: Any) -> Any:
+    """Clean top bar: hamburger menu, title, and dark mode toggle."""
+    with ui.header(elevated=False).classes(
+        "items-center justify-between px-4 py-2 surface-header"
+    ):
+        with ui.row().classes("items-center gap-3 no-wrap"):
+            menu_btn = ui.button(icon="menu").props("flat dense round color=white")
+            ui.label("LLM Fact-Checking Config Platform").classes(
+                "text-sm font-semibold tracking-tight text-white"
             )
-            ui.button(
-                icon="refresh",
-                on_click=platform.refresh_saved_configs_list,
-            ).props("flat round dense size=sm")
+
+        ui.button(icon="dark_mode", on_click=dark.toggle).props(
+            "flat dense round color=white"
+        )
+    return menu_btn
+
+
+def _build_drawer(platform: PlatformUI) -> Any:
+    """Left drawer strictly for Saved Configurations (no count badge or refresh button)."""
+    with (
+        ui.left_drawer(value=False, bordered=False)
+        .props("width=310")
+        .classes("p-4 gap-3 surface-drawer") as drawer
+    ):
+        with ui.row().classes("w-full items-center gap-2 no-wrap"):
+            ui.icon("bookmarks", color="primary").classes("text-lg")
+            ui.label("Saved Configurations").classes("text-sm font-semibold")
+
+        ui.separator()
         platform.saved_configs_container = ui.column().classes("w-full gap-2")
         platform.refresh_saved_configs_list()
 
-    # Main Area: Split 7:5 (Left: Form skeleton, Right: Sticky validation console)
-    # This ratio is specified in design/Spec_and_roadmap.md to give ample room for
-    # prompt templates on the left and a persistent, readable JSON preview on the right.
-    with ui.row().classes("w-full p-4 gap-6 no-wrap items-start"):
-        # ====================================================================
-        # LEFT COLUMN (7/12 width): Form configuration area
-        # ====================================================================
-        with ui.column().classes("w-7/12 gap-4"):
-            # 1. Top-Level Control Card: Model ID, Task Type toggle, Author, and Notes
-            with ui.card().classes("w-full shadow-md"):
-                ui.label("Experiment Configuration").classes(
-                    "text-base font-bold text-slate-800"
+    with (
+        ui.dialog() as platform.delete_dialog,
+        ui.card()
+        .props("flat")
+        .classes("p-5 gap-3 min-w-[320px] rounded-lg surface-card"),
+    ):
+        with ui.row().classes("items-center gap-2"):
+            ui.icon("warning", color="negative").classes("text-xl")
+            ui.label("Delete configuration?").classes("text-sm font-semibold")
+        platform.delete_dialog_label = ui.label().classes(
+            "text-xs text-secondary-token"
+        )
+        with ui.row().classes("w-full justify-end gap-2 pt-2"):
+            ui.button(
+                "Cancel", on_click=lambda: platform.delete_dialog.submit(False)
+            ).props("flat dense no-caps")
+            ui.button(
+                "Delete",
+                icon="delete",
+                on_click=lambda: platform.delete_dialog.submit(True),
+            ).props("unelevated dense no-caps color=negative")
+    return drawer
+
+
+def _build_experiment_card(platform: PlatformUI) -> None:
+    """Card 1: Model selector, animated execution mode toggle, metric tiles, and metadata."""
+    with ui.card().props("flat").classes("w-full p-4 gap-3.5 rounded-lg surface-card"):
+        _section_header("science", "Experiment & Target Model")
+
+        # No redundant Target LLM / Execution Mode headings above these two controls
+        with ui.grid(columns=2).classes("w-full gap-4 items-center"):
+            model_select = (
+                ui.select(
+                    options=AVAILABLE_MODELS,
+                    value=platform.current_model_id,
+                    on_change=platform.on_model_changed,
                 )
-                with ui.grid(columns=2).classes("w-full gap-4"):
-                    model_select = ui.select(
-                        options=AVAILABLE_MODELS,
-                        value=platform.current_model_id,
-                        label="Target LLM (model_id)",
-                        on_change=platform.on_model_changed,
-                    ).classes("w-full")
-                    platform.field_widgets["model_id"] = model_select
-
-                    task_toggle = ui.toggle(
-                        options=TASK_TYPE_OPTIONS,
-                        value=platform.current_task_type,
-                        on_change=platform.on_task_type_changed,
-                    ).classes("self-center")
-                    platform.field_widgets["task_type"] = task_toggle
-
-                with ui.grid(columns=2).classes("w-full gap-4 mt-2"):
-                    created_by_input = ui.input(
-                        label="Created By (Author / Researcher)",
-                        value=platform.created_by_val,
-                    ).classes("w-full")
-                    created_by_input.on_value_change(
-                        lambda e: setattr(platform, "created_by_val", e.value)
-                    )
-                    platform.field_widgets["created_by"] = created_by_input
-
-                    notes_input = ui.textarea(
-                        label="Experiment Notes",
-                        value=platform.notes_val,
-                    ).classes("w-full")
-                    notes_input.on_value_change(
-                        lambda e: setattr(platform, "notes_val", e.value)
-                    )
-                    platform.field_widgets["notes"] = notes_input
-
-            # 2. Prompt Section (Component p)
-            with ui.card().classes("w-full shadow-md"):
-                with ui.row().classes("items-center justify-between w-full"):
-                    ui.label("Component p: Prompts & Chat Template").classes(
-                        "text-base font-bold text-slate-800"
-                    )
-                    # ui.badge("Research Critical", color="accent").classes("text-xs")
-
-                sys_prompt = ui.textarea(
-                    label="System Prompt (p.system_prompt)",
-                    value=platform.form_state["p"]["system_prompt"],
-                ).classes("w-full")
-                platform._register_input("p.system_prompt", sys_prompt)
-
-                user_prompt = ui.textarea(
-                    label="User Prompt Template (p.user_prompt_template)",
-                    value=platform.form_state["p"]["user_prompt_template"],
-                ).classes("w-full")
-                platform._register_input("p.user_prompt_template", user_prompt)
-
-                with ui.grid(columns=2).classes("w-full gap-4"):
-                    asst_prompt = ui.input(
-                        label="Assistant Prompt (p.assistant_prompt)",
-                        value=platform.form_state["p"]["assistant_prompt"],
-                    ).classes("w-full")
-                    platform._register_input("p.assistant_prompt", asst_prompt)
-
-                    parse_marker = ui.input(
-                        label="Verdict Parse Marker (p.verdict_parse_marker)",
-                        value=platform.form_state["p"]["verdict_parse_marker"],
-                    ).classes("w-full")
-                    platform._register_input("p.verdict_parse_marker", parse_marker)
-
-                template_override = ui.input(
-                    label="Chat Template Override (p.chat_template_override, optional)",
-                    value=platform.form_state["p"].get("chat_template_override") or "",
-                ).classes("w-full")
-                platform._register_input("p.chat_template_override", template_override)
-
-            # 3. Expansion Panels: Components a through h
-            with ui.column().classes("w-full gap-2"):
-                # Panel a: Model Loading
-                with ui.expansion(
-                    "Component a: Loading the Model", icon="memory"
-                ).classes("w-full bg-white shadow"):
-                    with ui.grid(columns=2).classes("w-full gap-4 p-2"):
-                        a_model_id = ui.input(
-                            label="Model ID / Path (a.model_id)",
-                            value=platform.form_state["a"]["model_id"],
-                        )
-                        platform._register_input("a.model_id", a_model_id)
-
-                        a_dtype = ui.select(
-                            options=["auto", "bfloat16", "float16", "float32"],
-                            label="Dtype (a.dtype)",
-                            value=platform.form_state["a"]["dtype"],
-                        )
-                        platform._register_input("a.dtype", a_dtype)
-
-                        a_tp = ui.input(
-                            label="Tensor Parallelism Plan (a.tp_plan)",
-                            value=platform.form_state["a"]["tp_plan"] or "",
-                        )
-                        platform._register_input("a.tp_plan", a_tp)
-
-                        a_dev_map = ui.input(
-                            label="Device Map (a.device_map)",
-                            value=platform.form_state["a"]["device_map"] or "",
-                        )
-                        platform._register_input("a.device_map", a_dev_map)
-
-                        a_attn = ui.select(
-                            options=["sdpa", "eager", "flash_attention_2"],
-                            label="Attention Implementation (a.attn_implementation)",
-                            value=platform.form_state["a"]["attn_implementation"]
-                            or "sdpa",
-                        )
-                        platform._register_input("a.attn_implementation", a_attn)
-
-                        a_quant = ui.select(
-                            options=["", "4bit", "8bit"],
-                            label="Quantization (a.quantization)",
-                            value=platform.form_state["a"]["quantization"] or "",
-                        )
-                        platform._register_input("a.quantization", a_quant)
-
-                    with ui.row().classes("w-full gap-6 p-2"):
-                        a_local = ui.switch(
-                            "Local Files Only (a.local_files_only)",
-                            value=platform.form_state["a"]["local_files_only"],
-                        )
-                        platform._register_input("a.local_files_only", a_local)
-
-                        a_trust = ui.switch(
-                            "Trust Remote Code (a.trust_remote_code)",
-                            value=platform.form_state["a"]["trust_remote_code"],
-                        )
-                        platform._register_input("a.trust_remote_code", a_trust)
-
-                # Panel b: Tokenizer
-                with ui.expansion(
-                    "Component b: Loading the Tokenizer", icon="text_fields"
-                ).classes("w-full bg-white shadow"):
-                    with ui.grid(columns=2).classes("w-full gap-4 p-2"):
-                        b_tok_id = ui.input(
-                            label="Tokenizer ID (b.tokenizer_id)",
-                            value=platform.form_state["b"]["tokenizer_id"],
-                        )
-                        platform._register_input("b.tokenizer_id", b_tok_id)
-
-                        b_pad_side = ui.select(
-                            options=["left", "right"],
-                            label="Padding Side (b.padding_side)",
-                            value=platform.form_state["b"]["padding_side"],
-                        )
-                        platform._register_input("b.padding_side", b_pad_side)
-
-                        b_pad_token = ui.input(
-                            label="Pad Token (b.pad_token)",
-                            value=platform.form_state["b"]["pad_token"],
-                        )
-                        platform._register_input("b.pad_token", b_pad_token)
-
-                        b_pad_id = ui.number(
-                            label="Pad Token ID (b.pad_token_id, read-only)",
-                            value=platform.form_state["b"]["pad_token_id"],
-                        ).props("readonly bg-gray-100")
-                        platform._register_input(
-                            "b.pad_token_id", b_pad_id, cast_func=int
-                        )
-
-                        b_max_len = ui.number(
-                            label="Model Max Length (b.model_max_length)",
-                            value=platform.form_state["b"]["model_max_length"],
-                        )
-                        platform._register_input(
-                            "b.model_max_length", b_max_len, cast_func=int
-                        )
-
-                        b_trunc_side = ui.select(
-                            options=["right", "left"],
-                            label="Truncation Side (b.truncation_side)",
-                            value=platform.form_state["b"]["truncation_side"],
-                        )
-                        platform._register_input("b.truncation_side", b_trunc_side)
-
-                    with ui.row().classes("w-full gap-6 p-2"):
-                        b_regex = ui.switch(
-                            "Fix Mistral Regex (b.fix_mistral_regex)",
-                            value=platform.form_state["b"]["fix_mistral_regex"],
-                        )
-                        platform._register_input("b.fix_mistral_regex", b_regex)
-
-                        b_fast = ui.switch(
-                            "Use Fast Tokenizer (b.use_fast)",
-                            value=platform.form_state["b"]["use_fast"],
-                        )
-                        platform._register_input("b.use_fast", b_fast)
-
-                # Panel c: Data
-                with ui.expansion(
-                    "Component c: Loading the Data", icon="dataset"
-                ).classes("w-full bg-white shadow"):
-                    with ui.column().classes("w-full p-2 gap-4"):
-                        # Fine-tuning data paths container
-                        platform.data_fine_tune_container = ui.column().classes(
-                            "w-full gap-2"
-                        )
-                        with platform.data_fine_tune_container:
-                            ui.label("Fine-Tuning Datasets").classes(
-                                "text-xs font-semibold text-gray-600"
-                            )
-                            with ui.grid(columns=2).classes("w-full gap-4"):
-                                c_train = ui.input(
-                                    label="Train Data File (c.train_data_file)",
-                                    value=platform.form_state["c"]["train_data_file"]
-                                    or "",
-                                )
-                                platform._register_input("c.train_data_file", c_train)
-
-                                c_eval = ui.input(
-                                    label="Eval Data File (c.eval_data_file)",
-                                    value=platform.form_state["c"]["eval_data_file"]
-                                    or "",
-                                )
-                                platform._register_input("c.eval_data_file", c_eval)
-
-                        # Inference data paths & evidence container
-                        platform.data_inference_container = ui.column().classes(
-                            "w-full gap-2"
-                        )
-                        with platform.data_inference_container:
-                            ui.label("Inference Datasets & Evidence").classes(
-                                "text-xs font-semibold text-gray-600"
-                            )
-                            with ui.grid(columns=2).classes("w-full gap-4"):
-                                c_test = ui.input(
-                                    label="Test Data File (c.test_data_file)",
-                                    value=platform.form_state["c"]["test_data_file"]
-                                    or "",
-                                )
-                                platform._register_input("c.test_data_file", c_test)
-
-                                c_evidence = ui.select(
-                                    options=EVIDENCE_CONFIG_OPTIONS,
-                                    label="Evidence Configuration (c.evidence_config)",
-                                    value=platform.form_state["c"]["evidence_config"],
-                                )
-                                platform._register_input(
-                                    "c.evidence_config", c_evidence
-                                )
-
-                        # Common data fields
-                        with ui.grid(columns=2).classes("w-full gap-4 mt-2"):
-                            c_labels = ui.input(
-                                label="Label Values (c.label_values, comma-separated)",
-                                value=", ".join(
-                                    platform.form_state["c"]["label_values"]
-                                ),
-                            )
-                            platform._register_input("c.label_values", c_labels)
-
-                            c_placeholder = ui.input(
-                                label="Missing Answer Placeholder (c.missing_answer_placeholder)",
-                                value=platform.form_state["c"][
-                                    "missing_answer_placeholder"
-                                ],
-                            )
-                            platform._register_input(
-                                "c.missing_answer_placeholder", c_placeholder
-                            )
-
-                            c_answers_used = ui.number(
-                                label="Evidence Answers Used (c.evidence_answers_used)",
-                                value=platform.form_state["c"]["evidence_answers_used"],
-                            )
-                            platform._register_input(
-                                "c.evidence_answers_used", c_answers_used, cast_func=int
-                            )
-
-                            c_max_seq = ui.number(
-                                label="Max Seq Length (c.max_seq_length)",
-                                value=platform.form_state["c"]["max_seq_length"]
-                                or 4096,
-                            )
-                            platform._register_input(
-                                "c.max_seq_length", c_max_seq, cast_func=int
-                            )
-
-                # Panel d: Optimizer (LoRA + SFT) - Read-only, fine-tune only.
-                # In Milestone 0.5/1.0, training hyperparameters are frozen to proven research defaults
-                # (learning rate 2e-4, LoRA r=64, alpha=16) to avoid errant cluster crashes.
-                platform.optimizer_expansion = ui.expansion(
-                    "Component d: Optimizer (LoRA + SFT, Read-Only)",
-                    icon="tune",
-                ).classes("w-full bg-white shadow")
-                with platform.optimizer_expansion:
-                    ui.label("LoRA Adapter Settings").classes(
-                        "text-xs font-semibold text-gray-600 mt-2 px-2"
-                    )
-                    with ui.grid(columns=3).classes("w-full gap-3 p-2"):
-                        d_r = ui.number(
-                            "LoRA Rank (d.lora.r)",
-                            value=platform.form_state["d"]["lora"]["r"],
-                        ).props("readonly bg-gray-100")
-                        platform._register_input("d.lora.r", d_r, cast_func=int)
-
-                        d_alpha = ui.number(
-                            "LoRA Alpha (d.lora.lora_alpha)",
-                            value=platform.form_state["d"]["lora"]["lora_alpha"],
-                        ).props("readonly bg-gray-100")
-                        platform._register_input(
-                            "d.lora.lora_alpha", d_alpha, cast_func=int
-                        )
-
-                        d_dropout = ui.number(
-                            "LoRA Dropout (d.lora.lora_dropout)",
-                            value=platform.form_state["d"]["lora"]["lora_dropout"],
-                        ).props("readonly bg-gray-100")
-                        platform._register_input(
-                            "d.lora.lora_dropout", d_dropout, cast_func=float
-                        )
-
-                    with ui.grid(columns=2).classes("w-full gap-3 px-2"):
-                        d_target = ui.input(
-                            "Target Modules",
-                            value=", ".join(
-                                platform.form_state["d"]["lora"]["target_modules"]
-                            ),
-                        ).props("readonly bg-gray-100")
-                        platform._register_input("d.lora.target_modules", d_target)
-
-                        d_bias = ui.input(
-                            "LoRA Bias", value=platform.form_state["d"]["lora"]["bias"]
-                        ).props("readonly bg-gray-100")
-                        platform._register_input("d.lora.bias", d_bias)
-
-                    ui.label("SFT Trainer Settings").classes(
-                        "text-xs font-semibold text-gray-600 mt-4 px-2"
-                    )
-                    with ui.grid(columns=3).classes("w-full gap-3 p-2"):
-                        d_lr = ui.number(
-                            "Learning Rate",
-                            value=platform.form_state["d"]["sft"]["learning_rate"],
-                        ).props("readonly bg-gray-100")
-                        platform._register_input(
-                            "d.sft.learning_rate", d_lr, cast_func=float
-                        )
-
-                        d_epochs = ui.number(
-                            "Epochs",
-                            value=platform.form_state["d"]["sft"]["num_train_epochs"],
-                        ).props("readonly bg-gray-100")
-                        platform._register_input(
-                            "d.sft.num_train_epochs", d_epochs, cast_func=int
-                        )
-
-                        d_batch = ui.number(
-                            "Train Batch Size",
-                            value=platform.form_state["d"]["sft"][
-                                "per_device_train_batch_size"
-                            ],
-                        ).props("readonly bg-gray-100")
-                        platform._register_input(
-                            "d.sft.per_device_train_batch_size", d_batch, cast_func=int
-                        )
-
-                        d_eval_strat = ui.input(
-                            "Eval Strategy",
-                            value=platform.form_state["d"]["sft"]["eval_strategy"],
-                        ).props("readonly bg-gray-100")
-                        platform._register_input("d.sft.eval_strategy", d_eval_strat)
-
-                        d_save_strat = ui.input(
-                            "Save Strategy",
-                            value=platform.form_state["d"]["sft"]["save_strategy"],
-                        ).props("readonly bg-gray-100")
-                        platform._register_input("d.sft.save_strategy", d_save_strat)
-
-                        d_seed = ui.number(
-                            "Seed", value=platform.form_state["d"]["sft"]["seed"]
-                        ).props("readonly bg-gray-100")
-                        platform._register_input("d.sft.seed", d_seed, cast_func=int)
-
-                # Panel e: Token Encoding
-                with ui.expansion("Component e: Token Encoding", icon="code").classes(
-                    "w-full bg-white shadow"
-                ):
-                    with ui.grid(columns=2).classes("w-full gap-4 p-2"):
-                        e_ret_tensors = ui.input(
-                            label="Return Tensors (e.return_tensors)",
-                            value=platform.form_state["e"]["return_tensors"],
-                        )
-                        platform._register_input("e.return_tensors", e_ret_tensors)
-
-                        e_device = ui.input(
-                            label="Device (e.device)",
-                            value=platform.form_state["e"]["device"],
-                        )
-                        platform._register_input("e.device", e_device)
-
-                        e_max_len = ui.number(
-                            label="Max Length (e.max_length)",
-                            value=platform.form_state["e"]["max_length"],
-                        )
-                        platform._register_input(
-                            "e.max_length", e_max_len, cast_func=int
-                        )
-
-                    with ui.row().classes("w-full gap-6 p-2"):
-                        e_template = ui.switch(
-                            "Apply Chat Template (e.apply_chat_template)",
-                            value=platform.form_state["e"]["apply_chat_template"],
-                        )
-                        platform._register_input("e.apply_chat_template", e_template)
-
-                        e_add_gen = ui.switch(
-                            "Add Generation Prompt (e.add_generation_prompt)",
-                            value=platform.form_state["e"]["add_generation_prompt"],
-                        )
-                        platform._register_input("e.add_generation_prompt", e_add_gen)
-
-                        e_tok = ui.switch(
-                            "Tokenize (e.tokenize)",
-                            value=platform.form_state["e"]["tokenize"],
-                        )
-                        platform._register_input("e.tokenize", e_tok)
-
-                        e_padding = ui.switch(
-                            "Padding (e.padding)",
-                            value=platform.form_state["e"]["padding"],
-                        )
-                        platform._register_input("e.padding", e_padding)
-
-                        e_trunc = ui.switch(
-                            "Truncation (e.truncation)",
-                            value=platform.form_state["e"]["truncation"],
-                        )
-                        platform._register_input("e.truncation", e_trunc)
-
-                # Panel f: Text Generation
-                with ui.expansion(
-                    "Component f: Text Generation", icon="auto_stories"
-                ).classes("w-full bg-white shadow"):
-                    with ui.grid(columns=3).classes("w-full gap-3 p-2"):
-                        f_tokens = ui.number(
-                            label="Max New Tokens (f.max_new_tokens)",
-                            value=platform.form_state["f"]["max_new_tokens"],
-                        )
-                        platform._register_input(
-                            "f.max_new_tokens", f_tokens, cast_func=int
-                        )
-
-                        f_temp = ui.number(
-                            label="Temperature (f.temperature)",
-                            value=platform.form_state["f"]["temperature"],
-                            format="%.2f",
-                        )
-                        platform._register_input(
-                            "f.temperature", f_temp, cast_func=float
-                        )
-
-                        f_top_p = ui.number(
-                            label="Top P (f.top_p)",
-                            value=platform.form_state["f"]["top_p"],
-                            format="%.2f",
-                        )
-                        platform._register_input("f.top_p", f_top_p, cast_func=float)
-
-                        f_top_k = ui.number(
-                            label="Top K (f.top_k)",
-                            value=platform.form_state["f"]["top_k"],
-                        )
-                        platform._register_input("f.top_k", f_top_k, cast_func=int)
-
-                        f_batch = ui.number(
-                            label="Batch Size (f.batch_size)",
-                            value=platform.form_state["f"]["batch_size"],
-                        )
-                        platform._register_input("f.batch_size", f_batch, cast_func=int)
-
-                        f_rep_pen = ui.number(
-                            label="Repetition Penalty (f.repetition_penalty)",
-                            value=platform.form_state["f"]["repetition_penalty"],
-                            format="%.2f",
-                        )
-                        platform._register_input(
-                            "f.repetition_penalty", f_rep_pen, cast_func=float
-                        )
-
-                    with ui.grid(columns=2).classes("w-full gap-3 px-2"):
-                        f_forced_prefix = ui.input(
-                            label="Forced Prefix (f.forced_prefix)",
-                            value=platform.form_state["f"]["forced_prefix"] or "",
-                        )
-                        platform._register_input("f.forced_prefix", f_forced_prefix)
-
-                    with ui.row().classes("w-full gap-6 p-2"):
-                        f_sample = ui.switch(
-                            "Do Sample (f.do_sample)",
-                            value=platform.form_state["f"]["do_sample"],
-                        )
-                        platform._register_input("f.do_sample", f_sample)
-
-                        f_cache = ui.switch(
-                            "Use Cache (f.use_cache)",
-                            value=platform.form_state["f"]["use_cache"],
-                        )
-                        platform._register_input("f.use_cache", f_cache)
-
-                # Panel g: Token Decoding
-                with ui.expansion(
-                    "Component g: Token Decoding", icon="translate"
-                ).classes("w-full bg-white shadow"):
-                    with ui.row().classes("w-full gap-6 p-2"):
-                        g_skip = ui.switch(
-                            "Skip Special Tokens (g.skip_special_tokens)",
-                            value=platform.form_state["g"]["skip_special_tokens"],
-                        )
-                        platform._register_input("g.skip_special_tokens", g_skip)
-
-                        g_clean = ui.switch(
-                            "Clean Up Tokenization Spaces (g.clean_up_tokenization_spaces)",
-                            value=platform.form_state["g"][
-                                "clean_up_tokenization_spaces"
-                            ],
-                        )
-                        platform._register_input(
-                            "g.clean_up_tokenization_spaces", g_clean
-                        )
-
-                        g_spaces = ui.switch(
-                            "Spaces Between Special Tokens (g.spaces_between_special_tokens)",
-                            value=platform.form_state["g"][
-                                "spaces_between_special_tokens"
-                            ],
-                        )
-                        platform._register_input(
-                            "g.spaces_between_special_tokens", g_spaces
-                        )
-
-                # Panel h: Optional kwargs (Issue #12)
-                # Allows passing arbitrary additional arguments to underlying Hugging Face methods.
-                # Every key is verified against preset method whitelists (e.g. AutoModelForCausalLM).
-                with ui.expansion(
-                    "Component h: Optional Arguments (**kwargs)", icon="tune"
-                ).classes("w-full bg-white shadow"):
-                    ui.label(
-                        "Forward extra kwargs verified against library whitelists."
-                    ).classes("text-xs text-gray-500 p-2")
-                    for stage in ["load_model", "load_tokenizer", "encode", "generate"]:
-                        sub_panel = KwargsSubPanel(
-                            stage=stage,
-                            h_state=platform.form_state["h"],
-                            field_widgets=platform.field_widgets,
-                            on_change_callback=platform._refresh_console_soon,
-                        )
-                        platform.kwargs_panels[stage] = sub_panel
-                        sub_panel.build_ui()
-
-        # ====================================================================
-        # RIGHT COLUMN (5/12 width): Sticky live validation console & JSON preview
-        # ====================================================================
-        # Stays pinned at the top as the user scrolls through the form on the left.
-        # Shows real-time error messages, disables saving on violations, and renders the JSON blob.
-        with ui.column().classes("w-5/12 sticky top-4"):
-            platform.console = build_console(
-                container=ui.column().classes("w-full"),
-                field_widgets=platform.field_widgets,
-                build_config=platform.build_config_record,
-                validate=validate_full_config,
-                save=platform.save_to_db,
-                reset=platform.reset_to_defaults,
+                .props("outlined dense")
+                .classes("w-full")
+            )
+            platform.field_widgets["model_id"] = model_select
+
+            task_toggle = (
+                ui.toggle(
+                    options=TASK_TYPE_OPTIONS,
+                    value=platform.current_task_type,
+                    on_change=platform.on_task_type_changed,
+                )
+                .props("spread no-caps unelevated toggle-color=transparent")
+                .classes("task-toggle w-full")
+            )
+            platform.field_widgets["task_type"] = task_toggle
+
+        with ui.row().classes("w-full gap-2.5"):
+            _metric_cell(
+                platform,
+                "hub",
+                "Parameters",
+                lambda m: MODELS[m].num_parameters.split(" ")[0],
+            )
+            _metric_cell(
+                platform,
+                "straighten",
+                "Context",
+                lambda m: f"{MODELS[m].effective_max_seq_len:,} tok",
+            )
+            _metric_cell(
+                platform, "layers", "Layers", lambda m: str(MODELS[m].num_hidden_layers)
+            )
+            _metric_cell(
+                platform,
+                "memory",
+                "Min VRAM (bf16)",
+                lambda m: f"{MODELS[m].min_gpu_memory_bf16_gb} GB",
             )
 
-    # Initial visibility check
+        with ui.grid(columns=2).classes("w-full gap-4"):
+            with ui.column().classes("w-full min-w-0 gap-0"):
+                _field_label("Researcher / Author")
+                created_by_input = (
+                    ui.input(value=platform.created_by_val)
+                    .props("outlined dense clearable")
+                    .classes("w-full")
+                )
+                created_by_input.on_value_change(
+                    lambda e: platform._on_metadata_changed("created_by_val", e.value)
+                )
+                platform.field_widgets["created_by"] = created_by_input
+
+            with ui.column().classes("w-full min-w-0 gap-0"):
+                _field_label("Experiment Notes")
+                notes_input = (
+                    ui.input(value=platform.notes_val)
+                    .props("outlined dense clearable")
+                    .classes("w-full")
+                )
+                notes_input.on_value_change(
+                    lambda e: platform._on_metadata_changed("notes_val", e.value)
+                )
+                platform.field_widgets["notes"] = notes_input
+
+
+def _build_prompt_card(platform: PlatformUI) -> None:
+    """Card 2: Prompts with greyed-out placeholders (press Space to populate) and live auto-format."""
+    with ui.card().props("flat").classes("w-full p-4 gap-3.5 rounded-lg surface-card"):
+        _section_header("chat", "Prompts")
+
+        platform.text_field(
+            "p.system_prompt",
+            "System Prompt",
+            textarea=True,
+            placeholder="You are a fact-checking assistant. Given a numerical claim and its retrieved evidence, output a verdict.",
+        )
+
+        user_tpl_widget = platform.text_field(
+            "p.user_prompt_template",
+            "User Prompt Template",
+            textarea=True,
+            placeholder=(
+                "Claim: The unemployment rate fell to 3.5% in 2019.\n"
+                "Question: What was the unemployment rate in 2019?\n"
+                "Answer: The rate averaged 3.7% across 2019."
+            ),
+        )
+        user_tpl_widget.on("blur", lambda _: platform.format_user_prompt_field())
+
+        with ui.row().classes("w-full gap-4 no-wrap"):
+            platform.assistant_prompt_container = ui.column().classes(
+                "flex-1 min-w-0 gap-0"
+            )
+            with platform.assistant_prompt_container:
+                platform.text_field(
+                    "p.assistant_prompt",
+                    "Assistant Target Prefix (fine-tune)",
+                    placeholder="### Response: Verdict: ",
+                )
+            with ui.column().classes("flex-1 min-w-0 gap-0"):
+                platform.text_field(
+                    "p.verdict_parse_marker",
+                    "Verdict Parse Marker",
+                    placeholder="### Response: Verdict: ",
+                )
+
+
+def _build_component_panel(platform: PlatformUI, key: str) -> None:
+    """Contents of one pipeline tab panel (Components a-h)."""
+    if key == "a":
+        with ui.grid(columns=2).classes("w-full gap-4"):
+            platform.select_field(
+                "a.model_id",
+                "Model ID / HuggingFace Path",
+                MODEL_ID_OPTIONS,
+            )
+            platform.select_field(
+                "a.dtype",
+                "Weight Dtype",
+                ["auto", "bfloat16", "float16", "float32"],
+            )
+            platform.text_field("a.tp_plan", "Tensor Parallel Plan")
+            platform.text_field("a.device_map", "Device Map")
+            platform.select_field(
+                "a.attn_implementation",
+                "Attention Kernel",
+                ["sdpa", "eager", "flash_attention_2"],
+                default="sdpa",
+            )
+            platform.select_field(
+                "a.quantization",
+                "Quantization",
+                ["", "4bit", "8bit"],
+                default="",
+            )
+        with ui.row().classes("w-full gap-6 pt-1"):
+            platform.switch_field("a.local_files_only", "Local Files Only (offline)")
+            platform.switch_field("a.trust_remote_code", "Trust Remote Code")
+
+    elif key == "b":
+        with ui.grid(columns=2).classes("w-full gap-4"):
+            platform.select_field(
+                "b.tokenizer_id",
+                "Tokenizer ID",
+                MODEL_ID_OPTIONS,
+            )
+            platform.select_field("b.padding_side", "Padding Side", ["left", "right"])
+            platform.text_field("b.pad_token", "Pad Token")
+            platform.number_field(
+                "b.pad_token_id", "Pad Token ID (read-only)", readonly=True
+            )
+            platform.number_field("b.model_max_length", "Max Context Length")
+            platform.select_field(
+                "b.truncation_side", "Truncation Side", ["right", "left"]
+            )
+        with ui.row().classes("w-full gap-6 pt-1"):
+            platform.switch_field("b.fix_mistral_regex", "Fix Mistral Regex")
+            platform.switch_field("b.use_fast", "Use Fast Tokenizer")
+
+    elif key == "c":
+        platform.data_fine_tune_container = ui.column().classes("w-full gap-3")
+        with platform.data_fine_tune_container:
+            with ui.grid(columns=2).classes("w-full gap-4"):
+                platform.text_field("c.train_data_file", "Train Split Path")
+                platform.text_field("c.eval_data_file", "Eval Split Path")
+
+        platform.data_inference_container = ui.column().classes("w-full gap-3")
+        with platform.data_inference_container:
+            with ui.grid(columns=2).classes("w-full gap-4"):
+                platform.text_field("c.test_data_file", "Test Split Path")
+                platform.select_field(
+                    "c.evidence_config",
+                    "Evidence Mode",
+                    EVIDENCE_CONFIG_OPTIONS,
+                )
+
+        with ui.grid(columns=2).classes("w-full gap-4"):
+            platform.text_field("c.label_values", "Verdict Labels (comma-separated)")
+            platform.text_field(
+                "c.missing_answer_placeholder", "Missing Evidence Placeholder"
+            )
+            platform.number_field("c.evidence_answers_used", "Evidence Answers Used")
+            platform.number_field("c.max_seq_length", "Max Sequence Length")
+
+    elif key == "d":
+        with ui.row().classes(
+            "w-full items-center gap-2 no-wrap rounded-lg px-3 py-2 bg-amber-500/10 border border-amber-500/30"
+        ):
+            ui.icon("lock", color="warning").classes("text-base")
+            ui.label("Fixed LoRA + SFT research preset (read-only).").classes(
+                "text-xs font-medium"
+            )
+        with ui.grid(columns=3).classes("w-full gap-4"):
+            platform.number_field("d.lora.r", "LoRA Rank (r)", readonly=True)
+            platform.number_field("d.lora.lora_alpha", "LoRA Alpha", readonly=True)
+            platform.number_field(
+                "d.lora.lora_dropout", "LoRA Dropout", float, readonly=True
+            )
+        with ui.grid(columns=2).classes("w-full gap-4"):
+            platform.text_field(
+                "d.lora.target_modules", "Target Modules", readonly=True
+            )
+            platform.text_field("d.lora.bias", "LoRA Bias", readonly=True)
+        with ui.grid(columns=3).classes("w-full gap-4"):
+            platform.number_field(
+                "d.sft.learning_rate", "Learning Rate", float, readonly=True
+            )
+            platform.number_field("d.sft.num_train_epochs", "Epochs", readonly=True)
+            platform.number_field(
+                "d.sft.per_device_train_batch_size", "Batch Size / GPU", readonly=True
+            )
+            platform.text_field("d.sft.eval_strategy", "Eval Strategy", readonly=True)
+            platform.text_field("d.sft.save_strategy", "Save Strategy", readonly=True)
+            platform.number_field("d.sft.seed", "Random Seed", readonly=True)
+
+    elif key == "e":
+        with ui.grid(columns=3).classes("w-full gap-4"):
+            platform.text_field("e.return_tensors", "Return Tensors")
+            platform.text_field("e.device", "Target Device")
+            platform.number_field("e.max_length", "Encoding Max Length")
+        with ui.row().classes("w-full gap-6 pt-1"):
+            platform.switch_field("e.apply_chat_template", "Apply Chat Template")
+            platform.switch_field(
+                "e.add_generation_prompt",
+                "Add Generation Prompt (auto)",
+                disabled=True,
+            )
+            platform.switch_field("e.tokenize", "Tokenize")
+            platform.switch_field("e.padding", "Padding")
+            platform.switch_field("e.truncation", "Truncation")
+
+    elif key == "f":
+        platform.slider_field("f.temperature", "Temperature", 0.0, 2.0, 0.05)
+        platform.slider_field("f.top_p", "Top-P", 0.0, 1.0, 0.01)
+        with ui.grid(columns=3).classes("w-full gap-4"):
+            platform.number_field("f.max_new_tokens", "Max New Tokens")
+            platform.number_field("f.top_k", "Top-K")
+            platform.number_field("f.batch_size", "Batch Size")
+            platform.number_field(
+                "f.repetition_penalty",
+                "Repetition Penalty",
+                float,
+                fmt="%.2f",
+            )
+            platform.text_field("f.forced_prefix", "Forced Prefix")
+        with ui.row().classes("w-full gap-6 pt-1"):
+            platform.switch_field("f.do_sample", "Do Sample")
+            platform.switch_field("f.use_cache", "Use KV Cache")
+
+    elif key == "g":
+        with ui.column().classes("w-full gap-2.5"):
+            platform.switch_field("g.skip_special_tokens", "Skip Special Tokens")
+            platform.switch_field(
+                "g.clean_up_tokenization_spaces",
+                "Clean Up Tokenization Spaces",
+            )
+            platform.switch_field(
+                "g.spaces_between_special_tokens",
+                "Spaces Between Special Tokens",
+            )
+
+    elif key == "h":
+        with ui.column().classes("w-full gap-3"):
+            for stage in ["load_model", "load_tokenizer", "encode", "generate"]:
+                sub_panel = KwargsSubPanel(
+                    stage=stage,
+                    h_state=platform.form_state["h"],
+                    field_widgets=platform.field_widgets,
+                    on_change_callback=platform._refresh_console_soon,
+                )
+                platform.kwargs_panels[stage] = sub_panel
+                sub_panel.build_ui()
+
+
+def _build_pipeline_card(platform: PlatformUI) -> None:
+    """Card 3: Components a-h organized in an animated vertical tab console."""
+    with (
+        ui.card()
+        .props("flat")
+        .classes("w-full p-0 gap-0 rounded-lg overflow-hidden surface-card")
+    ):
+        with ui.row().classes("w-full px-4 py-3 border-b border-token"):
+            _section_header("tune", "Pipeline Parameters")
+        with ui.row().classes("w-full no-wrap gap-0 items-stretch"):
+            with (
+                ui.tabs(value="a")
+                .props("vertical no-caps active-color=primary indicator-color=primary")
+                .classes(
+                    "pipeline-tabs w-44 shrink-0 py-1.5 surface-subtle border-r border-token"
+                ) as tabs
+            ):
+                tab_refs = {}
+                for key, icon, title in PIPELINE_TABS:
+                    tab_refs[key] = ui.tab(
+                        key, label=f"{key} · {title}", icon=icon
+                    ).classes("text-xs")
+            platform.pipeline_tabs = tabs
+            platform.optimizer_tab = tab_refs["d"]
+
+            with (
+                ui.tab_panels(tabs, value="a")
+                .props("animated")
+                .classes("flex-grow min-w-0 bg-transparent")
+            ):
+                for key, _, _ in PIPELINE_TABS:
+                    with ui.tab_panel(key).classes("gap-3.5 p-4") as panel:
+                        _build_component_panel(platform, key)
+                    if key == "d":
+                        platform.optimizer_expansion = panel
+
+
+def _build_side_panel(platform: PlatformUI) -> None:
+    """Right sticky column: Validation & JSON, Prompt Preview, and blank HPC Terminal."""
+    with (
+        ui.card()
+        .props("flat")
+        .classes("w-full p-0 gap-0 rounded-lg overflow-hidden surface-card")
+    ):
+        with (
+            ui.tabs(value="json")
+            .props(
+                "dense no-caps align=left active-color=primary indicator-color=primary"
+            )
+            .classes(
+                "w-full px-2 pt-1 surface-subtle border-b border-token"
+            ) as side_tabs
+        ):
+            ui.tab("json", label="Validation & JSON", icon="data_object").classes(
+                "text-xs font-medium"
+            )
+            ui.tab("preview", label="Prompt Preview", icon="visibility").classes(
+                "text-xs font-medium"
+            )
+            ui.tab("terminal", label="HPC Terminal", icon="terminal").classes(
+                "text-xs font-medium"
+            )
+        platform.side_tabs = side_tabs
+
+        with (
+            ui.tab_panels(side_tabs, value="json")
+            .props("animated")
+            .classes("w-full bg-transparent")
+        ):
+            with ui.tab_panel("json").classes("p-4"):
+                platform.console = build_console(
+                    container=ui.column().classes("w-full"),
+                    field_widgets=platform.field_widgets,
+                    build_config=platform.build_config_record,
+                    validate=validate_full_config,
+                    save=platform.save_to_db,
+                    reset=platform.reset_to_defaults,
+                    on_navigate=platform.navigate_to_field,
+                )
+
+            with ui.tab_panel("preview").classes("p-4 gap-3"):
+                platform.prompt_preview = ui.code("", language="plaintext").classes(
+                    "prompt-preview-box w-full text-xs rounded-md border-token"
+                )
+
+            with ui.tab_panel("terminal").classes("p-4"):
+                ui.element("div").classes(
+                    "w-full min-h-[480px] rounded-md surface-subtle"
+                )
+
+
+def create_app() -> PlatformUI:
+    """Construct the full NiceGUI developer workbench layout."""
+    platform = PlatformUI()
+    _apply_theme_defaults()
+    ui.add_head_html(FONT_HEAD_HTML)
+    ui.add_css(PAGE_CSS)
+    dark = ui.dark_mode()
+
+    menu_btn = _build_header(platform, dark)
+    drawer = _build_drawer(platform)
+    menu_btn.on_click(drawer.toggle)
+
+    with ui.column().classes("w-full max-w-[1600px] mx-auto p-4 gap-4"):
+        with ui.row().classes("w-full gap-4 items-start flex-wrap lg:flex-nowrap"):
+            with ui.column().classes("w-full lg:w-7/12 min-w-0 gap-4"):
+                _build_experiment_card(platform)
+                _build_prompt_card(platform)
+                _build_pipeline_card(platform)
+            with ui.column().classes("w-full lg:w-5/12 min-w-0 lg:sticky top-14 gap-4"):
+                _build_side_panel(platform)
+
     platform._update_visibility()
+    platform.refresh_console()
     return platform
 
 
@@ -1086,11 +1604,11 @@ def index_page() -> None:
 
 
 def main() -> None:
-    """CLI entry point: start NiceGUI web server."""
+    """CLI entry point: start the NiceGUI web server."""
     ui.run(
         title="LLM Fact-Checking Platform",
         port=8080,
-        reload=True,
+        reload=False,
         show=False,
     )
 

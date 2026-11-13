@@ -32,8 +32,9 @@ console owns neither the rules (#4/#5) nor the form state. A refresh runs
 from __future__ import annotations
 
 import json
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any, Callable, Mapping, Sequence
+from typing import Any
 
 from app.schemas import ConfigRecord, ValidationIssue
 
@@ -44,9 +45,9 @@ RESET_LABEL = "Reset to Defaults"
 
 _ACTIVE_PROPS = "error error-message"
 _VALID_MESSAGE = "Configuration is valid."
-_ERROR_CLASSES = "text-sm text-red-600"
-_WARNING_CLASSES = "text-sm text-orange-600"
-_VALID_CLASSES = "text-sm text-green-600"
+_ERROR_CLASSES = "text-xs text-red-600 dark:text-red-400 font-mono"
+_WARNING_CLASSES = "text-xs text-amber-600 dark:text-amber-400 font-mono"
+_VALID_CLASSES = "text-xs text-emerald-600 dark:text-emerald-400 font-medium"
 
 
 @dataclass(frozen=True)
@@ -60,9 +61,7 @@ class ConsoleState:
     json_text: str
 
 
-def evaluate(
-    cfg: ConfigRecord, issues: Sequence[ValidationIssue]
-) -> ConsoleState:
+def evaluate(cfg: ConfigRecord, issues: Sequence[ValidationIssue]) -> ConsoleState:
     """Build the console snapshot for ``cfg`` and its ``issues``.
 
     Errors and warnings are separated by ``level``; any error disables
@@ -84,10 +83,7 @@ def evaluate(
 
 def panel_lines(issues: Sequence[ValidationIssue]) -> list[tuple[str, str]]:
     """Return ``(level, "path: message")`` rows for the status panel."""
-    return [
-        (issue["level"], f"{issue['field']}: {issue['msg']}")
-        for issue in issues
-    ]
+    return [(issue["level"], f"{issue['field']}: {issue['msg']}") for issue in issues]
 
 
 def apply_issue_props(
@@ -128,9 +124,9 @@ class ValidationConsole:
 
     ``build_config`` returns the :class:`ConfigRecord` produced by the
     current form state, ``validate`` returns its issues and the optional
-    ``save`` / ``reset`` hooks perform the button side effects. Every
-    refresh rebuilds the record and re-runs the validator, so the console
-    always reflects the live form.
+    ``save`` / ``reset`` / ``on_navigate`` hooks perform the button and
+    issue-navigation side effects. Every refresh rebuilds the record and
+    re-runs the validator, so the console always reflects the live form.
     """
 
     def __init__(
@@ -142,6 +138,7 @@ class ValidationConsole:
         validate: Callable[[ConfigRecord], Sequence[ValidationIssue]],
         save: Callable[[ConfigRecord], Any] | None = None,
         reset: Callable[[], Any] | None = None,
+        on_navigate: Callable[[str], Any] | None = None,
     ) -> None:
         from nicegui import ui
 
@@ -150,23 +147,49 @@ class ValidationConsole:
         self._validate = validate
         self._save = save
         self._reset = reset
+        self._on_navigate = on_navigate
 
         with container:
-            with ui.column().classes("sticky top-0"):
-                with ui.card().classes("w-full"):
-                    ui.label("Validation").classes("text-subtitle2")
-                    self._status = ui.column().classes("w-full gap-1")
-                self._code = ui.code("", language="json").classes("w-full")
-                with ui.row().classes("w-full gap-2"):
-                    self._validate_button = ui.button(
-                        VALIDATE_LABEL, on_click=self._on_validate
+            with ui.column().classes("w-full gap-3"):
+                # Action toolbar
+                with ui.row().classes(
+                    "w-full items-center justify-between gap-2 no-wrap"
+                ):
+                    with ui.row().classes("items-center gap-2 no-wrap"):
+                        self._validate_button = (
+                            ui.button(
+                                VALIDATE_LABEL,
+                                icon="fact_check",
+                                on_click=self._on_validate,
+                            )
+                            .props("flat dense no-caps color=primary")
+                            .classes("px-2.5 text-xs font-medium")
+                        )
+                        self._reset_button = (
+                            ui.button(
+                                RESET_LABEL,
+                                icon="restart_alt",
+                                on_click=self._on_reset,
+                            )
+                            .props("flat dense no-caps color=secondary")
+                            .classes("px-2.5 text-xs font-medium")
+                        )
+                    self._save_button = (
+                        ui.button(SAVE_LABEL, icon="save", on_click=self._on_save)
+                        .props("unelevated dense no-caps color=primary")
+                        .classes("px-3.5 text-xs font-medium")
                     )
-                    self._save_button = ui.button(
-                        SAVE_LABEL, on_click=self._on_save
-                    )
-                    self._reset_button = ui.button(
-                        RESET_LABEL, on_click=self._on_reset
-                    )
+
+                # Validation status box
+                with ui.element("div").classes(
+                    "w-full px-3 py-2.5 rounded-md surface-subtle"
+                ):
+                    self._status = ui.column().classes("w-full gap-1.5")
+
+                # Scrollable JSON Output Viewer (no redundant heading)
+                self._code = ui.code("", language="json").classes(
+                    "json-viewer w-full text-xs rounded-md border-token max-h-[560px] overflow-y-auto"
+                )
 
         self.refresh()
 
@@ -187,15 +210,42 @@ class ValidationConsole:
         self._status.clear()
         with self._status:
             if not issues:
-                ui.label(_VALID_MESSAGE).classes(_VALID_CLASSES)
-            for level, text in panel_lines(issues):
-                classes = (
-                    _ERROR_CLASSES if level == "error" else _WARNING_CLASSES
+                with ui.row().classes("items-center gap-2 no-wrap"):
+                    ui.element("span").classes(
+                        "w-2 h-2 rounded-full bg-emerald-500 shrink-0"
+                    )
+                    ui.label(_VALID_MESSAGE).classes(_VALID_CLASSES)
+            for issue in issues:
+                level = issue["level"]
+                field_path = issue["field"]
+                text = f"{field_path}: {issue['msg']}"
+                dot_cls = (
+                    "w-2 h-2 rounded-full bg-red-500 shrink-0 mt-1"
+                    if level == "error"
+                    else "w-2 h-2 rounded-full bg-amber-500 shrink-0 mt-1"
                 )
-                ui.label(text).classes(classes)
+                text_cls = _ERROR_CLASSES if level == "error" else _WARNING_CLASSES
+                row = ui.row().classes(
+                    "w-full items-start gap-2 no-wrap cursor-pointer hover:opacity-80"
+                )
+                if self._on_navigate is not None:
+                    row.on("click", lambda _, fp=field_path: self._on_navigate(fp))
+                with row:
+                    ui.element("span").classes(dot_cls)
+                    ui.label(text).classes(f"{text_cls} leading-relaxed")
+                    if self._on_navigate is not None:
+                        ui.icon("open_in_new").classes(
+                            "text-xs opacity-60 mt-0.5 shrink-0"
+                        )
 
     def _on_validate(self) -> None:
-        self.refresh()
+        state = self.refresh()
+        # Jump directly to the first offending field in the GUI when Validate is clicked
+        if self._on_navigate is not None:
+            if state.errors:
+                self._on_navigate(state.errors[0]["field"])
+            elif state.warnings:
+                self._on_navigate(state.warnings[0]["field"])
 
     def _on_save(self) -> None:
         if self._save is None:
@@ -217,6 +267,7 @@ def build_console(
     validate: Callable[[ConfigRecord], Sequence[ValidationIssue]],
     save: Callable[[ConfigRecord], Any] | None = None,
     reset: Callable[[], Any] | None = None,
+    on_navigate: Callable[[str], Any] | None = None,
 ) -> ValidationConsole:
     """Build the validation console inside ``container`` and return it."""
     return ValidationConsole(
@@ -226,15 +277,16 @@ def build_console(
         validate=validate,
         save=save,
         reset=reset,
+        on_navigate=on_navigate,
     )
 
 
 __all__ = [
-    "ConsoleState",
     "ERROR_PROP",
     "RESET_LABEL",
     "SAVE_LABEL",
     "VALIDATE_LABEL",
+    "ConsoleState",
     "ValidationConsole",
     "apply_issue_props",
     "build_console",

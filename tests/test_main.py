@@ -21,8 +21,6 @@ if str(ROOT) not in sys.path:
 
 import pytest
 
-pytest.importorskip("nicegui", reason="NiceGUI is required to test main.py UI components")
-
 from app.registry import DEEPSEEK_ID, MISTRAL_ID, defaults_for
 from app.schemas import ConfigRecord
 from app.store import list_configs
@@ -31,6 +29,7 @@ from app.store import list_configs
 @pytest.fixture
 def isolated_db(tmp_path: Any, monkeypatch: Any) -> Any:
     """Redirect SQLite database to a temporary directory."""
+    pytest.importorskip("nicegui", reason="NiceGUI is required to test main.py UI components")
     test_db = tmp_path / "test_main.db"
     monkeypatch.setenv("LLM_CONFIG_DB_PATH", str(test_db))
     return test_db
@@ -135,6 +134,14 @@ def test_validation_highlighting_and_save_blocking(isolated_db: Any) -> None:
     platform.console.refresh()
     assert platform.console._save_button.enabled is True
 
+    # Trigger an error in Component f (temperature > 0 while do_sample is False)
+    # and verify that clicking Validate navigates pipeline_tabs to tab 'f'
+    platform.pipeline_tabs.value = "a"
+    platform.field_widgets["f.temperature"].value = 0.7
+    platform.field_widgets["f.do_sample"].value = False
+    platform.console._on_validate()
+    assert platform.pipeline_tabs.value == "f"
+
 
 def test_save_and_duplicate_workflow(isolated_db: Any) -> None:
     """Issue #11: Save to DB, deduplication, and duplication.
@@ -164,6 +171,35 @@ def test_save_and_duplicate_workflow(isolated_db: Any) -> None:
     platform.duplicate_saved_config(cfg.config_id)
     duplicated_cfg = platform.build_config_record()
     assert duplicated_cfg.config_id != cfg.config_id
+
+
+def test_user_prompt_autoformatting(isolated_db: Any) -> None:
+    """Typing 'Claim: ...', 'Answer:' auto-formats without curly brackets, Space populates defaults, and a.model_id syncs."""
+    from app.main import create_app
+
+    platform = create_app()
+
+    # 1. Prompt fields start visually empty (placeholder) and populate default when Space is pressed
+    assert platform.field_widgets["p.system_prompt"].value == ""
+    platform.field_widgets["p.system_prompt"].value = " "
+    assert "You are a fact-checking assistant" in platform.field_widgets["p.system_prompt"].value
+
+    # 2. Blank Answer: formats to '### Answer: ' without '{answer}' curly brackets
+    platform.field_widgets["p.user_prompt_template"].value = (
+        "Claim: Can pigs fly?\nQuestion: Can pigs Fly?\nAnswer:"
+    )
+    platform.format_user_prompt_field()
+
+    cfg = platform.build_config_record()
+    assert cfg.p.user_prompt_template == (
+        "### Claim: Can pigs fly?\n### Question: Can pigs Fly?\n### Answer: "
+    )
+    assert "{answer}" not in cfg.p.user_prompt_template
+    assert "### Claim: Can pigs fly?" in platform.prompt_preview.content
+
+    # 3. Selecting a different model in a.model_id toggles the top-level platform model
+    platform.field_widgets["a.model_id"].value = DEEPSEEK_ID
+    assert platform.current_model_id == DEEPSEEK_ID
 
 
 def test_kwargs_panel_stays_bound_after_model_switch(isolated_db: Any) -> None:
