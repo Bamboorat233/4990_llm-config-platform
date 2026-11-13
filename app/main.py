@@ -112,17 +112,17 @@ PIPELINE_TABS = [
     ("h", "data_object", "Extra kwargs"),
 ]
 
-# Single UI font ('Inter') across all controls + 'JetBrains Mono' (weight 400 only) for code blocks
+# UI font ('Plus Jakarta Sans' + 'Inter' weights 400-700) + 'JetBrains Mono' (weight 400) for code blocks
 FONT_HEAD_HTML = """
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap" rel="stylesheet">
 """
 
 PAGE_CSS = """
 /* === LAYER 1: PRIMITIVE TOKENS === */
 :root {
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-sans: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
   /* Strict border-radius scale (ui-ux-pro-max primitive tokens) */
@@ -239,6 +239,53 @@ body {
 
 .border-token {
   border: 1px solid var(--border-default) !important;
+}
+
+.divider-b {
+  border-bottom: 1px solid var(--border-default) !important;
+}
+
+.divider-t {
+  border-top: 1px solid var(--border-default) !important;
+}
+
+.divider-r {
+  border-right: 1px solid var(--border-default) !important;
+}
+
+/* Atera-style column header tick mark */
+.atera-col-header {
+  position: relative;
+  padding-left: 8px;
+}
+.atera-col-header::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 2px;
+  bottom: 2px;
+  width: 1px;
+  background-color: var(--border-default);
+}
+
+/* Sharp, structured diagnostic callout matching the rest of the UI (no pastel bubble) */
+.diagnostic-box {
+  background-color: var(--bg-subtle) !important;
+  border: 1px solid var(--border-default) !important;
+  border-radius: 3px !important;
+  color: var(--text-primary) !important;
+}
+.diagnostic-box-error {
+  border-left: 3px solid #dc2626 !important;
+}
+body.body--dark .diagnostic-box-error {
+  border-left: 3px solid #f87171 !important;
+}
+.diagnostic-box-warning {
+  border-left: 3px solid #d97706 !important;
+}
+body.body--dark .diagnostic-box-warning {
+  border-left: 3px solid #fbbf24 !important;
 }
 
 .text-secondary-token {
@@ -399,52 +446,68 @@ input[type="number"] {
   line-height: 1.5 !important;
 }
 
-/* Atera-inspired soft status pills & phase rows (Milestone 1.5 Run Results) */
-.status-pill {
+/* Clean typographic status tags: plain text with little green/yellow/red dot (no highlight box) */
+.info-tag {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 2px 9px;
-  border-radius: var(--badge-radius);
-  font-size: 11px;
-  font-weight: 500;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
   line-height: 1.4;
   white-space: nowrap;
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
 }
 
-.pill-success {
-  background-color: rgba(16, 185, 129, 0.12);
-  color: #047857;
-  border: 1px solid rgba(16, 185, 129, 0.25);
+.tag-success {
+  color: #059669 !important;
 }
-body.body--dark .pill-success {
-  color: #34d399;
+body.body--dark .tag-success {
+  color: #34d399 !important;
 }
 
-.pill-warning,
-.pill-terminated {
-  background-color: rgba(245, 158, 11, 0.14);
-  color: #b45309;
-  border: 1px solid rgba(245, 158, 11, 0.30);
+.tag-info {
+  color: #2563eb !important;
 }
-body.body--dark .pill-warning,
-body.body--dark .pill-terminated {
-  color: #fbbf24;
+body.body--dark .tag-info {
+  color: #60a5fa !important;
 }
 
-.pill-error {
-  background-color: rgba(239, 68, 68, 0.12);
-  color: #b91c1c;
-  border: 1px solid rgba(239, 68, 68, 0.28);
+.tag-warning,
+.tag-terminated {
+  color: #d97706 !important;
 }
-body.body--dark .pill-error {
-  color: #f87171;
+body.body--dark .tag-warning,
+body.body--dark .tag-terminated {
+  color: #fbbf24 !important;
 }
 
-.pill-neutral {
-  background-color: var(--bg-subtle);
-  color: var(--text-secondary);
-  border: 1px solid var(--border-default);
+.tag-error {
+  color: #dc2626 !important;
+}
+body.body--dark .tag-error {
+  color: #f87171 !important;
+}
+
+.tag-neutral {
+  color: var(--text-secondary) !important;
+  font-weight: 500;
+}
+
+/* Text-only green/blue classes for the Saved Configurations drawer model names */
+.model-fine-tune {
+  color: #059669 !important;
+}
+body.body--dark .model-fine-tune {
+  color: #34d399 !important;
+}
+.model-inference {
+  color: #2563eb !important;
+}
+body.body--dark .model-inference {
+  color: #60a5fa !important;
 }
 
 .status-dot {
@@ -455,6 +518,7 @@ body.body--dark .pill-error {
   flex-shrink: 0;
 }
 .dot-success { background-color: #10b981; }
+.dot-info { background-color: #3b82f6; }
 .dot-warning, .dot-terminated { background-color: #f59e0b; }
 .dot-error { background-color: #ef4444; }
 .dot-neutral { background-color: #94a3b8; }
@@ -1215,36 +1279,49 @@ class PlatformUI:
             for item in configs:
                 cid = item["config_id"]
                 task = item["task_type"]
-                is_ds = item["model_id"] == DEEPSEEK_ID
                 created_at = item["created_at"][:16].replace("T", " ")
+                model_color_cls = (
+                    "model-fine-tune" if task == "fine_tune" else "model-inference"
+                )
 
                 with (
                     ui.card()
                     .props("flat")
-                    .classes("w-full p-3 gap-1.5 rounded-lg surface-subtle")
+                    .classes("w-full px-3 py-2.5 gap-1 rounded-md surface-subtle")
                 ):
                     with ui.row().classes(
                         "w-full items-center justify-between no-wrap"
                     ):
-                        with ui.row().classes("items-center gap-2 no-wrap"):
-                            ui.icon(
-                                "psychology" if is_ds else "bolt",
-                                color="secondary" if is_ds else "primary",
-                            ).classes("text-base")
-                            ui.label(
-                                SHORT_MODEL_NAMES.get(
-                                    item["model_id"], item["model_id"]
-                                )
-                            ).classes("font-semibold text-xs")
-                        ui.badge(
-                            TASK_TYPE_OPTIONS.get(task, task),
-                            color="positive" if task == "fine_tune" else "primary",
-                            text_color="white",
-                        ).props("rounded")
+                        ui.label(
+                            SHORT_MODEL_NAMES.get(
+                                item["model_id"], item["model_id"]
+                            )
+                        ).classes(f"font-semibold text-xs {model_color_cls}")
+                        with ui.row().classes("items-center gap-0.5 no-wrap"):
+                            ui.button(
+                                icon="file_open",
+                                on_click=lambda _, c=cid: self.load_saved_config(c),
+                            ).props(
+                                "flat round dense size=sm color=primary"
+                            ).tooltip("Load")
+                            ui.button(
+                                icon="content_copy",
+                                on_click=lambda _, c=cid: self.duplicate_saved_config(
+                                    c
+                                ),
+                            ).props(
+                                "flat round dense size=sm color=secondary"
+                            ).tooltip("Duplicate")
+                            ui.button(
+                                icon="delete_outline",
+                                on_click=lambda _, c=cid: self.confirm_delete(c),
+                            ).props(
+                                "flat round dense size=sm color=negative"
+                            ).tooltip("Delete")
                     with ui.row().classes(
                         "w-full items-center justify-between text-[11px] text-secondary-token no-wrap"
                     ):
-                        ui.label(cid[:8]).classes("mono")
+                        ui.label(cid[:8])
                         ui.label(created_at)
                     if item.get("created_by") or item.get("notes"):
                         ui.label(
@@ -1254,22 +1331,6 @@ class PlatformUI:
                                 if x
                             )
                         ).classes("text-xs text-secondary-token line-clamp-2")
-                    with ui.row().classes("w-full items-center gap-1 pt-1 no-wrap"):
-                        ui.button(
-                            "Load",
-                            icon="file_open",
-                            on_click=lambda _, c=cid: self.load_saved_config(c),
-                        ).props("flat dense no-caps size=sm color=primary")
-                        ui.button(
-                            "Duplicate",
-                            icon="content_copy",
-                            on_click=lambda _, c=cid: self.duplicate_saved_config(c),
-                        ).props("flat dense no-caps size=sm color=secondary")
-                        ui.space()
-                        ui.button(
-                            icon="delete_outline",
-                            on_click=lambda _, c=cid: self.confirm_delete(c),
-                        ).props("flat round dense size=sm color=negative")
 
 
 # ======================================================================
