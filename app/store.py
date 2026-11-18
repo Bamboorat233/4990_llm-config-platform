@@ -1,17 +1,11 @@
+"""SQLite storage for LLM configurations, parsed runs, and score reports.
 
-"""SQLite storage for saved LLM configuration records.
-
-Public API (database requirements in ``specs/parameters.md`` sections 1 and 13;
-interface contract in ``specs/interfaces.md`` section 2; GitHub issue #10):
-
-- :func:`init_db` — create the ``configs`` table
-- :func:`find_by_hash` — look up an existing configuration by fingerprint
-- :func:`insert_config` — save a configuration and reject duplicates
-- :func:`list_configs` — list saved configurations, newest first
-- :func:`get_config` — retrieve a complete saved configuration
-- :func:`duplicate_config` — build an unsaved copy with a new ID and timestamp
+Issue #10: configuration CRUD; Issue #36: runs and scores persistence.
+All public functions accept an optional ``db_path`` for test isolation.
 """
 
+import hashlib
+import json
 import os
 import sqlite3
 from contextlib import closing
@@ -32,8 +26,22 @@ def _database_path(db_path: str | Path | None = None) -> Path:
     return Path(os.environ.get("LLM_CONFIG_DB_PATH", str(DEFAULT_DB_PATH)))
 
 
-def init_db(db_path: str | Path | None = None) -> None:
+def _utc_now() -> str:
+    """Timestamp for sortable SQLite text columns."""
+    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
+
+def _source_sha256(source_path: str | Path) -> str:
+    """Hash original file bytes without loading a possibly large log into memory."""
+    sha256 = hashlib.sha256()
+    with open(source_path, "rb") as log_file:
+        for chunk in iter(lambda: log_file.read(1024 * 1024), b""):
+            sha256.update(chunk)
+    return sha256.hexdigest()
+
+
+def init_db(db_path: str | Path | None = None) -> None:
+    """Create or migrate tables without deleting existing M1 configuration rows."""
     path = _database_path(db_path)
     path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -54,6 +62,30 @@ def init_db(db_path: str | Path | None = None) -> None:
                 )
                 """
             )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS runs (
+                    run_id TEXT PRIMARY KEY,
+                    config_id TEXT REFERENCES configs(config_id),
+                    source_path TEXT NOT NULL,
+                    source_sha256 TEXT NOT NULL,
+                    family TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    payload_json TEXT NOT NULL,
+                    UNIQUE (config_id, source_sha256)
+                )
+                """
+            )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS scores (
+                    run_id TEXT PRIMARY KEY REFERENCES runs(run_id),
+                    created_at TEXT NOT NULL,
+                    payload_json TEXT NOT NULL
+                )
+                """
+            )
 
 
 def find_by_hash(
@@ -69,9 +101,9 @@ def find_by_hash(
 
 
 def insert_config(cfg: ConfigRecord, db_path: str | Path | None = None) -> str:
-    """Save "cfg" and return its ID; reject identical functional settings.
+    """Save cfg and return its ID; reject identical functional settings.
 
-    The fingerprint comes from "config_fingerprint" in "app/schemas.py".
+    The fingerprint comes from config_fingerprint in app/schemas.py.
     The source object is not modified. SQLite's UNIQUE constraint also protects
     against duplicate saves that happen at nearly the same time.
     """
@@ -114,7 +146,7 @@ def insert_config(cfg: ConfigRecord, db_path: str | Path | None = None) -> str:
 
 
 def list_configs(db_path: str | Path | None = None) -> list[dict]:
-    """Return saved record metadata, sorted by "created_at" descending."""
+    """Return saved record metadata, sorted by created_at descending."""
     init_db(db_path)
     with closing(sqlite3.connect(_database_path(db_path))) as conn:
         conn.row_factory = sqlite3.Row
@@ -132,7 +164,7 @@ def list_configs(db_path: str | Path | None = None) -> list[dict]:
 def get_config(
     config_id: str, db_path: str | Path | None = None
 ) -> ConfigRecord | None:
-    """Return the full saved "ConfigRecord" for "config_id" if present."""
+    """Return the full saved ConfigRecord for config_id if present."""
     init_db(db_path)
     with closing(sqlite3.connect(_database_path(db_path))) as conn:
         row = conn.execute(
@@ -168,9 +200,153 @@ def duplicate_config(
         update={
             "config_id": str(uuid4()),
             "config_hash": "",
-            "created_at": datetime.now(timezone.utc)
-            .isoformat()
-            .replace("+00:00", "Z"),
+            "created_at": _utc_now(),
             "run_status": "pending",
         },
     )
+
+
+# Issue #36: parsed runs and evaluation score reports.
+
+def _decode_run(row: sqlite3.Row) -> dict:
+    """Expose row metadata along with a decoded ParseResult as 'payload'."""
+    record = dict(row)
+    record["payload"] = json.loads(record["payload_json"])
+    return record
+
+
+def insert_run(
+    result: dict, config_id: str | None, db_path: str | Path | None = None
+) -> str:
+    """Store one ParseResult and return its ID; reuse the same log/config ID.
+
+    A byte-level SHA-256 hash identifies the log even if its path changes.
+    The log must still exist when saving so its original bytes can be hashed.
+    """
+    init_db(db_path)
+    path = str(result["source_path"])
+    digest = _source_sha256(path)
+    run_id = str(uuid4())
+
+    with closing(sqlite3.connect(_database_path(db_path))) as conn:
+        conn.execute("PRAGMA foreign_keys = ON")
+        with conn:
+            if config_id is None:
+                # SQLite UNIQUE allows repeated NULL values: handle unlinked logs
+                # explicitly so repeated uploads of the same log reuse one run.
+                existing = conn.execute(
+                    "SELECT run_id FROM runs WHERE config_id IS NULL "
+                    "AND source_sha256 = ? LIMIT 1",
+                    (digest,),
+                ).fetchone()
+                if existing is not None:
+                    return existing[0]
+            conn.execute(
+                """
+                INSERT INTO runs (
+                    run_id, config_id, source_path, source_sha256,
+                    family, status, created_at, payload_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT (config_id, source_sha256) DO NOTHING
+                """,
+                (
+                    run_id,
+                    config_id,
+                    path,
+                    digest,
+                    result["family"],
+                    result["status"],
+                    _utc_now(),
+                    json.dumps(result),
+                ),
+            )
+            row = conn.execute(
+                """
+                SELECT run_id FROM runs
+                WHERE config_id IS ? AND source_sha256 = ?
+                ORDER BY created_at DESC, run_id DESC LIMIT 1
+                """,
+                (config_id, digest),
+            ).fetchone()
+    return row[0] if row is not None else run_id
+
+
+def get_run(run_id: str, db_path: str | Path | None = None) -> dict | None:
+    """Retrieve one run with its stored ParseResult under the 'payload' key."""
+    init_db(db_path)
+    with closing(sqlite3.connect(_database_path(db_path))) as conn:
+        conn.row_factory = sqlite3.Row
+        row = conn.execute(
+            "SELECT * FROM runs WHERE run_id = ?", (run_id,)
+        ).fetchone()
+    return _decode_run(row) if row is not None else None
+
+
+def list_runs(
+    config_id: str | None = None, db_path: str | Path | None = None
+) -> list[dict]:
+    """List runs newest first, optionally restricted to a saved config."""
+    init_db(db_path)
+    sql = "SELECT * FROM runs"
+    args: tuple = ()
+    if config_id is not None:
+        sql += " WHERE config_id = ?"
+        args = (config_id,)
+    sql += " ORDER BY created_at DESC, run_id DESC"
+    with closing(sqlite3.connect(_database_path(db_path))) as conn:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(sql, args).fetchall()
+    return [_decode_run(row) for row in rows]
+
+
+def upsert_score(
+    run_id: str, report: dict, db_path: str | Path | None = None
+) -> None:
+    """Insert or replace a run's single ScoreReport, keeping one score row."""
+    init_db(db_path)
+    with closing(sqlite3.connect(_database_path(db_path))) as conn:
+        conn.execute("PRAGMA foreign_keys = ON")
+        with conn:
+            conn.execute(
+                """
+                INSERT INTO scores (run_id, created_at, payload_json)
+                VALUES (?, ?, ?)
+                ON CONFLICT (run_id) DO UPDATE SET
+                    created_at = excluded.created_at,
+                    payload_json = excluded.payload_json
+                """,
+                (run_id, _utc_now(), json.dumps(report)),
+            )
+
+
+def get_score(
+    run_id: str, db_path: str | Path | None = None
+) -> dict | None:
+    """Return the stored ScoreReport or None when a run is not yet scored."""
+    init_db(db_path)
+    with closing(sqlite3.connect(_database_path(db_path))) as conn:
+        row = conn.execute(
+            "SELECT payload_json FROM scores WHERE run_id = ?", (run_id,)
+        ).fetchone()
+    return json.loads(row[0]) if row is not None else None
+
+
+def list_scores_for_config(
+    config_id: str, db_path: str | Path | None = None
+) -> list[dict]:
+    """Return score history for a config, newest score first."""
+    init_db(db_path)
+    with closing(sqlite3.connect(_database_path(db_path))) as conn:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            """
+            SELECT s.run_id, r.config_id, r.source_path, r.family, r.status,
+                   s.created_at, s.payload_json
+            FROM scores AS s
+            JOIN runs AS r ON r.run_id = s.run_id
+            WHERE r.config_id = ?
+            ORDER BY s.created_at DESC, s.run_id DESC
+            """,
+            (config_id,),
+        ).fetchall()
+    return [dict(row, report=json.loads(row["payload_json"])) for row in rows]
