@@ -21,8 +21,6 @@ if str(ROOT) not in sys.path:
 
 import pytest
 
-pytest.importorskip("nicegui", reason="NiceGUI is required to test main.py UI components")
-
 from app.registry import DEEPSEEK_ID, MISTRAL_ID, defaults_for
 from app.schemas import ConfigRecord
 from app.store import list_configs
@@ -31,6 +29,7 @@ from app.store import list_configs
 @pytest.fixture
 def isolated_db(tmp_path: Any, monkeypatch: Any) -> Any:
     """Redirect SQLite database to a temporary directory."""
+    pytest.importorskip("nicegui", reason="NiceGUI is required to test main.py UI components")
     test_db = tmp_path / "test_main.db"
     monkeypatch.setenv("LLM_CONFIG_DB_PATH", str(test_db))
     return test_db
@@ -135,6 +134,14 @@ def test_validation_highlighting_and_save_blocking(isolated_db: Any) -> None:
     platform.console.refresh()
     assert platform.console._save_button.enabled is True
 
+    # Trigger an error in Component f (temperature > 0 while do_sample is False)
+    # and verify that clicking Validate navigates pipeline_tabs to tab 'f'
+    platform.pipeline_tabs.value = "a"
+    platform.field_widgets["f.temperature"].value = 0.7
+    platform.field_widgets["f.do_sample"].value = False
+    platform.console._on_validate()
+    assert platform.pipeline_tabs.value == "f"
+
 
 def test_save_and_duplicate_workflow(isolated_db: Any) -> None:
     """Issue #11: Save to DB, deduplication, and duplication.
@@ -166,6 +173,35 @@ def test_save_and_duplicate_workflow(isolated_db: Any) -> None:
     assert duplicated_cfg.config_id != cfg.config_id
 
 
+def test_user_prompt_autoformatting(isolated_db: Any) -> None:
+    """Typing 'Claim: ...', 'Answer:' auto-formats without curly brackets, Space populates defaults, and a.model_id syncs."""
+    from app.main import create_app
+
+    platform = create_app()
+
+    # 1. Prompt fields start visually empty (placeholder) and populate default when Space is pressed
+    assert platform.field_widgets["p.system_prompt"].value == ""
+    platform.field_widgets["p.system_prompt"].value = " "
+    assert "You are a fact-checking assistant" in platform.field_widgets["p.system_prompt"].value
+
+    # 2. Blank Answer: formats to '### Answer: ' without '{answer}' curly brackets
+    platform.field_widgets["p.user_prompt_template"].value = (
+        "Claim: Can pigs fly?\nQuestion: Can pigs Fly?\nAnswer:"
+    )
+    platform.format_user_prompt_field()
+
+    cfg = platform.build_config_record()
+    assert cfg.p.user_prompt_template == (
+        "### Claim: Can pigs fly?\n### Question: Can pigs Fly?\n### Answer: "
+    )
+    assert "{answer}" not in cfg.p.user_prompt_template
+    assert "### Claim: Can pigs fly?" in platform.prompt_preview.content
+
+    # 3. Selecting a different model in a.model_id toggles the top-level platform model
+    platform.field_widgets["a.model_id"].value = DEEPSEEK_ID
+    assert platform.current_model_id == DEEPSEEK_ID
+
+
 def test_kwargs_panel_stays_bound_after_model_switch(isolated_db: Any) -> None:
     """Issue #12: Component h keeps writing to the live state after a switch.
 
@@ -195,4 +231,57 @@ def test_kwargs_panel_stays_bound_after_model_switch(isolated_db: Any) -> None:
     panel.row_records[-1]["key_widget"].value = "torch_dtype"
     assert platform.form_state["h"]["load_model"] == {"torch_dtype": ""}
     assert platform.build_config_record().h["load_model"] == {"torch_dtype": ""}
+
+
+def test_per_model_and_task_prompt_visibility(isolated_db: Any) -> None:
+    """Prompt visibility follows app/model_prompts.json across (model, task_type)."""
+    from app.main import create_app
+
+    platform = create_app()
+
+    # 1. Mistral + fine_tune: all 3 prompts visible
+    assert platform.system_prompt_container.visible is True
+    assert platform.user_prompt_container.visible is True
+    assert platform.assistant_prompt_container.visible is True
+
+    # 2. Mistral + inference: 2 prompts visible (System + User; Assistant hidden)
+    platform.on_task_type_changed(SimpleNamespace(value="inference"))
+    assert platform.system_prompt_container.visible is True
+    assert platform.user_prompt_container.visible is True
+    assert platform.assistant_prompt_container.visible is False
+
+    # 3. DeepSeek + inference: 1 prompt visible (User only; System + Assistant hidden)
+    platform.on_model_changed(SimpleNamespace(value=DEEPSEEK_ID))
+    assert platform.system_prompt_container.visible is False
+    assert platform.user_prompt_container.visible is True
+    assert platform.assistant_prompt_container.visible is False
+
+    # 4. DeepSeek + fine_tune: 2 prompts visible (User + Assistant; System hidden)
+    platform.on_task_type_changed(SimpleNamespace(value="fine_tune"))
+    assert platform.system_prompt_container.visible is False
+    assert platform.user_prompt_container.visible is True
+    assert platform.assistant_prompt_container.visible is True
+
+
+def test_results_tab_mounted_in_main_app(isolated_db: Any) -> None:
+    """Milestone 1.5: `app/ui/results.py` is mounted as the `results` tab in `app/main.py`."""
+    from app.main import create_app
+    from app.ui.results import FIXTURE_LOGS_DIR
+
+    platform = create_app()
+    assert platform.results_panel is not None
+    assert platform.results_panel.current_summary is not None
+
+    # Switching to the Run Results tab and loading Log 12 produces a yellow warning summary
+    platform.side_tabs.value = "results"
+    summary_12 = platform.results_panel.load_file(
+        FIXTURE_LOGS_DIR / "s12_fine_tune_success_warning.log"
+    )
+    assert summary_12.family == "fine_tune"
+    assert summary_12.status == "success"
+    assert summary_12.status_tone == "warning"
+    assert summary_12.first_alert is not None
+    assert summary_12.first_alert.is_warning is True
+
+
 
