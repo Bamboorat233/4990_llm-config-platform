@@ -18,15 +18,33 @@ formatting and severity rules can be unit-tested without starting a web server.
 
 from __future__ import annotations
 
+import json
 import tempfile
+from collections import Counter
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from app.parsing import ParseResult, parse_log_file
+from app.parsing.verdicts import (
+    DEFAULT_LABELS,
+    TABLE_ONLY_SINGLE_TABLE,
+    extract_verdicts_with_source,
+)
+from app.registry import DEFAULT_VERDICT_MARKER, MODELS
+from app.scoring import (
+    INVALID_LABEL,
+    ScoreReport,
+    VerdictRecord,
+    load_gold_labels,
+    render_report_markdown,
+    score_verdicts,
+)
+from app.store import get_config, get_score, insert_run, list_configs, upsert_score
 
-FIXTURE_LOGS_DIR = Path(__file__).resolve().parents[2] / "tests" / "fixtures" / "logs"
+REPO_ROOT = Path(__file__).resolve().parents[2]
+FIXTURE_LOGS_DIR = REPO_ROOT / "tests" / "fixtures" / "logs"
 
 FAMILY_LABELS: dict[str, str] = {
     "fine_tune": "Fine-Tune",
@@ -425,6 +443,358 @@ def build_result_summary(result: ParseResult) -> ResultSummaryView:
     )
 
 
+@dataclass(frozen=True)
+class ConfigEvalSettings:
+    """Extraction and scoring settings resolved from a linked config or defaults."""
+
+    config_id: str | None = None
+    model_id: str | None = None
+    eos_token: str | None = None
+    marker: str = DEFAULT_VERDICT_MARKER
+    labels: tuple[str, ...] = DEFAULT_LABELS
+    test_data_file: str | None = None
+
+
+@dataclass(frozen=True)
+class InferenceEvaluationView:
+    """Pure presentation snapshot for inference verdict extraction and scoring."""
+
+    available: bool
+    output_format: str | None = None
+    settings: ConfigEvalSettings = field(default_factory=ConfigEvalSettings)
+    source: str | None = None
+    verdicts: list[VerdictRecord] = field(default_factory=list)
+    review_rows: list[dict[str, Any]] = field(default_factory=list)
+    out_of_set_counts: list[tuple[str, int]] = field(default_factory=list)
+    gold_path: str | None = None
+    gold_count: int | None = None
+    gold_notice: str | None = None
+    warnings: list[str] = field(default_factory=list)
+    error_message: str | None = None
+    score_report: ScoreReport | None = None
+
+
+def resolve_eval_settings(
+    cfg: Any | None, *, config_id: str | None = None
+) -> ConfigEvalSettings:
+    """Extract marker, label values, test data path, and EOS token from a config."""
+    if cfg is None:
+        return ConfigEvalSettings(config_id=config_id)
+
+    if isinstance(cfg, Mapping):
+        resolved_id = str(cfg.get("config_id") or config_id or "") or None
+        model_id = str(cfg.get("model_id") or "") or None
+        p_sec = cfg.get("p") or {}
+        c_sec = cfg.get("c") or {}
+        raw_marker = p_sec.get("verdict_parse_marker")
+        raw_labels = c_sec.get("label_values")
+        raw_test_file = c_sec.get("test_data_file")
+    else:
+        resolved_id = getattr(cfg, "config_id", None) or config_id
+        model_id = getattr(cfg, "model_id", None)
+        p_sec = getattr(cfg, "p", None)
+        c_sec = getattr(cfg, "c", None)
+        raw_marker = getattr(p_sec, "verdict_parse_marker", None)
+        raw_labels = getattr(c_sec, "label_values", None)
+        raw_test_file = getattr(c_sec, "test_data_file", None)
+
+    marker = (
+        str(raw_marker)
+        if isinstance(raw_marker, str) and raw_marker
+        else DEFAULT_VERDICT_MARKER
+    )
+    if isinstance(raw_labels, Sequence) and not isinstance(raw_labels, (str, bytes)):
+        labels = tuple(str(x) for x in raw_labels if str(x)) or DEFAULT_LABELS
+    else:
+        labels = DEFAULT_LABELS
+
+    test_data_file = (
+        str(raw_test_file).strip()
+        if isinstance(raw_test_file, str) and raw_test_file.strip()
+        else None
+    )
+    meta = MODELS.get(model_id) if model_id else None
+    eos_token = meta.eos_token if meta is not None else None
+
+    return ConfigEvalSettings(
+        config_id=resolved_id,
+        model_id=model_id,
+        eos_token=eos_token,
+        marker=marker,
+        labels=labels,
+        test_data_file=test_data_file,
+    )
+
+
+def _find_existing_file(raw_path: str | Path | None) -> Path | None:
+    """Return an existing file Path for ``raw_path`` (checking CWD then REPO_ROOT)."""
+    if raw_path is None:
+        return None
+    text = str(raw_path).strip()
+    if not text:
+        return None
+    candidate = Path(text)
+    if candidate.is_file():
+        return candidate
+    if not candidate.is_absolute():
+        rooted = REPO_ROOT / candidate
+        if rooted.is_file():
+            return rooted
+    return None
+
+
+def load_gold_labels_file(path: str | Path) -> list[str]:
+    """Load gold ``label`` strings from a JSON list or JSONL file."""
+    target = Path(path)
+    if target.suffix.lower() != ".jsonl":
+        try:
+            return load_gold_labels(target)
+        except json.JSONDecodeError:
+            pass
+
+    labels: list[str] = []
+    with target.open("r", encoding="utf-8") as handle:
+        for line_no, raw_line in enumerate(handle, start=1):
+            stripped = raw_line.strip()
+            if not stripped:
+                continue
+            try:
+                record = json.loads(stripped)
+            except json.JSONDecodeError as exc:
+                raise ValueError(
+                    f"gold data in {target!s} is not valid JSON or JSONL (line {line_no}): {exc.msg}"
+                ) from exc
+            if not isinstance(record, dict) or "label" not in record:
+                raise ValueError(
+                    f"gold record on line {line_no} has no 'label' field"
+                )
+            label = record["label"]
+            if not isinstance(label, str):
+                raise ValueError(
+                    f"gold label on line {line_no} is not a string: {label!r}"
+                )
+            labels.append(label)
+
+    if not labels:
+        raise ValueError(f"gold file {target!s} contains no records")
+    return labels
+
+
+def resolve_gold_labels_path(
+    *,
+    uploaded_gold_path: Path | None = None,
+    user_gold_path: str | None = None,
+    config_test_data_file: str | None = None,
+) -> tuple[Path | None, str | None]:
+    """Resolve the active gold-labels file and return ``(path, notice_if_missing)``."""
+    if uploaded_gold_path is not None and uploaded_gold_path.is_file():
+        return uploaded_gold_path, None
+
+    if user_gold_path is not None and user_gold_path.strip():
+        found = _find_existing_file(user_gold_path)
+        if found is not None:
+            return found, None
+        return None, f"Gold labels file not found locally: {user_gold_path.strip()}"
+
+    if config_test_data_file is not None and config_test_data_file.strip():
+        found = _find_existing_file(config_test_data_file)
+        if found is not None:
+            return found, None
+        return None, (
+            f"Configured test_data_file '{config_test_data_file}' was not found locally. "
+            "Enter a local path or upload a gold-labels JSON/JSONL file to compute scores."
+        )
+
+    return None, (
+        "No gold-labels file loaded. Link an inference config with a local test_data_file, "
+        "or enter/upload a gold-labels JSON/JSONL file to compute metrics."
+    )
+
+
+def count_out_of_set_values(
+    verdicts: Sequence[VerdictRecord],
+) -> list[tuple[str, int]]:
+    """Count distinct ``parsed`` values among ``out_of_set`` verdicts."""
+    counts = Counter(
+        str(v["parsed"])
+        for v in verdicts
+        if v.get("kind") == "out_of_set" and v.get("parsed") is not None
+    )
+    return sorted(counts.items(), key=lambda item: (-item[1], item[0]))
+
+
+def is_anomalous_verdict_row(row: Mapping[str, Any]) -> bool:
+    """Return True when a verdict review row is non-exact or mismatches gold."""
+    if row.get("kind") != "exact":
+        return True
+    gold = row.get("gold")
+    parsed = row.get("parsed")
+    if gold is not None and gold != "—" and parsed != gold:
+        return True
+    return False
+
+
+def build_verdict_review_rows(
+    verdicts: Sequence[VerdictRecord],
+    gold_labels: Sequence[str] | None = None,
+) -> list[dict[str, Any]]:
+    """Build index-sorted rows for the Verdict Review table."""
+    by_index: dict[int, VerdictRecord] = {}
+    for item in verdicts:
+        idx = item.get("index")
+        if isinstance(idx, int):
+            by_index[idx] = item
+
+    rows: list[dict[str, Any]] = []
+    gold_len = len(gold_labels) if gold_labels is not None else 0
+
+    for idx, item in by_index.items():
+        gold_val = (
+            gold_labels[idx]
+            if gold_labels is not None and 0 <= idx < gold_len
+            else "—"
+        )
+        parsed_val = item.get("parsed")
+        parsed_text = str(parsed_val) if parsed_val is not None else "—"
+        kind = str(item.get("kind") or "unparsed")
+        row = {
+            "index": idx,
+            "gold": gold_val,
+            "raw": str(item.get("raw") or ""),
+            "parsed": parsed_text,
+            "kind": kind,
+        }
+        row["anomalous"] = is_anomalous_verdict_row(row)
+        rows.append(row)
+
+    if gold_labels is not None:
+        for idx, gold_val in enumerate(gold_labels):
+            if idx not in by_index:
+                rows.append(
+                    {
+                        "index": idx,
+                        "gold": gold_val,
+                        "raw": "—",
+                        "parsed": "—",
+                        "kind": "unfinished",
+                        "anomalous": True,
+                    }
+                )
+
+    rows.sort(key=lambda r: int(r["index"]))
+    return rows
+
+
+def filter_verdict_rows(
+    rows: Sequence[dict[str, Any]], *, anomalies_only: bool
+) -> list[dict[str, Any]]:
+    """Filter verdict review rows according to the anomalies-only toggle."""
+    if not anomalies_only:
+        return list(rows)
+    return [row for row in rows if is_anomalous_verdict_row(row)]
+
+
+def evaluate_inference_log(
+    result: ParseResult,
+    log_path: str | Path,
+    *,
+    settings: ConfigEvalSettings | None = None,
+    gold_path: str | Path | None = None,
+    gold_labels: Sequence[str] | None = None,
+    gold_notice: str | None = None,
+) -> InferenceEvaluationView:
+    """Extract verdicts and optionally score an inference log."""
+    active_settings = settings or ConfigEvalSettings()
+    if result.get("family") != "inference":
+        return InferenceEvaluationView(available=False, settings=active_settings)
+
+    output_format = result.get("output_format")
+    if output_format is None:
+        return InferenceEvaluationView(
+            available=True,
+            output_format=None,
+            settings=active_settings,
+            gold_notice=(
+                "No verdict output available: this inference run stopped before generation."
+            ),
+        )
+
+    target = Path(log_path)
+    if not target.is_file():
+        return InferenceEvaluationView(
+            available=True,
+            output_format=output_format,
+            settings=active_settings,
+            error_message=f"Log file not found on disk: {target}",
+        )
+
+    warnings_out: list[str] = []
+    try:
+        source, verdicts = extract_verdicts_with_source(
+            target,
+            marker=active_settings.marker,
+            labels=active_settings.labels,
+            layout=output_format,
+            warnings=warnings_out,
+        )
+    except (ValueError, OSError) as exc:
+        return InferenceEvaluationView(
+            available=True,
+            output_format=output_format,
+            settings=active_settings,
+            error_message=str(exc),
+        )
+
+    out_of_set_counts = count_out_of_set_values(verdicts)
+
+    loaded_gold: list[str] | None = (
+        list(gold_labels) if gold_labels is not None else None
+    )
+    resolved_gold_path = str(gold_path) if gold_path is not None else None
+    error_message: str | None = None
+
+    if loaded_gold is None and gold_path is not None:
+        try:
+            loaded_gold = load_gold_labels_file(gold_path)
+        except (ValueError, OSError) as exc:
+            error_message = f"Failed to load gold labels: {exc}"
+
+    review_rows = build_verdict_review_rows(verdicts, loaded_gold)
+
+    score_report: ScoreReport | None = None
+    if (
+        loaded_gold is not None
+        and error_message is None
+        and TABLE_ONLY_SINGLE_TABLE not in warnings_out
+    ):
+        try:
+            score_report = score_verdicts(
+                verdicts,
+                loaded_gold,
+                marker=active_settings.marker,
+                labels=active_settings.labels,
+                source=source,
+            )
+        except ValueError as exc:
+            error_message = str(exc)
+
+    return InferenceEvaluationView(
+        available=True,
+        output_format=output_format,
+        settings=active_settings,
+        source=source,
+        verdicts=verdicts,
+        review_rows=review_rows,
+        out_of_set_counts=out_of_set_counts,
+        gold_path=resolved_gold_path,
+        gold_count=len(loaded_gold) if loaded_gold is not None else None,
+        gold_notice=gold_notice,
+        warnings=warnings_out,
+        error_message=error_message,
+        score_report=score_report,
+    )
+
+
 _TONE_TAG_CLASSES: dict[str, str] = {
     "success": "info-tag tag-success",
     "info": "info-tag tag-info",
@@ -452,28 +822,58 @@ _TONE_DOT_CLASSES: dict[str, str] = {
 
 
 class ResultsPanel:
-    """NiceGUI Run Results tab controller: config selector, preset/upload dropdown with multi-file list, error cycler, and Summary card."""
+    """NiceGUI Run Results tab controller: log parsing, verdict review, scoring dashboard, and SQLite persistence."""
 
     def __init__(
         self,
         container: Any,
         *,
         list_configs_fn: Callable[[], Sequence[Mapping[str, Any]]] | None = None,
+        get_config_fn: Callable[[str], Any] | None = None,
+        insert_run_fn: Callable[[dict[str, Any], str | None], str] | None = None,
+        upsert_score_fn: Callable[[str, dict[str, Any]], None] | None = None,
+        get_score_fn: Callable[[str], dict[str, Any] | None] | None = None,
         parse_fn: Callable[[str | Path], ParseResult] = parse_log_file,
         initial_result: ParseResult | None = None,
+        db_path: str | Path | None = None,
     ) -> None:
         from nicegui import ui
 
         self._ui = ui
         self.container = container
-        self._list_configs_fn = list_configs_fn
+        self._db_path = db_path
+        if list_configs_fn is not None:
+            self._list_configs_fn = list_configs_fn
+        elif db_path is not None:
+            self._list_configs_fn = lambda: list_configs(db_path)
+        else:
+            self._list_configs_fn = None
+
+        self._get_config_fn = get_config_fn or (lambda cid: get_config(cid, db_path))
+        self._insert_run_fn = insert_run_fn or (
+            lambda res, cid: insert_run(res, cid, db_path)
+        )
+        self._upsert_score_fn = upsert_score_fn or (
+            lambda rid, rep: upsert_score(rid, rep, db_path)
+        )
+        self._get_score_fn = get_score_fn or (lambda rid: get_score(rid, db_path))
         self._parse_fn = parse_fn
 
         self.selected_config_id: str | None = None
         self.current_log_path: str = ""
         self.current_source_name: str | None = None
         self.current_summary: ResultSummaryView | None = None
+        self.current_eval: InferenceEvaluationView | None = None
         self.active_alert_index: int = 0
+        self.anomalies_only: bool = False
+        self.exact_only: bool = False
+
+        self.uploaded_gold_path: Path | None = None
+        self.uploaded_gold_name: str | None = None
+        self._gold_path_user_edited: bool = False
+        self._suppress_gold_input_change: bool = False
+        self.last_saved_run_id: str | None = None
+        self.last_markdown_report: str | None = None
 
         # Multi-file upload list stored strictly inside the Upload dropdown
         self.uploaded_files: list[UploadedLogEntry] = []
@@ -498,9 +898,7 @@ class ResultsPanel:
                             ui.select(
                                 options=self._build_config_options(),
                                 value=None,
-                                on_change=lambda e: setattr(
-                                    self, "selected_config_id", e.value
-                                ),
+                                on_change=self._on_config_selected,
                             )
                             .props("outlined dense clearable")
                             .classes("w-full")
@@ -738,6 +1136,389 @@ class ResultsPanel:
                                 )
                         self.alert_container.set_visibility(False)
 
+                        # Save & Export Action Row inside Summary Card footer
+                        with ui.row().classes(
+                            "w-full items-center justify-between gap-2 pt-2 divider-t flex-wrap"
+                        ):
+                            with ui.row().classes("items-center gap-2 no-wrap"):
+                                self.save_run_button = (
+                                    ui.button(
+                                        "Save Run",
+                                        icon="save",
+                                        on_click=self.save_current_run,
+                                    )
+                                    .props("unelevated dense no-caps size=sm color=primary")
+                                    .classes("px-3 text-xs font-medium")
+                                )
+                                self.export_md_button = (
+                                    ui.button(
+                                        "Export Markdown",
+                                        icon="description",
+                                        on_click=self.export_markdown_report,
+                                    )
+                                    .props("outlined dense no-caps size=sm color=primary")
+                                    .classes("px-2.5 text-xs font-medium")
+                                )
+                                self.export_md_button.set_visibility(False)
+                            self.save_status_label = ui.label("").classes(
+                                "text-[11px] font-medium text-secondary-token"
+                            )
+                            self.save_status_label.set_visibility(False)
+
+                # 4. Inference Evaluation & M2.0 Dashboard (shown only for inference logs)
+                self.eval_section = ui.column().classes("w-full gap-3")
+                with self.eval_section:
+                    # 4a. Gold Labels & Extraction Settings Card
+                    self.gold_card = ui.column().classes(
+                        "w-full p-4 gap-2.5 rounded-md border-token surface-card"
+                    )
+                    with self.gold_card:
+                        with ui.row().classes(
+                            "w-full items-center justify-between gap-2 flex-wrap"
+                        ):
+                            ui.label("Gold Labels & Scoring Context").classes(
+                                "text-sm font-bold tracking-tight"
+                            )
+                            self.eval_context_label = ui.label("").classes(
+                                "text-[11px] font-medium text-secondary-token"
+                            )
+
+                        with ui.column().classes("w-full min-w-0 gap-1"):
+                            ui.label("Local Gold Labels Path (.json / .jsonl)").classes(
+                                "text-xs font-medium text-secondary-token select-none"
+                            )
+                            with ui.row().classes("w-full items-center gap-2 no-wrap"):
+                                self.gold_path_input = (
+                                    ui.input(
+                                        placeholder="e.g. data/testData.json",
+                                        on_change=self._on_gold_path_input_changed,
+                                    )
+                                    .props("outlined dense clearable")
+                                    .classes("flex-grow min-w-0")
+                                )
+                                self.gold_load_button = (
+                                    ui.button(
+                                        "Score",
+                                        icon="play_arrow",
+                                        on_click=self._on_gold_load_clicked,
+                                    )
+                                    .props("unelevated dense no-caps size=sm color=primary")
+                                    .classes("px-3 text-xs font-medium shrink-0")
+                                )
+
+                        with ui.row().classes(
+                            "w-full items-center justify-between gap-2 flex-wrap"
+                        ):
+                            self.gold_uploader = (
+                                ui.upload(
+                                    label="Or upload gold labels (.json / .jsonl)",
+                                    auto_upload=True,
+                                    multiple=False,
+                                    on_upload=self._on_gold_file_uploaded,
+                                )
+                                .props("flat dense accept=.json,.jsonl")
+                                .classes("w-full compact-uploader")
+                            )
+                            self.clear_gold_upload_btn = (
+                                ui.button(
+                                    "Clear uploaded gold file",
+                                    icon="close",
+                                    on_click=self.clear_uploaded_gold_file,
+                                )
+                                .props("flat dense no-caps size=xs color=negative")
+                            )
+                            self.clear_gold_upload_btn.set_visibility(False)
+
+                        self.gold_status_box = ui.row().classes(
+                            "w-full items-start gap-2 px-3 py-2 rounded-md surface-subtle no-wrap"
+                        )
+                        with self.gold_status_box:
+                            self.gold_status_icon = ui.icon(
+                                "info_outline", color="primary"
+                            ).classes("text-sm shrink-0 mt-0.5")
+                            self.gold_status_label = ui.label("").classes(
+                                "text-xs text-secondary-token min-w-0 break-all"
+                            )
+
+                    # 4b. Special Banners: TABLE_ONLY_SINGLE_TABLE & Incomplete Run
+                    self.single_table_banner = ui.column().classes(
+                        "w-full p-3.5 gap-1 diagnostic-box diagnostic-box-warning"
+                    )
+                    with self.single_table_banner:
+                        with ui.row().classes("items-center gap-2 no-wrap"):
+                            ui.icon("warning_amber", color="warning").classes(
+                                "text-base shrink-0"
+                            )
+                            ui.label("Single Script Table Only").classes(
+                                "text-xs font-bold tracking-tight text-amber-600 dark:text-amber-400"
+                            )
+                        self.single_table_banner_label = ui.label(
+                            "Single script table detected: this table_only run was killed before printing its final verdict table, so no final verdicts can be asserted."
+                        ).classes("text-xs text-secondary-token leading-relaxed")
+                    self.single_table_banner.set_visibility(False)
+
+                    self.incomplete_banner = ui.column().classes(
+                        "w-full p-3.5 gap-1 diagnostic-box diagnostic-box-warning"
+                    )
+                    with self.incomplete_banner:
+                        with ui.row().classes("items-center gap-2 no-wrap"):
+                            ui.icon("hourglass_bottom", color="warning").classes(
+                                "text-base shrink-0"
+                            )
+                            ui.label("Incomplete Run").classes(
+                                "text-xs font-bold tracking-tight text-amber-600 dark:text-amber-400"
+                            )
+                        self.incomplete_banner_label = ui.label("").classes(
+                            "text-xs font-medium leading-relaxed"
+                        )
+                    self.incomplete_banner.set_visibility(False)
+
+                    # 4c. Metrics Dashboard Card
+                    self.dashboard_card = ui.column().classes(
+                        "w-full p-5 gap-3.5 rounded-md border-token surface-card"
+                    )
+                    with self.dashboard_card:
+                        with ui.row().classes(
+                            "w-full items-center justify-between gap-2 flex-wrap"
+                        ):
+                            with ui.row().classes("items-center gap-2 no-wrap"):
+                                ui.label("Metrics Dashboard").classes(
+                                    "text-base font-bold tracking-tight"
+                                )
+                                self.dashboard_source_tag = ui.label("").classes(
+                                    "info-tag tag-info"
+                                )
+                            self.exact_only_switch = (
+                                ui.switch(
+                                    "Exact only",
+                                    value=False,
+                                    on_change=lambda e: self.set_exact_only(
+                                        bool(e.value)
+                                    ),
+                                )
+                                .props("dense color=primary")
+                                .classes("text-xs font-medium")
+                            )
+
+                        # 2x2 Headline Metric Cards (Accuracy, Macro-F1, Empty Rate, Invalid Rate)
+                        with ui.grid(columns=2).classes("w-full gap-2.5"):
+                            with ui.column().classes(
+                                "p-3 gap-0.5 rounded-md surface-subtle"
+                            ):
+                                ui.label("Accuracy").classes(
+                                    "text-[11px] font-semibold uppercase tracking-wider text-secondary-token"
+                                )
+                                self.accuracy_value_label = ui.label("—").classes(
+                                    "text-lg font-bold tracking-tight"
+                                )
+                                self.accuracy_sub_label = ui.label("").classes(
+                                    "text-[11px] text-secondary-token"
+                                )
+
+                            with ui.column().classes(
+                                "p-3 gap-0.5 rounded-md surface-subtle"
+                            ):
+                                ui.label("Macro-F1").classes(
+                                    "text-[11px] font-semibold uppercase tracking-wider text-secondary-token"
+                                )
+                                self.macro_f1_value_label = ui.label("—").classes(
+                                    "text-lg font-bold tracking-tight"
+                                )
+                                self.macro_f1_sub_label = ui.label("").classes(
+                                    "text-[11px] text-secondary-token"
+                                )
+
+                            with ui.column().classes(
+                                "p-3 gap-0.5 rounded-md surface-subtle"
+                            ):
+                                ui.label("Empty Rate").classes(
+                                    "text-[11px] font-semibold uppercase tracking-wider text-secondary-token"
+                                )
+                                self.empty_rate_value_label = ui.label("—").classes(
+                                    "text-lg font-bold tracking-tight"
+                                )
+                                self.empty_rate_sub_label = ui.label("").classes(
+                                    "text-[11px] text-secondary-token"
+                                )
+
+                            with ui.column().classes(
+                                "p-3 gap-0.5 rounded-md surface-subtle"
+                            ):
+                                ui.label("Invalid Rate").classes(
+                                    "text-[11px] font-semibold uppercase tracking-wider text-secondary-token"
+                                )
+                                self.invalid_rate_value_label = ui.label("—").classes(
+                                    "text-lg font-bold tracking-tight"
+                                )
+                                self.invalid_rate_sub_label = ui.label("").classes(
+                                    "text-[11px] text-secondary-token"
+                                )
+
+                        # Six Verdict Kind Counts Strip
+                        self.kind_counts_row = ui.row().classes(
+                            "w-full items-center gap-3 py-2 divider-t divider-b flex-wrap text-xs"
+                        )
+
+                        # Per-Class Precision / Recall / F1
+                        with ui.column().classes("w-full gap-1.5"):
+                            ui.label("Per-Class Precision / Recall / F1").classes(
+                                "text-xs font-semibold text-secondary-token"
+                            )
+                            self.per_class_container = ui.column().classes(
+                                "w-full overflow-x-auto"
+                            )
+
+                        # 3x4 Confusion Matrix (Gold x Predicted + __INVALID__)
+                        with ui.column().classes("w-full gap-1.5"):
+                            ui.label("Confusion Matrix (Gold vs Predicted)").classes(
+                                "text-xs font-semibold text-secondary-token"
+                            )
+                            self.confusion_container = ui.column().classes(
+                                "w-full overflow-x-auto"
+                            )
+
+                        # Out-of-Set Value Counts
+                        with ui.column().classes("w-full gap-1.5"):
+                            ui.label("Out-of-Set Verdict Counts").classes(
+                                "text-xs font-semibold text-secondary-token"
+                            )
+                            self.out_of_set_container = ui.row().classes(
+                                "w-full items-center gap-2 flex-wrap"
+                            )
+                    self.dashboard_card.set_visibility(False)
+
+                    # 4d. Out-of-set summary when verdicts exist without ScoreReport
+                    self.unscored_oos_card = ui.column().classes(
+                        "w-full p-4 gap-1.5 rounded-md border-token surface-card"
+                    )
+                    with self.unscored_oos_card:
+                        ui.label("Out-of-Set Verdict Counts").classes(
+                            "text-xs font-semibold text-secondary-token"
+                        )
+                        self.unscored_oos_container = ui.row().classes(
+                            "w-full items-center gap-2 flex-wrap"
+                        )
+                    self.unscored_oos_card.set_visibility(False)
+
+                    # 4e. Verdict Review Table Card (paginated ui.table + Anomalies only switch)
+                    self.verdict_table_card = ui.column().classes(
+                        "w-full p-5 gap-3 rounded-md border-token surface-card"
+                    )
+                    with self.verdict_table_card:
+                        with ui.row().classes(
+                            "w-full items-center justify-between gap-2 flex-wrap"
+                        ):
+                            with ui.row().classes("items-center gap-2 no-wrap"):
+                                ui.label("Verdict Review").classes(
+                                    "text-base font-bold tracking-tight"
+                                )
+                                self.verdict_count_label = ui.label("").classes(
+                                    "text-[11px] font-medium text-secondary-token"
+                                )
+                            self.anomalies_switch = (
+                                ui.switch(
+                                    "Anomalies only",
+                                    value=False,
+                                    on_change=lambda e: self.set_anomalies_only(
+                                        bool(e.value)
+                                    ),
+                                )
+                                .props("dense color=primary")
+                                .classes("text-xs font-medium")
+                            )
+
+                        self.verdict_table = (
+                            ui.table(
+                                columns=[
+                                    {
+                                        "name": "index",
+                                        "label": "Index",
+                                        "field": "index",
+                                        "sortable": True,
+                                        "align": "left",
+                                    },
+                                    {
+                                        "name": "gold",
+                                        "label": "Gold",
+                                        "field": "gold",
+                                        "sortable": True,
+                                        "align": "left",
+                                    },
+                                    {
+                                        "name": "raw",
+                                        "label": "Raw",
+                                        "field": "raw",
+                                        "align": "left",
+                                    },
+                                    {
+                                        "name": "parsed",
+                                        "label": "Parsed",
+                                        "field": "parsed",
+                                        "sortable": True,
+                                        "align": "left",
+                                    },
+                                    {
+                                        "name": "kind",
+                                        "label": "Kind",
+                                        "field": "kind",
+                                        "sortable": True,
+                                        "align": "left",
+                                    },
+                                ],
+                                rows=[],
+                                row_key="index",
+                                pagination=10,
+                            )
+                            .props("flat dense")
+                            .classes("w-full surface-card border-token")
+                        )
+                        self.verdict_table.add_slot(
+                            "body-cell-raw",
+                            '<q-td :props="props" class="max-w-[160px] truncate mono text-xs" :title="props.row.raw">{{ props.row.raw }}</q-td>',
+                        )
+                        self.verdict_table.add_slot(
+                            "body-cell-kind",
+                            """
+                            <q-td :props="props">
+                                <span :class="props.value === 'exact' ? 'info-tag tag-success' : (props.value === 'recovered' ? 'info-tag tag-info' : (props.value === 'out_of_set' || props.value === 'unfinished' ? 'info-tag tag-warning' : 'info-tag tag-error'))">
+                                    {{ props.value }}
+                                </span>
+                            </q-td>
+                            """,
+                        )
+                    self.verdict_table_card.set_visibility(False)
+
+                self.eval_section.set_visibility(False)
+
+                # Markdown Report Preview Dialog
+                with (
+                    ui.dialog() as self.md_dialog,
+                    ui.card()
+                    .props("flat")
+                    .classes("p-5 gap-3 w-full max-w-2xl rounded-lg surface-card"),
+                ):
+                    with ui.row().classes(
+                        "w-full items-center justify-between no-wrap"
+                    ):
+                        ui.label("Markdown Score Report").classes(
+                            "text-sm font-bold tracking-tight"
+                        )
+                        ui.button(
+                            icon="close", on_click=self.md_dialog.close
+                        ).props("flat dense round size=sm")
+                    self.md_code = ui.code("", language="markdown").classes(
+                        "prompt-preview-box w-full text-xs rounded-md border-token max-h-[420px] overflow-y-auto overflow-x-auto"
+                    )
+                    with ui.row().classes("w-full justify-end gap-2"):
+                        ui.button(
+                            "Download .md",
+                            icon="download",
+                            on_click=self._download_markdown_report,
+                        ).props("unelevated dense no-caps size=sm color=primary")
+                        ui.button(
+                            "Close", on_click=self.md_dialog.close
+                        ).props("flat dense no-caps size=sm")
+
         if initial_result is not None:
             self.render_result(initial_result)
         elif fixtures:
@@ -768,10 +1549,141 @@ class ResultsPanel:
             options[cid] = f"{cid[:8]} · {model_short} ({task})"
         return options
 
+    @property
+    def current_score_report(self) -> ScoreReport | None:
+        """Return the active ``ScoreReport`` when the current inference log is scored."""
+        return self.current_eval.score_report if self.current_eval is not None else None
+
     def refresh_config_options(self) -> None:
         """Refresh the Linked Configuration dropdown from SQLite."""
-        self.config_select.options = self._build_config_options()
+        options = self._build_config_options()
+        self.config_select.options = options
+        if self.selected_config_id and self.selected_config_id not in options:
+            self.selected_config_id = None
+            self.config_select.value = None
         self.config_select.update()
+
+    def _resolve_active_settings(self) -> ConfigEvalSettings:
+        cfg = None
+        if self.selected_config_id:
+            try:
+                cfg = self._get_config_fn(self.selected_config_id)
+            except Exception:
+                cfg = None
+        return resolve_eval_settings(cfg, config_id=self.selected_config_id)
+
+    def _sync_gold_input_from_config(self, settings: ConfigEvalSettings) -> None:
+        if self._gold_path_user_edited:
+            return
+        self._suppress_gold_input_change = True
+        try:
+            self.gold_path_input.value = settings.test_data_file or ""
+        finally:
+            self._suppress_gold_input_change = False
+
+    def _current_gold_resolution(
+        self, settings: ConfigEvalSettings
+    ) -> tuple[Path | None, str | None]:
+        user_val = (
+            str(self.gold_path_input.value or "").strip()
+            if self._gold_path_user_edited
+            else None
+        )
+        return resolve_gold_labels_path(
+            uploaded_gold_path=self.uploaded_gold_path,
+            user_gold_path=user_val,
+            config_test_data_file=settings.test_data_file,
+        )
+
+    async def _on_config_selected(self, e: Any) -> None:
+        self.selected_config_id = e.value if hasattr(e, "value") else self.config_select.value
+        settings = self._resolve_active_settings()
+        self._sync_gold_input_from_config(settings)
+        self.last_saved_run_id = None
+        self.save_status_label.set_visibility(False)
+        if (
+            self.current_summary is not None
+            and self.current_summary.family == "inference"
+        ):
+            await self.refresh_evaluation_async()
+
+    def select_config(self, config_id: str | None) -> InferenceEvaluationView | None:
+        """Synchronous helper to link a config and refresh inference evaluation."""
+        self.selected_config_id = config_id
+        self.config_select.value = config_id
+        settings = self._resolve_active_settings()
+        self._sync_gold_input_from_config(settings)
+        self.last_saved_run_id = None
+        self.save_status_label.set_visibility(False)
+        return self.refresh_evaluation()
+
+    def _on_gold_path_input_changed(self, e: Any) -> None:
+        if self._suppress_gold_input_change:
+            return
+        val = str(e.value if hasattr(e, "value") else self.gold_path_input.value or "").strip()
+        self._gold_path_user_edited = bool(val)
+
+    async def _on_gold_load_clicked(self) -> None:
+        val = str(self.gold_path_input.value or "").strip()
+        self._gold_path_user_edited = bool(val)
+        await self.refresh_evaluation_async()
+
+    async def _on_gold_file_uploaded(self, e: Any) -> None:
+        file_obj = getattr(e, "file", None)
+        orig_name = str(
+            getattr(file_obj, "name", None) or getattr(e, "name", "gold.json")
+        )
+        suffix = Path(orig_name).suffix or ".json"
+        with tempfile.NamedTemporaryFile(
+            mode="wb", suffix=suffix, delete=False
+        ) as tmp:
+            tmp_path = Path(tmp.name)
+        if file_obj is not None and hasattr(file_obj, "save"):
+            await file_obj.save(tmp_path)
+        elif hasattr(e, "content") and e.content is not None:
+            data = e.content.read()
+            if isinstance(data, str):
+                data = data.encode("utf-8")
+            tmp_path.write_bytes(data)
+
+        if self.uploaded_gold_path is not None:
+            try:
+                self.uploaded_gold_path.unlink(missing_ok=True)
+            except OSError:
+                pass
+        self.uploaded_gold_path = tmp_path
+        self.uploaded_gold_name = orig_name
+        self.clear_gold_upload_btn.set_visibility(True)
+        try:
+            self.gold_uploader.reset()
+        except Exception:
+            pass
+        await self.refresh_evaluation_async()
+
+    def clear_uploaded_gold_file(self) -> InferenceEvaluationView | None:
+        """Remove an uploaded gold-labels temp file and re-score with fallback source."""
+        if self.uploaded_gold_path is not None:
+            try:
+                self.uploaded_gold_path.unlink(missing_ok=True)
+            except OSError:
+                pass
+        self.uploaded_gold_path = None
+        self.uploaded_gold_name = None
+        self.clear_gold_upload_btn.set_visibility(False)
+        return self.refresh_evaluation()
+
+    def set_gold_labels_path(
+        self, path: str | Path | None
+    ) -> InferenceEvaluationView | None:
+        """Synchronous helper to set a local gold-labels path and re-score."""
+        text = str(path).strip() if path is not None else ""
+        self._suppress_gold_input_change = True
+        try:
+            self.gold_path_input.value = text
+        finally:
+            self._suppress_gold_input_change = False
+        self._gold_path_user_edited = bool(text)
+        return self.refresh_evaluation()
 
     async def _on_fixture_selected(self, e: Any) -> None:
         if self._suppress_fixture_change:
@@ -827,6 +1739,8 @@ class ResultsPanel:
                 self.current_summary.raw,
                 source_name=self.current_source_name,
                 alert_index=self.active_alert_index,
+                eval_view=self.current_eval,
+                preserve_save_status=True,
             )
 
         error_logs = [str(p) for p in list_error_or_warning_fixture_logs()]
@@ -856,6 +1770,8 @@ class ResultsPanel:
                 self.current_summary.raw,
                 source_name=self.current_source_name,
                 alert_index=self.active_alert_index,
+                eval_view=self.current_eval,
+                preserve_save_status=True,
             )
             return
 
@@ -1065,10 +1981,31 @@ class ResultsPanel:
             return self.load_file(fixtures[0])
         return self.render_result(DEFAULT_PARSE_RESULT)
 
+    def _parse_and_evaluate_sync(
+        self,
+        target: Path,
+        settings: ConfigEvalSettings,
+        gold_path: Path | None,
+        gold_notice: str | None,
+    ) -> tuple[ParseResult, InferenceEvaluationView | None]:
+        result = self._parse_fn(target)
+        if result.get("family") != "inference":
+            return result, InferenceEvaluationView(
+                available=False, settings=settings
+            )
+        eval_view = evaluate_inference_log(
+            result,
+            target,
+            settings=settings,
+            gold_path=gold_path,
+            gold_notice=gold_notice,
+        )
+        return result, eval_view
+
     async def parse_async(
         self, path: str | Path, *, display_name: str | None = None
     ) -> ResultSummaryView:
-        """Parse ``path`` off the event loop with ``run.io_bound`` while showing a spinner."""
+        """Parse ``path`` and evaluate inference verdicts off the event loop with ``run.io_bound``."""
         from nicegui import run
 
         target = Path(path)
@@ -1083,20 +2020,438 @@ class ResultsPanel:
                     type="negative",
                 )
                 return self.current_summary or self.render_result(DEFAULT_PARSE_RESULT)
-            result = await run.io_bound(self._parse_fn, target)
-            return self.render_result(result, source_name=shown_name)
+            settings = self._resolve_active_settings()
+            gold_path, gold_notice = self._current_gold_resolution(settings)
+            result, eval_view = await run.io_bound(
+                self._parse_and_evaluate_sync,
+                target,
+                settings,
+                gold_path,
+                gold_notice,
+            )
+            return self.render_result(
+                result, source_name=shown_name, eval_view=eval_view
+            )
         finally:
             self.spinner_row.set_visibility(False)
 
     def load_file(
         self, path: str | Path, *, display_name: str | None = None
     ) -> ResultSummaryView:
-        """Synchronous helper to parse ``path`` and update the Summary card."""
+        """Synchronous helper to parse ``path``, evaluate inference verdicts, and update the panel."""
         target = Path(path)
         self.current_log_path = str(target)
         shown_name = display_name or target.name
-        result = self._parse_fn(target)
-        return self.render_result(result, source_name=shown_name)
+        settings = self._resolve_active_settings()
+        gold_path, gold_notice = self._current_gold_resolution(settings)
+        result, eval_view = self._parse_and_evaluate_sync(
+            target, settings, gold_path, gold_notice
+        )
+        return self.render_result(
+            result, source_name=shown_name, eval_view=eval_view
+        )
+
+    def refresh_evaluation(self) -> InferenceEvaluationView | None:
+        """Synchronously re-extract verdicts and re-score the current inference log."""
+        if self.current_summary is None:
+            return None
+        result = self.current_summary.raw
+        settings = self._resolve_active_settings()
+        if result.get("family") != "inference":
+            eval_view = InferenceEvaluationView(available=False, settings=settings)
+            self._render_evaluation(eval_view)
+            return eval_view
+        log_path = result.get("source_path") or self.current_log_path
+        gold_path, gold_notice = self._current_gold_resolution(settings)
+        eval_view = evaluate_inference_log(
+            result,
+            log_path,
+            settings=settings,
+            gold_path=gold_path,
+            gold_notice=gold_notice,
+        )
+        self._render_evaluation(eval_view)
+        return eval_view
+
+    async def refresh_evaluation_async(self) -> InferenceEvaluationView | None:
+        """Re-extract verdicts and re-score the current inference log via ``run.io_bound``."""
+        from nicegui import run
+
+        if self.current_summary is None:
+            return None
+        result = self.current_summary.raw
+        settings = self._resolve_active_settings()
+        if result.get("family") != "inference":
+            eval_view = InferenceEvaluationView(available=False, settings=settings)
+            self._render_evaluation(eval_view)
+            return eval_view
+        log_path = result.get("source_path") or self.current_log_path
+        gold_path, gold_notice = self._current_gold_resolution(settings)
+        self.spinner_label.text = "Scoring verdicts..."
+        self.spinner_row.set_visibility(True)
+        try:
+            eval_view = await run.io_bound(
+                evaluate_inference_log,
+                result,
+                log_path,
+                settings=settings,
+                gold_path=gold_path,
+                gold_notice=gold_notice,
+            )
+            self._render_evaluation(eval_view)
+            return eval_view
+        finally:
+            self.spinner_row.set_visibility(False)
+
+    def set_anomalies_only(self, enabled: bool) -> list[dict[str, Any]]:
+        """Toggle the Verdict Review table between all records and anomalies only."""
+        self.anomalies_only = bool(enabled)
+        if self.anomalies_switch.value != self.anomalies_only:
+            self.anomalies_switch.value = self.anomalies_only
+        return self._refresh_verdict_table()
+
+    def set_exact_only(self, enabled: bool) -> None:
+        """Switch the Metrics Dashboard between inclusive and exact-only metrics."""
+        self.exact_only = bool(enabled)
+        if self.exact_only_switch.value != self.exact_only:
+            self.exact_only_switch.value = self.exact_only
+        if self.current_eval is not None and self.current_eval.score_report is not None:
+            self._render_metrics_dashboard(self.current_eval)
+
+    def _refresh_verdict_table(self) -> list[dict[str, Any]]:
+        if self.current_eval is None:
+            self.verdict_table.rows = []
+            self.verdict_table.update()
+            self.verdict_count_label.text = "0 records"
+            return []
+        all_rows = self.current_eval.review_rows
+        shown_rows = filter_verdict_rows(
+            all_rows, anomalies_only=self.anomalies_only
+        )
+        self.verdict_table.rows = shown_rows
+        self.verdict_table.update()
+        if self.anomalies_only:
+            self.verdict_count_label.text = (
+                f"{len(shown_rows):,} anomalies of {len(all_rows):,} records"
+            )
+        else:
+            self.verdict_count_label.text = f"{len(all_rows):,} records"
+        return shown_rows
+
+    def _render_out_of_set_badges(
+        self, container: Any, counts: Sequence[tuple[str, int]]
+    ) -> None:
+        ui = self._ui
+        container.clear()
+        with container:
+            if not counts:
+                ui.label("None (0 out-of-set verdicts)").classes(
+                    "text-xs text-secondary-token"
+                )
+                return
+            for value, count in counts:
+                with ui.row().classes(
+                    "items-center gap-1.5 px-2.5 py-1 rounded-md surface-subtle border-token no-wrap"
+                ):
+                    ui.label(value).classes("text-xs font-medium mono")
+                    ui.label(f"×{count}").classes("info-tag tag-warning")
+
+    def _render_metrics_dashboard(self, eval_view: InferenceEvaluationView) -> None:
+        ui = self._ui
+        report = eval_view.score_report
+        if report is None:
+            self.dashboard_card.set_visibility(False)
+            return
+
+        self.dashboard_card.set_visibility(True)
+        self.dashboard_source_tag.text = f"Source: {report['source']}"
+
+        active_block = (
+            report["exact_metrics"] if self.exact_only else report["inclusive_metrics"]
+        )
+        alt_block = (
+            report["inclusive_metrics"] if self.exact_only else report["exact_metrics"]
+        )
+        alt_prefix = "Inclusive" if self.exact_only else "Exact only"
+
+        self.accuracy_value_label.text = f"{active_block['accuracy'] * 100:.2f}%"
+        self.accuracy_sub_label.text = (
+            f"{alt_prefix}: {alt_block['accuracy'] * 100:.2f}% ({active_block['accuracy']:.4f})"
+        )
+
+        self.macro_f1_value_label.text = f"{active_block['macro_f1']:.4f}"
+        self.macro_f1_sub_label.text = (
+            f"{alt_prefix}: {alt_block['macro_f1']:.4f} · Weighted: {active_block['weighted_f1']:.4f}"
+        )
+
+        records = report["records"]
+        self.empty_rate_value_label.text = f"{report['empty_rate'] * 100:.2f}%"
+        self.empty_rate_sub_label.text = f"{report['empty']:,} / {records:,} empty"
+
+        invalid_total = (
+            report["empty"]
+            + report["out_of_set"]
+            + report["unparsed"]
+            + report["unfinished"]
+        )
+        self.invalid_rate_value_label.text = f"{report['invalid_rate'] * 100:.2f}%"
+        self.invalid_rate_sub_label.text = (
+            f"{invalid_total:,} / {records:,} invalid"
+            + (
+                f" ({report['unfinished']:,} unfinished)"
+                if report["unfinished"] > 0
+                else ""
+            )
+        )
+
+        # Six kind counts strip
+        self.kind_counts_row.clear()
+        with self.kind_counts_row:
+            kind_items = [
+                ("Exact", report["exact"], "tag-success"),
+                ("Recovered", report["recovered"], "tag-info"),
+                ("Empty", report["empty"], "tag-error" if report["empty"] else "tag-neutral"),
+                ("Out-of-Set", report["out_of_set"], "tag-warning" if report["out_of_set"] else "tag-neutral"),
+                ("Unparsed", report["unparsed"], "tag-error" if report["unparsed"] else "tag-neutral"),
+                ("Unfinished", report["unfinished"], "tag-warning" if report["unfinished"] else "tag-neutral"),
+            ]
+            for label, count, cls in kind_items:
+                with ui.row().classes("items-baseline gap-1 no-wrap"):
+                    ui.label(f"{label}:").classes("text-secondary-token font-medium")
+                    ui.label(f"{count:,}").classes(f"font-bold {cls}")
+
+        # Per-class P / R / F1 table
+        self.per_class_container.clear()
+        confusion = active_block["confusion"]
+        with self.per_class_container:
+            with ui.column().classes("w-full gap-0 rounded-md border-token overflow-hidden"):
+                with ui.row().classes(
+                    "w-full items-center px-3 py-1.5 surface-subtle divider-b text-[11px] font-semibold text-secondary-token no-wrap"
+                ):
+                    ui.label("Class").classes("flex-1 min-w-[90px]")
+                    ui.label("Precision").classes("w-16 text-right")
+                    ui.label("Recall").classes("w-16 text-right")
+                    ui.label("F1").classes("w-16 text-right")
+                    ui.label("Support").classes("w-16 text-right")
+                for label in report["labels"]:
+                    support = sum(confusion[label].values())
+                    with ui.row().classes(
+                        "w-full items-center px-3 py-2 divider-b phase-row text-xs no-wrap"
+                    ):
+                        ui.label(label).classes("flex-1 min-w-[90px] font-semibold truncate")
+                        ui.label(f"{active_block['precision'][label]:.4f}").classes(
+                            "w-16 text-right mono"
+                        )
+                        ui.label(f"{active_block['recall'][label]:.4f}").classes(
+                            "w-16 text-right mono"
+                        )
+                        ui.label(f"{active_block['f1'][label]:.4f}").classes(
+                            "w-16 text-right mono font-semibold"
+                        )
+                        ui.label(f"{support:,}").classes(
+                            "w-16 text-right mono text-secondary-token"
+                        )
+
+        # 3x4 Confusion Matrix (Gold rows x Predicted columns + __INVALID__)
+        self.confusion_container.clear()
+        pred_columns = [*report["labels"], INVALID_LABEL]
+        with self.confusion_container:
+            with ui.column().classes(
+                "w-full min-w-[420px] gap-0 rounded-md border-token overflow-hidden"
+            ):
+                with ui.row().classes(
+                    "w-full items-center px-3 py-1.5 surface-subtle divider-b text-[11px] font-semibold text-secondary-token no-wrap"
+                ):
+                    ui.label("Gold \\ Pred").classes("flex-1 min-w-[90px]")
+                    for col in pred_columns:
+                        col_label = "Invalid" if col == INVALID_LABEL else col
+                        ui.label(col_label).classes(
+                            "w-20 text-right truncate"
+                        ).tooltip(col)
+                for gold_label in report["labels"]:
+                    row_counts = confusion[gold_label]
+                    with ui.row().classes(
+                        "w-full items-center px-3 py-2 divider-b phase-row text-xs no-wrap"
+                    ):
+                        ui.label(gold_label).classes(
+                            "flex-1 min-w-[90px] font-semibold truncate"
+                        )
+                        for col in pred_columns:
+                            val = row_counts.get(col, 0)
+                            if col == gold_label and val > 0:
+                                val_cls = "w-20 text-right mono font-bold tag-success"
+                            elif col == INVALID_LABEL and val > 0:
+                                val_cls = "w-20 text-right mono font-semibold tag-error"
+                            elif val > 0:
+                                val_cls = "w-20 text-right mono font-semibold tag-warning"
+                            else:
+                                val_cls = "w-20 text-right mono text-secondary-token"
+                            ui.label(f"{val:,}").classes(val_cls)
+
+        # Out-of-set value counts
+        self._render_out_of_set_badges(
+            self.out_of_set_container, eval_view.out_of_set_counts
+        )
+
+    def _render_evaluation(self, eval_view: InferenceEvaluationView) -> None:
+        self.current_eval = eval_view
+        if not eval_view.available:
+            self.eval_section.set_visibility(False)
+            self.export_md_button.set_visibility(False)
+            self.save_run_button.text = "Save Run"
+            return
+
+        self.eval_section.set_visibility(True)
+        settings = eval_view.settings
+        eos_desc = repr(settings.eos_token) if settings.eos_token else "auto"
+        source_desc = eval_view.source or "—"
+        self.eval_context_label.text = (
+            f"Marker: {settings.marker!r} · Labels: {', '.join(settings.labels)} · "
+            f"EOS: {eos_desc} · Source: {source_desc}"
+        )
+
+        # Gold status message
+        if eval_view.error_message:
+            self.gold_status_icon.name = "error_outline"
+            self.gold_status_icon.props("color=negative")
+            self.gold_status_label.text = eval_view.error_message
+            self.gold_status_label.classes(
+                replace="text-xs font-medium text-red-600 dark:text-red-400 min-w-0 break-all"
+            )
+        elif eval_view.score_report is not None:
+            gold_src = self.uploaded_gold_name or eval_view.gold_path or "gold labels"
+            self.gold_status_icon.name = "check_circle_outline"
+            self.gold_status_icon.props("color=positive")
+            self.gold_status_label.text = (
+                f"Scored against {eval_view.gold_count:,} gold labels ({gold_src})."
+            )
+            self.gold_status_label.classes(
+                replace="text-xs font-medium text-secondary-token min-w-0 break-all"
+            )
+        else:
+            self.gold_status_icon.name = "info_outline"
+            self.gold_status_icon.props("color=primary")
+            self.gold_status_label.text = (
+                eval_view.gold_notice
+                or "Gold labels not loaded yet. Enter a local path or upload a JSON/JSONL file."
+            )
+            self.gold_status_label.classes(
+                replace="text-xs text-secondary-token min-w-0 break-all"
+            )
+
+        # Single-table warning banner
+        has_single_table = TABLE_ONLY_SINGLE_TABLE in eval_view.warnings
+        self.single_table_banner.set_visibility(has_single_table)
+
+        # Incomplete run banner
+        report = eval_view.score_report
+        if report is not None and not report["complete"]:
+            self.incomplete_banner_label.text = (
+                f"Incomplete run: {report['unfinished']:,} of {report['records']:,} records unfinished "
+                f"({report['records'] - report['unfinished']:,} completed). "
+                f"All metrics remain scored over the full {report['records']:,}-record gold denominator."
+            )
+            self.incomplete_banner.set_visibility(True)
+        else:
+            self.incomplete_banner.set_visibility(False)
+
+        # Metrics dashboard & save/export button states
+        if report is not None:
+            self._render_metrics_dashboard(eval_view)
+            self.unscored_oos_card.set_visibility(False)
+            self.save_run_button.text = "Save Run & Score"
+            self.export_md_button.set_visibility(True)
+        else:
+            self.dashboard_card.set_visibility(False)
+            self.save_run_button.text = "Save Run"
+            self.export_md_button.set_visibility(False)
+            if eval_view.verdicts and eval_view.out_of_set_counts:
+                self._render_out_of_set_badges(
+                    self.unscored_oos_container, eval_view.out_of_set_counts
+                )
+                self.unscored_oos_card.set_visibility(True)
+            else:
+                self.unscored_oos_card.set_visibility(False)
+
+        # Verdict review table
+        if eval_view.output_format is not None and not has_single_table and eval_view.review_rows:
+            self.verdict_table_card.set_visibility(True)
+            self._refresh_verdict_table()
+        else:
+            self.verdict_table_card.set_visibility(False)
+            self.verdict_table.rows = []
+            self.verdict_table.update()
+
+    def save_current_run(self) -> str | None:
+        """Persist the current ParseResult (and ScoreReport when present) via ``app/store.py``."""
+        if self.current_summary is None:
+            self._safe_notify("No parsed run loaded to save.", type="warning")
+            return None
+
+        result = dict(self.current_summary.raw)
+        if not result.get("source_path") and self.current_log_path:
+            result["source_path"] = self.current_log_path
+
+        source_path = result.get("source_path")
+        if not source_path or not Path(str(source_path)).is_file():
+            self._safe_notify(
+                "Cannot save run: source log file is unavailable on disk.",
+                type="negative",
+            )
+            return None
+
+        try:
+            run_id = self._insert_run_fn(result, self.selected_config_id)
+            report = self.current_score_report
+            if report is not None:
+                self._upsert_score_fn(run_id, dict(report))
+        except Exception as exc:
+            self._safe_notify(f"Failed to save run: {exc}", type="negative")
+            return None
+
+        self.last_saved_run_id = run_id
+        if report is not None:
+            status_msg = f"Saved run {run_id[:8]} + score"
+        else:
+            status_msg = f"Saved run {run_id[:8]} (run only)"
+        self.save_status_label.text = status_msg
+        self.save_status_label.classes(
+            replace="text-[11px] font-semibold tag-success"
+        )
+        self.save_status_label.set_visibility(True)
+        self._safe_notify(status_msg, type="positive")
+        return run_id
+
+    def export_markdown_report(self) -> str | None:
+        """Render the current ScoreReport as Markdown and open the preview dialog."""
+        report = self.current_score_report
+        if report is None:
+            self._safe_notify(
+                "Score the inference run with gold labels before exporting.",
+                type="warning",
+            )
+            return None
+        md = render_report_markdown(report)
+        self.last_markdown_report = md
+        self.md_code.content = md
+        try:
+            self.md_dialog.open()
+        except Exception:
+            pass
+        return md
+
+    def _download_markdown_report(self) -> None:
+        md = self.last_markdown_report
+        if md is None and self.current_score_report is not None:
+            md = render_report_markdown(self.current_score_report)
+            self.last_markdown_report = md
+        if md is None:
+            return
+        stem = Path(self.current_source_name or self.current_log_path or "score_report").stem
+        try:
+            self._ui.download(md.encode("utf-8"), filename=f"{stem}_score_report.md")
+        except Exception:
+            pass
 
     def render_result(
         self,
@@ -1104,8 +2459,10 @@ class ResultsPanel:
         *,
         source_name: str | None = None,
         alert_index: int = 0,
+        eval_view: InferenceEvaluationView | None = None,
+        preserve_save_status: bool = False,
     ) -> ResultSummaryView:
-        """Render a :class:`ParseResult` into the Summary card using standard project typography."""
+        """Render a :class:`ParseResult` into the Summary card and inference dashboard."""
         ui = self._ui
         summary = build_result_summary(result)
         self.current_summary = summary
@@ -1252,6 +2609,29 @@ class ResultsPanel:
         else:
             self.alert_container.set_visibility(False)
 
+        if not preserve_save_status:
+            self.last_saved_run_id = None
+            self.save_status_label.set_visibility(False)
+
+        if eval_view is None:
+            settings = self._resolve_active_settings()
+            if summary.family == "inference":
+                log_path = result.get("source_path") or self.current_log_path
+                gold_path, gold_notice = self._current_gold_resolution(settings)
+                eval_view = evaluate_inference_log(
+                    result,
+                    log_path,
+                    settings=settings,
+                    gold_path=gold_path,
+                    gold_notice=gold_notice,
+                )
+            else:
+                eval_view = InferenceEvaluationView(
+                    available=False, settings=settings
+                )
+
+        self._render_evaluation(eval_view)
+
         return summary
 
 
@@ -1259,13 +2639,23 @@ def build_results_panel(
     container: Any,
     *,
     list_configs_fn: Callable[[], Sequence[Mapping[str, Any]]] | None = None,
+    get_config_fn: Callable[[str], Any] | None = None,
+    insert_run_fn: Callable[[dict[str, Any], str | None], str] | None = None,
+    upsert_score_fn: Callable[[str, dict[str, Any]], None] | None = None,
+    get_score_fn: Callable[[str], dict[str, Any] | None] | None = None,
     parse_fn: Callable[[str | Path], ParseResult] = parse_log_file,
     initial_result: ParseResult | None = None,
+    db_path: str | Path | None = None,
 ) -> ResultsPanel:
-    """Mount the Milestone 1.5 Run Results panel inside ``container``."""
+    """Mount the Run Results panel inside ``container``."""
     return ResultsPanel(
         container=container,
         list_configs_fn=list_configs_fn,
+        get_config_fn=get_config_fn,
+        insert_run_fn=insert_run_fn,
+        upsert_score_fn=upsert_score_fn,
+        get_score_fn=get_score_fn,
         parse_fn=parse_fn,
         initial_result=initial_result,
+        db_path=db_path,
     )
