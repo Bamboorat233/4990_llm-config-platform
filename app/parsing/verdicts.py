@@ -1,313 +1,950 @@
-"""Verdict extraction and normalisation for inference logs (issue #34).
+"""Extract and normalise the verdict printed by a fact-check inference run.
 
-Extracts one 0-based ``VerdictRecord`` per *completed* output.  The result
-shape is compatible with ``app.scoring.score_verdicts``; this module does not
-import the scoring engine or a UI.
+One log yields one :class:`app.scoring.VerdictRecord` per gold index:
+``{"index", "raw", "parsed", "kind"}``. ``index`` is the 0-based position in
+the gold set, ``raw`` is the decoded text (first line, capped at 500
+characters) so the UI can show it, ``parsed`` is the normalised value
+(``None`` for ``empty`` and ``unparsed``) and ``kind`` is one of the five
+kinds below. The module never emits ``unfinished``: scoring adds that for
+missing indices.
 
-Layouts:
-* banner: ``INPUTS`` / ``OUTPUT`` blocks, last response marker per block;
-* think: decoded outputs followed by two script verdict tables;
-* table_only: the second (final) script verdict table.
+Layouts
+-------
+``banner`` (logs 02, 03, 05 and 15, produced by ``inferenceMistral.py``)
+    Each record is an ``OUTPUT`` block that echoes the prompt and then the
+    generation. The prompt echo means the marker can occur more than once, so
+    the value is the text after the *last* marker in the block (``rfind``, as
+    ``inferenceMistral.py`` does). A block closed by a later banner that
+    holds no marker is the literal ``No response`` and is ``empty``. The
+    block still open at end of file is dropped unless it holds a
+    ``### Response:`` line, so a record the run never finished stays missing.
+    Some runs append a bare list of every response after the last ``OUTPUT``
+    block, so the list belongs to the block still open at end of file. It
+    holds one line per record (a marker line, or the literal ``No response``
+    for a record without a verdict), so it is removed by length: this
+    block's trailing run of such lines must hold at least one more line than
+    the records already emitted, and exactly that many lines are dropped.
+    Blocks closed by a later banner never hold the list.
+``think`` (log 04)
+    The decoded record contains a prompt echo and then the generation after
+    ``### Response:``. The verdict is the text after the last ``Verdict: `` in
+    the generation, so the prompt's ``Verdict: <verdict>`` cannot be mistaken
+    for an answer. Two ``N | ...`` tables follow the records: the first is the
+    script's first pass and the second is its final output. The decoded record
+    is the primary source; the final table resolves the indices where the
+    decoded record carries no verdict (the script's fallback). The table is
+    the *final* table only when two tables were printed; with a single table
+    the decoded records are the source.
+``table_only`` (log 07)
+    There is no prompt echo and no decoded record in the log. The second
+    (final) script table is the source, hence ``source="script_table"``. A
+    lone table is not treated as final, so a log that printed only one table
+    yields no records: nothing can be asserted as the final output. The
+    extractor reports that case with the machine-readable reason
+    :data:`TABLE_ONLY_SINGLE_TABLE` (see the ``warnings`` argument of
+    :func:`extract_verdicts_with_source`), so the UI can say the run was
+    killed before the final table instead of showing an unexplained empty
+    result.
 
-A script-table fallback from a placeholder to a supported label is marked
-``recovered`` rather than treating the placeholder as an empty answer.
+The script tables are **0-based**: log 04 has rows ``0`` to ``2494`` (2,495
+rows) for a gold set of 2,495 records, and log 07 has exactly the same range.
+A 1-based table would have ended at ``2495``; it does not. The index of a
+record is therefore ``row - 0``, with no offset.
+
+Five kinds (design section 3.5)
+-------------------------------
+``empty``
+    No usable text (``Empty Response``, ``No response``, the ``<verdict>``
+    instruction placeholder or nothing at all). ``parsed`` is ``None``.
+``exact``
+    The located text is one of ``labels`` before Step 1 trims it.
+``recovered``
+    The located text matches a label only after trimming (``False</s>``,
+    ``Conflicting.``) or after the script's fallback. ``parsed`` is the label.
+``out_of_set``
+    A plausible verdict outside ``labels`` (``Mostly True``, ``Half true``,
+    ``Not enough information``, ``Supports``, ``Refutes``). ``parsed`` keeps
+    the trimmed text for review.
+``unparsed``
+    Anything else; never coerced into a label. ``parsed`` is ``None`` and
+    ``raw`` keeps the text, because a filled Parsed cell would look like a
+    successful parse.
+
+Step 0, locate
+--------------
+``banner`` uses the caller's ``marker`` (``p.verdict_parse_marker``, whose
+default is ``### Response: Verdict: ``). The rule was verified against
+``inferenceMistral.py``. ``think`` and ``table_only`` follow the documented
+``Verdict: <verdict>`` rule of design section 3.5: the generated text that
+starts with the literal instruction placeholder ``Verdict: <verdict>`` is
+empty; otherwise the value is the text after the last ``Verdict: `` in the
+generation. That script (``inferenceFactCheckerThanh.py``) is **not in this
+repository**, so the rule is implemented exactly as documented in the design
+note and nothing that the logs contradict is invented.
+
+Step 1, trim
+------------
+First line only; strip trailing whitespace, the model EOS tokens (``</s>``,
+the DeepSeek ``<|end of sentence|>`` token), trailing punctuation and a
+leading ``Verdict: ``.
+
+Completeness
+------------
+Whether a record is present is decided from evidence inside the stream, not
+from the run's termination status (design section 3.4). The rules are the
+same whether or not the caller supplies ``layout``.
+
+``banner``
+    A block closed by a later banner (``INPUTS``, ``OUTPUT``, ``VERDICTS``)
+    is **always** a record, even when it holds no marker; the marker-less
+    block is the literal ``No response`` and ``empty``. The block still open
+    at end of file is a record only when it contains a ``### Response:``
+    line. A marker test on every block would lose the marker-less records the
+    script completed (log 02 and log 15 each have such records).
+
+``think``
+    A decoded block is a record only when ``Done Decoding`` was seen for it
+    and the block contains a ``### Response:`` line. In the real logs the
+    phase line precedes ``Decoded output:``, so the flag is carried into the
+    block. Requiring only ``Done Decoding`` would invent an ``empty`` record
+    in the short window between that phase line and the decoded text. A block
+    still open at end of file goes through the same test as a block closed by
+    the next record: it is a record only when both ``Done Decoding`` and a
+    response line were seen. A kill that cut the tail before the response
+    line therefore leaves the record missing; a response line the kill did
+    write keeps it, and Step 2 classifies the partial value.
+
+A record the run never finished must stay *missing*, because scoring counts a
+missing index as ``unfinished`` whereas an ``empty`` record is an answer the
+model never gave. The absence of a response line in the final open banner
+block, or of ``Done Decoding`` plus a response in the final open think block,
+is that evidence: the record is dropped.
+
+Scoring
+-------
+:func:`extract_verdicts_with_source` returns the ``source`` that
+:func:`app.scoring.score_verdicts` requires (``"parsed"`` for ``banner`` and
+``think``, ``"script_table"`` for ``table_only``) together with the
+records; callers must pass it to ``score_verdicts(source=...)`` or a
+``table_only`` extraction would be scored as parsed output. The
+records-only :func:`extract_verdicts` delegates to it, so the two can never
+disagree.
+
+Memory
+------
+:func:`extract_verdicts_with_source` makes one forward-only pass over the
+file (plus the ``detect()`` pass only when ``layout`` is ``None``), opened
+with ``encoding="utf-8", errors="replace", newline=None``. Only the current
+``OUTPUT``/decoded block, the two table dictionaries and one short string
+per record are retained, never the file's lines: a 200k-line log uses the
+same memory as a 200-line one plus the records that are returned anyway.
+
+Nothing here imports NiceGUI: parsing runs in a worker thread and from the
+command line.
 """
 
 from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import Final, Literal, Sequence, TypedDict
+from typing import Final, Literal, Sequence
 
-__all__ = ["VerdictRecord", "VerdictKind", "normalize_verdict", "extract_verdicts"]
+from app.parsing.detect import detect
+from app.parsing.errors import TOKENIZING_INPUTS
+from app.scoring import VerdictKind, VerdictRecord
 
-VerdictKind = Literal["exact", "recovered", "empty", "out_of_set", "unparsed"]
-OutputFormat = Literal["banner", "think", "table_only"]
+__all__ = [
+    "OutputLayout",
+    "TABLE_ONLY_SINGLE_TABLE",
+    "VerdictSource",
+    "extract_verdicts",
+    "extract_verdicts_with_source",
+    "verdict_source",
+]
 
+OutputLayout = Literal["banner", "think", "table_only"]
+VerdictSource = Literal["parsed", "script_table"]
 
-class VerdictRecord(TypedDict):
-    index: int
-    raw: str
-    parsed: str | None
-    kind: VerdictKind
+#: Machine-readable reason reported for a ``table_only`` log that printed a
+#: single script table. A lone table is not the final output, so there are no
+#: records to assert, but an empty result alone does not tell the UI why. The
+#: caller passes a list as ``warnings`` to
+#: :func:`extract_verdicts_with_source`; the UI maps this code to its message
+#: ("the run was killed before the final table").
+TABLE_ONLY_SINGLE_TABLE: Final = "table_only_single_table"
 
+DEFAULT_LABELS: Final[tuple[str, ...]] = ("True", "False", "Conflicting")
+OUTPUT_FORMATS: Final[tuple[str, ...]] = ("banner", "think", "table_only")
 
-DEFAULT_MARKER: Final = "### Response: Verdict: "
-DEFAULT_LABELS: Final = ("True", "False", "Conflicting")
-EOS_TOKENS: Final = ("</s>", "<｜end▁of▁sentence｜>")
-# The distinction between out_of_set and unparsed is underspecified by the
-# roadmap. Keep this set explicit: never guess a supported label from prose.
-OUT_OF_SET: Final = frozenset({
-    "mostly true", "mostly false", "half true", "half false",
-    "not enough information", "partially true","partly true",
-    "supports", "refutes", "incorrect",})
+#: ``source`` per layout. The table of design section 3.5 and the contract in
+#: ``specs/interfaces.md`` section 5 rule 1.
+SOURCES: Final[dict[str, VerdictSource]] = {
+    "banner": "parsed",
+    "think": "parsed",
+    "table_only": "script_table",
+}
 
+#: Texts that carry no verdict. ``<verdict>`` is the literal placeholder of
+#: the instruction template (``Give the response in the format - Verdict:
+#: <verdict>``); a model that echoes it has not answered.
+EMPTY_TEXTS: Final[frozenset[str]] = frozenset(
+    {"", "empty response", "no response", "<verdict>"}
+)
 
-_EMPTY: Final = frozenset({"", "no response", "empty response", "<verdict>"})
-_ROW: Final = re.compile(r"^(\d+)\s*\|\s*(.*)$")
-_BANNER: Final = re.compile(r"^[*#]{5,}\s*(INPUTS|OUTPUT|VERDICTS|LENGTH)\s*[*#]{5,}$")
-_PREFIX: Final = re.compile(r"^Verdict\s*:\s*", re.IGNORECASE)
-_GENERATED_VERDICT: Final = re.compile(r"\bVerdict\s*:[ \t]*([^\r\n]*)", re.IGNORECASE)
-_TIMESTAMP: Final = re.compile(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+")
-_RANK: Final = re.compile(r"^\[rank\d+\]: ?")
+#: Model end-of-sequence tokens removed by Step 1. The second token is the
+#: DeepSeek sentence token; it is spelled with escapes so this source file
+#: stays ASCII while the CJK policy allows the fullwidth bar.
+EOS_TOKENS: Final[tuple[str, ...]] = (
+    "</s>",
+    "<\uff5cend\u2581of\u2581sentence\uff5c>",
+)
+
+#: Trailing punctuation removed by Step 1 (``Conflicting.``, ``True,``).
+TRAILING_PUNCTUATION: Final = ".,;:!?\"'"
+
+#: Verdict phrasings that are plausible but outside the label set. The list
+#: is bounded on purpose: an unrecognised sentence stays ``unparsed`` rather
+#: than being guessed into a verdict.
+OUT_OF_SET_PHRASES: Final[frozenset[str]] = frozenset(
+    {
+        "mostly true",
+        "mostly false",
+        "half true",
+        "half false",
+        "partly true",
+        "partly false",
+        "partially true",
+        "partially false",
+        "not enough information",
+        "not enough info",
+        "insufficient information",
+        "supports",
+        "supported",
+        "refutes",
+        "refuted",
+        "incorrect",
+        "mixed",
+        "true and false",
+    }
+)
+
+#: A phrase with one of these prefixes is out-of-set even when it continues
+#: (``Supports the claim``, ``Not enough evidence``).
+OUT_OF_SET_PREFIXES: Final[tuple[str, ...]] = (
+    "mostly ",
+    "half ",
+    "partly ",
+    "partially ",
+    "not enough ",
+    "supports ",
+    "supported ",
+    "refutes ",
+    "refuted ",
+)
+
+_RAW_LIMIT: Final = 500
+
+_BANNER: Final = re.compile(
+    r"^[*#]{5,}\s*(INPUTS|OUTPUT|VERDICTS|LENGTH)\s*[*#]{5,}$"
+)
+_ROW: Final = re.compile(r"^(\d+) \| (.*)$")
+_RANK_PREFIX: Final = re.compile(r"^\[rank\d+\]: ?")
+_LEADING_VERDICT: Final = re.compile(r"^Verdict:\s*", re.IGNORECASE)
+
+_DECODED_HEADER: Final = "Decoded output:"
+_DONE_DECODING: Final = "Done Decoding"
 _RESPONSE: Final = "### Response:"
+_VERDICT_PREFIX: Final = "Verdict: "
+_NO_RESPONSE: Final = "No response"
+
+#: The rule line the script prints between two records, just before the next
+#: ``Tokenizing Inputs``. No pattern for it exists in
+#: :mod:`app.parsing.errors`, so it is compiled here.
+_SEPARATOR: Final = re.compile(r"^\*{20,}$")
 
 
-def normalize_verdict(
-    raw: str, labels: Sequence[str] = DEFAULT_LABELS
-) -> tuple[str | None, VerdictKind]:
-    """Classify a *located* verdict, preserving exact-versus-cleaned status.
+def _starts_next_record(line: str, has_response: bool) -> bool:
+    """True for a line that proves the record before it was completed.
 
-    ``exact`` describes the *format*, not correctness against the gold set.
-    Never coerce an unsupported verdict into one of the configured labels.
+    The ``Tokenizing Inputs`` phase line always starts the next record. The
+    ``***`` separator printed between records also ends the current one, but
+    only once the block holds a response line: a rule of 20 asterisks inside
+    the echoed prompt must not drop the record before its answer arrives. The
+    block is a record only if ``Done Decoding`` was seen and it holds a
+    response line.
     """
-    if not isinstance(raw, str):
-        raise TypeError("raw verdict must be a string")
-    allowed = tuple(labels)
-    if raw in allowed:
-        return raw, "exact"
 
-    # First generated line only (not an explanation after a newline).
-    first = raw.splitlines()[0] if raw.splitlines() else ""
-    first = first.strip()
-    if first.casefold() in _EMPTY:
+    if line.startswith(TOKENIZING_INPUTS):
+        return True
+    return has_response and _SEPARATOR.match(line) is not None
+
+
+# ---------------------------------------------------------------------------
+# Step 1 and Step 2
+# ---------------------------------------------------------------------------
+
+
+def _first_line(text: str) -> str:
+    """Return the first line of ``text`` or an empty string."""
+
+    lines = text.splitlines()
+    return lines[0] if lines else ""
+
+
+def _cap(text: str, limit: int = _RAW_LIMIT) -> str:
+    """Cap a raw line so one pathological record cannot dominate memory."""
+
+    return text if len(text) <= limit else text[:limit]
+
+
+def _trim(value: str) -> str:
+    """Apply Step 1: first line, EOS tokens, punctuation, leading marker."""
+
+    line = _first_line(value).strip()
+    line = _LEADING_VERDICT.sub("", line, count=1).strip()
+    changed = True
+    while changed:
+        changed = False
+        for token in EOS_TOKENS:
+            if line.endswith(token):
+                line = line[: -len(token)].rstrip()
+                changed = True
+        stripped = line.rstrip(TRAILING_PUNCTUATION + " \t")
+        if stripped != line:
+            line = stripped
+            changed = True
+    return line
+
+
+def _is_out_of_set(value: str) -> bool:
+    """True for a plausible verdict phrasing outside the label set."""
+
+    folded = " ".join(value.casefold().split())
+    if folded in OUT_OF_SET_PHRASES:
+        return True
+    return any(folded.startswith(prefix) for prefix in OUT_OF_SET_PREFIXES)
+
+
+def _classify(value: str, labels: Sequence[str]) -> tuple[str | None, VerdictKind]:
+    """Classify a *located* value into ``(parsed, kind)``.
+
+    ``value`` is the text after the layout's marker (or a table cell). Step 1
+    is :func:`_trim`; Step 2 applies the five kinds in the documented order.
+    ``parsed`` is the label for ``exact``/``recovered``, ``None`` for
+    ``empty`` and ``unparsed``, and the trimmed text for ``out_of_set``
+    (out-of-set values are counted by value for review).
+    """
+
+    line = _first_line(value).strip()
+
+    # Explicit rule of issue #34: a generated text that starts with the
+    # literal instruction placeholder is the prompt echoed back, not a
+    # verdict, and is empty. This is deliberately narrower than "starts with
+    # Verdict: ": in the think layout a real answer is "Verdict: False".
+    if line.casefold().startswith("verdict: <verdict>"):
+        return None, "empty"
+    if line.casefold() in EMPTY_TEXTS:
         return None, "empty"
 
-    first = _PREFIX.sub("", first, count=1).strip()
-    if first.casefold() in _EMPTY:
-        return None, "empty"
-    for token in EOS_TOKENS:
-        if first.endswith(token):
-            first = first[:-len(token)].rstrip()
-    cleaned = first.rstrip("\t \r\n.!?:;,\"").strip()
-    if cleaned.casefold() in _EMPTY:
-        return None, "empty"
+    # Rule 2: exact is decided before Step 1 removes EOS tokens or
+    # punctuation. Surrounding whitespace is line handling, not trimming.
+    if line in labels:
+        return line, "exact"
 
-    for label in allowed:
-        if cleaned.casefold() == label.casefold():
+    trimmed = _trim(line)
+    if trimmed.casefold() in EMPTY_TEXTS:
+        return None, "empty"
+    for label in labels:
+        if trimmed.casefold() == label.casefold():
             return label, "recovered"
-    if cleaned.casefold() in OUT_OF_SET:
-        return None, "out_of_set"
+    if _is_out_of_set(trimmed):
+        return trimmed, "out_of_set"
     return None, "unparsed"
 
 
-def _record(index: int, raw: str, labels: Sequence[str]) -> VerdictRecord:
-    parsed, kind = normalize_verdict(raw, labels)
-    return {"index": index, "raw": raw, "parsed": parsed, "kind": kind}
+def _record(
+    index: int, raw: str, parsed: str | None, kind: VerdictKind
+) -> VerdictRecord:
+    """Build one record with exactly the keys of ``VerdictRecord``.
 
-
-def _banner_text(block: list[str], marker: str) -> str:
-    """Extract from a single OUTPUT block, excluding trailing bare lists.
-
-    Some logs append 2,495 bare ``### Response`` rows after the *last*
-    decoded output with no separating banner. Two consecutive response rows
-    mark that list, not two additional records. Keep the first row and then
-    apply rfind to that OUTPUT block (the script's rule).
+    ``raw`` is the untrimmed first line of the located text, capped: Step 1
+    has not removed tokens or punctuation from it, so the UI can show what
+    the model actually printed.
     """
-    response_marker = marker if marker else DEFAULT_MARKER
-    cutoff = len(block)
-    for i in range(len(block) - 1):
-        if block[i].startswith(response_marker) and block[i + 1].startswith(response_marker):
-            cutoff = i + 1
-            break
-    text = "\n".join(block[:cutoff])
-    pos = text.rfind(response_marker)
-    return "No response" if pos < 0 else text[pos + len(response_marker):].splitlines()[0].strip()
+
+    return {
+        "index": index,
+        "raw": _cap(_first_line(raw)),
+        "parsed": parsed,
+        "kind": kind,
+    }
 
 
-def _banner_verdicts(
-    lines, marker: str, labels: Sequence[str]
-) -> list[VerdictRecord]:
-    result: list[VerdictRecord] = []
-    output: list[str] = []
-    inside = False
-    saw_response = False
+def _table_cell(cell: str | None) -> str:
+    """Strip the first-pass table's own ``Verdict: `` formatting.
 
-    def close(complete: bool) -> None:
-        nonlocal output, inside, saw_response
-        if inside and complete:
-            result.append(_record(len(result), _banner_text(output, marker), labels))
-        output = []
-        inside = False
-        saw_response = False
+    The first script table prints ``12 | Verdict: Conflicting``; the prefix is
+    the table's layout, not part of the model's answer. The second table has
+    bare values already, so this is a no-op there.
+    """
 
+    if cell is None:
+        return ""
+    return _LEADING_VERDICT.sub("", cell.strip(), count=1).strip()
+
+
+# ---------------------------------------------------------------------------
+# Layout resolution
+# ---------------------------------------------------------------------------
+
+
+def verdict_source(layout: str) -> VerdictSource:
+    """Return the ``ScoreReport`` source for ``layout``.
+
+    ``banner`` and ``think`` produce verdicts from the decoded records
+    (``"parsed"``); ``table_only`` has no decoded record in the log, so the
+    script's second table is the source (``"script_table"``). An unknown
+    layout is a caller error.
+    """
+
+    try:
+        return SOURCES[layout]
+    except KeyError:
+        raise ValueError(
+            f"unknown output layout {layout!r}; expected one of "
+            f"{list(OUTPUT_FORMATS)!r}"
+        ) from None
+
+
+def _resolve_layout(path: str | Path, layout: OutputLayout | None) -> OutputLayout:
+    """Use the caller's layout or ask :func:`detect` for one.
+
+    :func:`detect` is consulted only when ``layout`` is ``None`` and exists
+    only to resolve the layout, not to decide completeness. The records are
+    therefore identical whether or not the caller passes ``layout``; an
+    explicit layout merely skips the extra pass.
+    """
+
+    if layout is not None:
+        if layout not in OUTPUT_FORMATS:
+            raise ValueError(
+                f"unknown output layout {layout!r}; expected one of "
+                f"{list(OUTPUT_FORMATS)!r}"
+            )
+        return layout
+
+    result = detect(path)
+    detected = result.get("output_format")
+    if detected is None:
+        raise ValueError(
+            f"{path!s} has no inference output format; the log never reached "
+            "the generation stage. Pass layout=... only when the layout is "
+            "known independently."
+        )
+    if detected not in OUTPUT_FORMATS:
+        raise ValueError(f"detect() reported an unsupported layout: {detected!r}")
+    return detected  # type: ignore[return-value]
+
+
+# ---------------------------------------------------------------------------
+# banner
+# ---------------------------------------------------------------------------
+
+
+def _bare_list_line(line: str, marker: str) -> bool:
+    """True for one line of the trailing bare list of every response.
+
+    The list prints one line per record: either a marker line or the literal
+    ``No response`` for a record without a verdict. Nothing else belongs to
+    it, so the first other line (the echoed prompt) ends the run.
+    """
+
+    return marker in line or line == _NO_RESPONSE
+
+
+def _banner_value(
+    block: Sequence[str],
+    marker: str,
+    *,
+    trailing_records: int | None = None,
+) -> str:
+    """Return the located value of one ``OUTPUT`` block (Step 0).
+
+    The value is the text after the *last* marker (``rfind``). Some runs
+    print a bare list of every response after the last ``OUTPUT`` block, and
+    because no later banner closes that block the list is part of it. The
+    list holds one line per record, so its length is ``trailing_records + 1``
+    (one line for every record, this one included). The block's trailing run
+    of marker/``No response`` lines must hold at least that many lines before
+    it can be a list; exactly that many lines are dropped and the search runs
+    over what remains. A shorter run is the record's own response at most,
+    never a list.
+
+    ``trailing_records`` is the number of records already emitted when this
+    block is the one still open at end of file, and ``None`` for a block a
+    later banner closed. Only the final block can hold the list, and only a
+    log with at least one earlier record can hold a list that is longer than
+    the record's own response: for a single record a one-line run is that
+    response (a lone ``No response`` list line would not make the block a
+    record at all), so it is never cut.
+    """
+
+    lines = block
+    if trailing_records is not None and trailing_records >= 1:
+        run = 0
+        for line in reversed(lines):
+            if not _bare_list_line(line, marker):
+                break
+            run += 1
+        if run >= trailing_records + 1:
+            lines = lines[: len(lines) - (trailing_records + 1)]
+
+    found: str | None = None
     for line in lines:
-        line = _RANK.sub("", line.rstrip("\r\n"))
-        section_match = _BANNER.match(line)
-        if section_match:
-            section = section_match.group(1)
-            if section == "INPUTS":
-                # The next INPUTS proves the previous OUTPUT was completed.
-                close(True)
-            elif section == "OUTPUT":
-                # A preceding LENGTH banner is not a completed record.
-                close(True)
-                inside = True
-            elif section == "VERDICTS":
-                close(True)
-            continue
-        if inside:
-            output.append(line)
-            if marker and marker in line:
-                saw_response = True
-    # A truncated last OUTPUT without a response is NOT a complete record.
-    close(saw_response)
-    return result
+        at = line.rfind(marker)
+        if at >= 0:
+            found = line[at + len(marker) :]
+    return _NO_RESPONSE if found is None else found
 
 
-def _think_answer(block: list[str]) -> str:
-    """Extract the last generated ``Verdict: ...`` after the prompt marker.
+def _banner_records(
+    path: str | Path,
+    marker: str,
+    labels: Sequence[str],
+) -> list[VerdictRecord]:
+    """One record per ``OUTPUT`` block, in file order.
 
-    Some real outputs never close ``<think>`` (and a few print a second
-    opening tag instead).  Requiring ``</think>`` loses genuine verdicts.
-    Search only *after the last* ``### Response:`` so the prompt's example
-    ``Verdict: <verdict>`` cannot be mistaken for an answer.
-
-    If no verdict is printed, use the same placeholder as the script's
-    first-pass table; its final table may still recover a prediction.
+    A block closed by a later banner is always a record, even without a
+    marker. The block still open at end of file is a record only when it
+    holds a ``### Response:`` line; otherwise the record is missing rather
+    than invented as ``empty``. The bare list of every response is only cut
+    from that final block: a closed block never holds it.
     """
-    content = "\n".join(block)
-    pos = content.rfind(_RESPONSE)
-    if pos < 0:
-        return "No response"
-    generated = content[pos + len(_RESPONSE):]
-    matches = list(_GENERATED_VERDICT.finditer(generated))
-    if matches:
-        return matches[-1].group(0).strip()
-    return "Verdict: <verdict>"
 
-
-def _timestamped_data(
-    lines, *, include_decoded: bool
-) -> tuple[list[dict[int, str]], list[str]]:
-    """One streaming pass; only two small tables and per-record answers remain.
-
-    Blocks can contain enormous echoed prompts, so at most one current block
-    is stored, never every line of the log. A table index reset begins the
-    second (final) script table. Only completed ``Done Decoding`` records
-    contribute decoded answers, and rows do not count as new records.
-    """
-    tables: list[dict[int, str]] = []
-    answers: list[str] = []
-    previous_index: int | None = None
+    records: list[VerdictRecord] = []
     block: list[str] = []
-    started = False
-    decoded = False
+    inside = False
+
+    def close(*, final: bool = False) -> None:
+        nonlocal block, inside
+        if not inside:
+            return
+        value = _banner_value(
+            block,
+            marker,
+            trailing_records=len(records) if final else None,
+        )
+        parsed, kind = _classify(value, labels)
+        records.append(_record(len(records), value, parsed, kind))
+        block = []
+        inside = False
+
+    with open(path, encoding="utf-8", errors="replace", newline=None) as handle:
+        for raw_line in handle:
+            line = raw_line.rstrip("\r\n")
+            match = _RANK_PREFIX.match(line)
+            if match:
+                line = line[match.end() :]
+
+            banner = _BANNER.match(line)
+            if banner is not None:
+                section = banner.group(1)
+                if section == "OUTPUT":
+                    close()
+                    inside = True
+                    block = []
+                elif inside and section in ("INPUTS", "VERDICTS"):
+                    # The next INPUTS (or the VERDICTS section) proves this
+                    # OUTPUT block was completed.
+                    close()
+                continue
+
+            if inside:
+                block.append(line)
+
+    # The final open block is a record only when the model printed a response
+    # line. Without one the run never finished the record, so it stays
+    # missing and scoring reports it as ``unfinished``.
+    if inside and any(line.startswith(_RESPONSE) for line in block):
+        close(final=True)
+    return records
+
+
+# ---------------------------------------------------------------------------
+# think / table_only
+# ---------------------------------------------------------------------------
+
+
+def _think_value(block: Sequence[str]) -> str:
+    """Return the located value of one decoded record (Step 0 for think).
+
+    Only the text after the last ``### Response:`` is searched, so the
+    ``Verdict: <verdict>`` in the echoed prompt is never an answer. The value
+    is the text after the last ``Verdict: `` in the generation; when there is
+    none, the first non-empty generated line is returned, stripped, as raw
+    evidence for the UI while Step 2 reports ``empty``.
+    """
+
+    content = "\n".join(block)
+    at = content.rfind(_RESPONSE)
+    if at < 0:
+        return _NO_RESPONSE
+    generated = content[at + len(_RESPONSE) :]
+
+    marker_at = generated.rfind(_VERDICT_PREFIX)
+    if marker_at >= 0:
+        return generated[marker_at + len(_VERDICT_PREFIX) :]
+
+    for line in generated.splitlines():
+        if line.strip():
+            # The space that follows ``### Response:`` is layout, not text;
+            # stripping it cannot change a classification, which strips the
+            # first line too.
+            return line.strip()
+    return _NO_RESPONSE
+
+
+def _scan_timestamped(
+    path: str | Path,
+    *,
+    collect_decoded: bool,
+) -> tuple[list[dict[int, str]], list[str]]:
+    """One streaming pass over a ``think``/``table_only`` log.
+
+    Returns the tables in file order (a new table starts when the row index
+    stops increasing) and, when requested, one located value per decoded
+    record. Only the current record block is buffered.
+
+    A decoded record is a record only when ``Done Decoding`` was seen for it
+    (the line precedes the ``Decoded output:`` header in the real logs) and
+    its block holds a ``### Response:`` line. The next record's
+    ``Tokenizing Inputs`` phase line closes the block; the ``***`` separator
+    also closes it, but only once the block holds a response line, so a rule
+    of 20 asterisks inside the echoed prompt cannot drop the record. The
+    ``Done Decoding`` flag belongs to one record only: it is cleared at every
+    ``Tokenizing Inputs`` line, so a stray phase line cannot carry into the
+    next block. A block still open at end of file goes through the same test,
+    so a record the run never finished stays missing.
+    """
+
+    tables: list[dict[int, str]] = []
+    decoded: list[str] = []
+    block: list[str] = []
+    inside = False
+    has_response = False
+    has_done_decoding = False
+    # ``Done Decoding`` is printed *before* the ``Decoded output:`` header in
+    # the real logs, so the phase flag is carried into the block the header
+    # opens. A synthetic record that prints it inside the block also counts.
+    pending_done_decoding = False
+    previous_index: int | None = None
 
     def close() -> None:
-        nonlocal block, started, decoded
-        if include_decoded and started and decoded:
-            answers.append(_think_answer(block))
+        nonlocal block, inside, has_response, has_done_decoding
+        if collect_decoded and inside and has_response and has_done_decoding:
+            decoded.append(_think_value(block))
         block = []
-        started = False
-        decoded = False
+        inside = False
+        has_response = False
+        has_done_decoding = False
 
-    for item in lines:
-        line = _RANK.sub("", item.rstrip("\r\n"))
-        row = _ROW.fullmatch(line.strip())
-        if row:
-            if started:
+    with open(path, encoding="utf-8", errors="replace", newline=None) as handle:
+        for raw_line in handle:
+            line = raw_line.rstrip("\r\n")
+            match = _RANK_PREFIX.match(line)
+            if match:
+                line = line[match.end() :]
+
+            row = _ROW.match(line)
+            if row is not None:
+                # A table row always ends the current decoded record; the
+                # fallback bodies the script prints between rows are not
+                # records and are ignored because no record is open.
                 close()
-            index = int(row.group(1))
-            if not tables or (previous_index is not None and index <= previous_index):
-                tables.append({})
-            tables[-1][index] = row.group(2).strip()
-            previous_index = index
-            continue
+                index = int(row.group(1))
+                value = row.group(2).strip()
+                if not tables or (
+                    previous_index is not None and index <= previous_index
+                ):
+                    tables.append({})
+                tables[-1][index] = value
+                previous_index = index
+                continue
 
-        if line.startswith("Tokenizing Inputs") and _TIMESTAMP.match(line.split(":", 1)[-1].strip()):
-            close()
-            started = True
-        elif started and line.startswith("Done Decoding") and _TIMESTAMP.match(line.split(":", 1)[-1].strip()):
-            decoded = True
-        if include_decoded and started:
-            block.append(line)
+            if line.startswith(_DECODED_HEADER):
+                close()
+                inside = True
+                block = []
+                has_done_decoding = pending_done_decoding
+                pending_done_decoding = False
+                continue
+
+            if line.startswith(TOKENIZING_INPUTS):
+                # A phase line always belongs to a new record, so a stray
+                # ``Done Decoding`` seen since the last one must not carry
+                # into the block whose ``Decoded output:`` follows.
+                pending_done_decoding = False
+                if inside:
+                    # The next record has begun, so this one is complete even
+                    # though its closing ``Decoded output:`` has not arrived.
+                    close()
+                continue
+
+            if inside and _starts_next_record(line, has_response):
+                close()
+                continue
+
+            if inside:
+                block.append(line)
+                if line.startswith(_RESPONSE):
+                    has_response = True
+                elif line.startswith(_DONE_DECODING):
+                    has_done_decoding = True
+            elif line.startswith(_DONE_DECODING):
+                # Belongs to the record whose ``Decoded output:`` follows.
+                pending_done_decoding = True
+
     close()
-    return tables, answers
+    return tables, decoded
 
 
-def _final_table_verdict(
+def _table_row_record(
     index: int,
-    first_pass: str | None,
+    first_cell: str | None,
     final_value: str,
     labels: Sequence[str],
-    *,
-    original: str | None,
 ) -> VerdictRecord:
-    """Use the script's final verdict, preserving any fallback recovery."""
-    raw = original if original is not None else (first_pass or final_value)
-    final_parsed, final_kind = normalize_verdict(final_value, labels)
-    if final_parsed is not None:
-        # The script recovered a placeholder or otherwise unusable first
-        # pass. Preserve that fact for exact-versus-inclusive scoring.
-        previous_parsed, previous_kind = normalize_verdict(raw, labels)
-        if previous_parsed != final_parsed or previous_kind in ("empty", "unparsed", "out_of_set"):
-            return {"index": index, "raw": raw, "parsed": final_parsed, "kind": "recovered"}
-        # A table_only script reports its final, already normalised label.
-        if original is None and first_pass is not None:
-            old, old_kind = normalize_verdict(first_pass, labels)
-            if old != final_parsed or old_kind in ("empty", "out_of_set", "unparsed"):
-                return {"index": index, "raw": first_pass, "parsed": final_parsed, "kind": "recovered"}
-            if old_kind == "recovered" and first_pass.strip() not in (f"Verdict: {final_parsed}", final_parsed):
-                return {"index": index, "raw": first_pass, "parsed": final_parsed, "kind": "recovered"}
-            return {"index": index, "raw": final_value, "parsed": final_parsed, "kind": final_kind}
-        return {"index": index, "raw": raw, "parsed": final_parsed, "kind": previous_kind}
-    # The final table is authoritative, including Empty Response.
-    return {"index": index, "raw": raw, "parsed": None, "kind": final_kind}
+    """Build a record when the script tables are the (only) source.
+
+    Used for ``table_only`` and for a trimmed ``think`` excerpt whose decoded
+    records do not cover every index. The final table supplies the value; the
+    first table says whether the script's fallback had to recover it, and
+    supplies the raw first-pass text for the UI.
+    """
+
+    final_parsed, final_kind = _classify(final_value, labels)
+
+    # A trimmed excerpt may keep only some first-pass rows. Without the
+    # counterpart there is no evidence of a fallback, so the final value is
+    # classified on its own (a clean label stays exact).
+    if first_cell is None:
+        return _record(index, final_value, final_parsed, final_kind)
+
+    if final_kind == "empty":
+        return _record(index, first_cell, None, "empty")
+
+    if final_kind in ("exact", "recovered"):
+        # ``cell_kind`` is exact when the first pass already held the final
+        # label; anything else (a placeholder, punctuation or a different
+        # value) is a fallback recovery.
+        cell_parsed, cell_kind = _classify(_table_cell(first_cell), labels)
+        if cell_parsed == final_parsed and cell_kind == "exact":
+            kind: VerdictKind = "exact"
+        else:
+            kind = "recovered"
+        return _record(index, first_cell, final_parsed, kind)
+
+    # Out-of-set or unparsed in the script's own final table.
+    return _record(index, first_cell, final_parsed, final_kind)
+
+
+def _think_records(
+    path: str | Path, labels: Sequence[str]
+) -> list[VerdictRecord]:
+    """Records for a ``think`` log, decoded record first, final table next.
+
+    The script tables are the fallback only when two of them were printed:
+    a lone table is not the final output, so the decoded records are used
+    instead.
+    """
+
+    tables, decoded = _scan_timestamped(path, collect_decoded=True)
+
+    if len(tables) < 2:
+        # A lone table is not a final table. The decoded records are the
+        # source; a block is a record only when ``Done Decoding`` was seen
+        # and it holds a response line.
+        return [
+            _record(index, value, *_classify(value, labels))
+            for index, value in enumerate(decoded)
+        ]
+
+    first = tables[0]
+    final = tables[-1]
+    indices = sorted(final)
+
+    # Decoded records align by position only when the excerpt kept all of
+    # them, which is the case for a full log and never for a trimmed fixture.
+    aligned = len(decoded) == len(indices) and indices == list(range(len(indices)))
+
+    records: list[VerdictRecord] = []
+    for index in indices:
+        final_value = final[index]
+
+        if not aligned:
+            # A trimmed excerpt: the script tables are the only complete
+            # source, exactly as for table_only.
+            records.append(
+                _table_row_record(index, first.get(index), final_value, labels)
+            )
+            continue
+
+        final_parsed, final_kind = _classify(final_value, labels)
+        primary_raw = decoded[index]
+        primary_parsed, primary_kind = _classify(primary_raw, labels)
+
+        if final_kind == "empty":
+            records.append(_record(index, primary_raw, None, "empty"))
+            continue
+
+        if final_kind in ("exact", "recovered"):
+            if primary_parsed == final_parsed and primary_kind in (
+                "exact",
+                "recovered",
+            ):
+                # The decoded record already carries the final value; keep
+                # its exact-versus-recovered distinction.
+                records.append(
+                    _record(index, primary_raw, primary_parsed, primary_kind)
+                )
+            else:
+                # The decoded record had no usable verdict and the final
+                # table does: this is the script's fallback (log 04: 128,
+                # 925 and 1064), so the value is recovered, not exact.
+                raw = primary_raw or first.get(index, final_value)
+                records.append(_record(index, raw, final_parsed, "recovered"))
+            continue
+
+        # Out-of-set or unparsed in the final table: keep the raw text.
+        records.append(_record(index, primary_raw, final_parsed, final_kind))
+
+    return records
+
+
+def _table_only_records(
+    path: str | Path,
+    labels: Sequence[str],
+    warnings: list[str] | None = None,
+) -> list[VerdictRecord]:
+    """Records for a ``table_only`` log: the second table is the source.
+
+    A lone table is not treated as final, so it yields no records: there is
+    no decoded record to fall back on and nothing can be asserted as the
+    script's final output. When only one table was printed, the
+    machine-readable :data:`TABLE_ONLY_SINGLE_TABLE` reason is appended to
+    ``warnings`` (if the caller supplied one) so the empty result can be
+    explained instead of looking like a parse failure.
+    """
+
+    tables, _ = _scan_timestamped(path, collect_decoded=False)
+    if len(tables) < 2:
+        if warnings is not None and len(tables) == 1:
+            warnings.append(TABLE_ONLY_SINGLE_TABLE)
+        return []
+
+    first = tables[0]
+    final = tables[-1]
+    return [
+        _table_row_record(index, first.get(index), final[index], labels)
+        for index in sorted(final)
+    ]
+
+
+# ---------------------------------------------------------------------------
+# Public entry points
+# ---------------------------------------------------------------------------
+
+
+def extract_verdicts_with_source(
+    path: str | Path,
+    *,
+    marker: str,
+    labels: Sequence[str] = DEFAULT_LABELS,
+    layout: OutputLayout | None = None,
+    source: VerdictSource | None = None,
+    warnings: list[str] | None = None,
+) -> tuple[VerdictSource, list[VerdictRecord]]:
+    """Extract records together with the ``score_verdicts`` source.
+
+    ``marker`` is the configured ``p.verdict_parse_marker`` used by the
+    ``banner`` layout. ``labels`` is ``c.label_values`` and defines the label
+    domain; a value outside it is never coerced.
+
+    When ``layout`` is ``None`` the layout is read from
+    :func:`app.parsing.detect.detect`, and ``ValueError`` is raised for an
+    inference log that never reached the output stage. ``detect()`` is used
+    only to resolve the layout: the records are identical whether or not the
+    caller passes ``layout``; an explicit layout merely skips that extra pass.
+
+    The returned ``source`` is the one the resolved layout requires:
+    ``"parsed"`` for ``banner``/``think`` and ``"script_table"`` for
+    ``table_only``. Callers must pass it to
+    :func:`app.scoring.score_verdicts`, which needs it to report where the
+    verdicts came from.
+
+    ``source`` is optional. When supplied it must equal
+    :func:`verdict_source` of the resolved layout; a mismatch is a caller
+    error, so a caller cannot label a table extraction as parsed output.
+
+    ``warnings`` is an optional list the caller passes in to receive
+    machine-readable reasons. A ``table_only`` log that printed a single
+    table yields no records (that table is not the final output) and appends
+    :data:`TABLE_ONLY_SINGLE_TABLE` to it, so the UI can explain the empty
+    result ("the run was killed before the final table") instead of showing
+    an unexplained blank. The records themselves are unchanged and stay an
+    empty list.
+
+    The function makes one streaming pass over the file (plus the layout
+    pass of ``detect`` when ``layout`` is ``None``). It raises ``ValueError``
+    for an empty marker, an unknown layout or a source mismatch, and
+    ``OSError`` for an unreadable path.
+    """
+
+    if not marker:
+        raise ValueError("marker must be a non-empty string")
+    if not labels:
+        raise ValueError("labels must not be empty")
+
+    resolved = _resolve_layout(path, layout)
+    expected = verdict_source(resolved)
+    if source is not None and source != expected:
+        raise ValueError(
+            f"source {source!r} does not match layout {resolved!r}, whose "
+            f"source is {expected!r}"
+        )
+
+    if resolved == "banner":
+        records = _banner_records(path, marker, labels)
+    elif resolved == "think":
+        records = _think_records(path, labels)
+    else:
+        records = _table_only_records(path, labels, warnings)
+    return expected, records
 
 
 def extract_verdicts(
     path: str | Path,
     *,
-    output_format: OutputFormat | None = None,
-    marker: str = DEFAULT_MARKER,
+    marker: str,
     labels: Sequence[str] = DEFAULT_LABELS,
+    layout: OutputLayout | None = None,
+    source: VerdictSource | None = None,
+    warnings: list[str] | None = None,
 ) -> list[VerdictRecord]:
-    """Extract scored-ready verdict records from one inference log.
+    """Extract one verdict record per index present in ``path``.
 
-    When ``output_format`` is omitted it is read from ``parse_log_file``.
-    The caller supplies configured ``p.verdict_parse_marker`` and
-    ``c.label_values`` to override defaults. Unfinished records are *not*
-    fabricated here; ``score_verdicts`` counts absent indices as unfinished.
-
-    For full logs the final script tables are authoritative; excerpt files
-    with omitted spans may yield only the surviving indexed records.
+    A thin wrapper around :func:`extract_verdicts_with_source` that keeps
+    only the records. Use the latter when the records are going to
+    :func:`app.scoring.score_verdicts`, because that function also needs the
+    ``source``. ``warnings`` is forwarded unchanged; see the wrapped function
+    for the reasons it can receive.
     """
-    if output_format is None:
-        from app.parsing import parse_log_file
-        output_format = parse_log_file(path)["output_format"]
-    if output_format is None:
-        return []
-    if output_format not in ("banner", "think", "table_only"):
-        raise ValueError(f"unsupported output format: {output_format!r}")
 
-    with open(path, encoding="utf-8", errors="replace", newline=None) as f:
-        if output_format == "banner":
-            return _banner_verdicts(f, marker, labels)
-        tables, decoded = _timestamped_data(
-            f, include_decoded=output_format == "think"
-        )
-
-    first = tables[0] if tables else {}
-    final = tables[-1] if len(tables) >= 2 else {}
-    if output_format == "table_only":
-        # Without both tables, no 'final' source can be asserted.
-        return [
-            _final_table_verdict(i, first.get(i), val, labels, original=None)
-            for i, val in sorted(final.items())
-        ]
-
-    if not final:
-        return [_record(i, raw, labels) for i, raw in enumerate(decoded)]
-
-    # The full log has one decoded record per table entry. In a *trimmed*
-    # fixture those records are noncontiguous: prefer the table's first pass
-    # for the missing positions rather than assigning wrong indices.
-    full_alignment = len(decoded) == len(final) and all(i in final for i in range(len(decoded)))
-    return [
-        _final_table_verdict(
-            i, first.get(i), val, labels,
-            original=decoded[i] if full_alignment else None,
-        )
-        for i, val in sorted(final.items())
-    ]
+    return extract_verdicts_with_source(
+        path,
+        marker=marker,
+        labels=labels,
+        layout=layout,
+        source=source,
+        warnings=warnings,
+    )[1]
