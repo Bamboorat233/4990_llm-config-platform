@@ -96,7 +96,7 @@ def test_log15_partial_run_uses_gold_denominator():
     gold = [LABELS[position % 3] for position in range(2495)]
     verdicts = [verdict(position, "exact", gold[position]) for position in range(2480)]
 
-    report = score_verdicts(verdicts, gold, marker=MARKER, labels=LABELS)
+    report = score_verdicts(verdicts, gold, marker=MARKER, labels=LABELS, source="parsed")
 
     assert report["records"] == 2495
     assert report["unfinished"] == 15
@@ -129,7 +129,7 @@ def test_more_verdicts_than_gold_raises_value_error():
     ]
 
     with pytest.raises(ValueError) as excinfo:
-        score_verdicts(verdicts, gold, marker=MARKER, labels=LABELS)
+        score_verdicts(verdicts, gold, marker=MARKER, labels=LABELS, source="parsed")
 
     message = str(excinfo.value)
     assert "2496" in message
@@ -147,7 +147,7 @@ def test_one_extra_verdict_for_small_gold_raises():
     ]
 
     with pytest.raises(ValueError):
-        score_verdicts(verdicts, gold, marker=MARKER, labels=LABELS)
+        score_verdicts(verdicts, gold, marker=MARKER, labels=LABELS, source="parsed")
 
 
 # ---------------------------------------------------------------------------
@@ -165,7 +165,7 @@ def test_zero_support_class_yields_zero_not_nan():
         verdict(2, "exact", "False"),
     ]
 
-    report = score_verdicts(verdicts, gold, marker=MARKER, labels=LABELS)
+    report = score_verdicts(verdicts, gold, marker=MARKER, labels=LABELS, source="parsed")
 
     assert "Conflicting" not in gold
     assert report["precision"]["Conflicting"] == 0.0
@@ -192,7 +192,7 @@ def test_zero_support_class_with_predictions_still_zero():
         verdict(1, "exact", "False"),
     ]
 
-    report = score_verdicts(verdicts, gold, marker=MARKER, labels=LABELS)
+    report = score_verdicts(verdicts, gold, marker=MARKER, labels=LABELS, source="parsed")
 
     assert report["precision"]["Conflicting"] == 0.0
     assert report["recall"]["Conflicting"] == 0.0
@@ -248,7 +248,7 @@ MIXED_VERDICTS = [
 def test_partition_invariant(gold, verdicts, expected_counts):
     """The six kinds plus unfinished always sum to records."""
 
-    report = score_verdicts(verdicts, gold, marker=MARKER, labels=LABELS)
+    report = score_verdicts(verdicts, gold, marker=MARKER, labels=LABELS, source="parsed")
     actual = tuple(
         report[kind] for kind in (*KINDS, "unfinished")
     )
@@ -268,7 +268,7 @@ def test_partition_with_verdicts_in_reverse_order():
         verdict(1, "recovered", "False", raw="False"),
     ]
 
-    report = score_verdicts(verdicts, gold, marker=MARKER, labels=LABELS)
+    report = score_verdicts(verdicts, gold, marker=MARKER, labels=LABELS, source="parsed")
 
     assert report["exact"] == 2
     assert report["recovered"] == 1
@@ -293,7 +293,7 @@ def test_recovered_is_invalid_in_exact_and_correct_in_inclusive():
         verdict(2, "empty"),
     ]
 
-    report = score_verdicts(verdicts, gold, marker=MARKER, labels=LABELS)
+    report = score_verdicts(verdicts, gold, marker=MARKER, labels=LABELS, source="parsed")
 
     assert report["inclusive_metrics"]["accuracy"] == round(2 / 3, 4)
     assert report["exact_metrics"]["accuracy"] == round(1 / 3, 4)
@@ -324,7 +324,7 @@ def test_exact_kind_that_disagrees_with_gold_is_misclassified():
         verdict(1, "exact", "False"),
     ]
 
-    report = score_verdicts(verdicts, gold, marker=MARKER, labels=LABELS)
+    report = score_verdicts(verdicts, gold, marker=MARKER, labels=LABELS, source="parsed")
 
     assert report["exact"] == 2
     assert report["accuracy"] == 0.5
@@ -343,7 +343,8 @@ def test_top_level_metrics_are_independent_copies():
 
     gold = ["True"]
     report = score_verdicts(
-        [verdict(0, "exact", "True")], gold, marker=MARKER, labels=LABELS
+        [verdict(0, "exact", "True")], gold, marker=MARKER, labels=LABELS,
+        source="parsed",
     )
 
     report["precision"]["True"] = 0.123
@@ -359,7 +360,8 @@ def test_confusion_rows_columns_and_invalid_column():
     """Every row sums to its support; the invalid column collects all kinds."""
 
     report = score_verdicts(
-        MIXED_VERDICTS, MIXED_GOLD, marker=MARKER, labels=LABELS
+        MIXED_VERDICTS, MIXED_GOLD, marker=MARKER, labels=LABELS,
+        source="parsed",
     )
 
     assert list(report["confusion"]) == LABELS
@@ -438,7 +440,7 @@ def test_invalid_programmatic_input_raises_value_error(verdicts, offending):
     gold = ["True", "False"]
 
     with pytest.raises(ValueError) as excinfo:
-        score_verdicts(verdicts, gold, marker=MARKER, labels=LABELS)
+        score_verdicts(verdicts, gold, marker=MARKER, labels=LABELS, source="parsed")
 
     assert offending in str(excinfo.value)
 
@@ -452,6 +454,7 @@ def test_gold_label_outside_configured_labels_raises():
             ["True", "Maybe"],
             marker=MARKER,
             labels=LABELS,
+            source="parsed",
         )
 
     assert "Maybe" in str(excinfo.value)
@@ -474,7 +477,7 @@ def test_rates_match_hand_computed_values():
         verdict(4, "unparsed", None, raw="???"),
     ]
 
-    report = score_verdicts(verdicts, gold, marker=MARKER, labels=LABELS)
+    report = score_verdicts(verdicts, gold, marker=MARKER, labels=LABELS, source="parsed")
 
     assert report["empty"] == 1
     assert report["empty_rate"] == round(1 / 6, 4)
@@ -495,7 +498,8 @@ def test_render_report_markdown_contents():
 
     gold = ["True", "False", "Conflicting", "True", "False", "Conflicting"]
     report = score_verdicts(
-        MIXED_VERDICTS, gold, marker=MARKER, labels=LABELS
+        MIXED_VERDICTS, gold, marker=MARKER, labels=LABELS,
+        source="parsed",
     )
 
     rendered = render_report_markdown(report)
@@ -534,6 +538,7 @@ def test_render_report_markdown_marks_complete_run():
         ["True"],
         marker=MARKER,
         labels=LABELS,
+        source="parsed",
     )
 
     rendered = render_report_markdown(report)
@@ -546,7 +551,7 @@ def test_render_report_markdown_marks_complete_run():
 def test_render_report_markdown_empty_run():
     """An empty report renders tables with no rows and no division error."""
 
-    report = score_verdicts([], [], marker=MARKER, labels=LABELS)
+    report = score_verdicts([], [], marker=MARKER, labels=LABELS, source="parsed")
 
     rendered = render_report_markdown(report)
 
@@ -564,7 +569,7 @@ def test_render_report_markdown_empty_run():
 def test_empty_gold_and_empty_verdicts():
     """A zero-record report is valid and every metric is 0.0."""
 
-    report = score_verdicts([], [], marker=MARKER, labels=LABELS)
+    report = score_verdicts([], [], marker=MARKER, labels=LABELS, source="parsed")
 
     assert report["records"] == 0
     assert report["complete"] is True
@@ -598,6 +603,7 @@ def test_single_record_exact():
         ["False"],
         marker=MARKER,
         labels=LABELS,
+        source="parsed",
     )
 
     assert report["records"] == 1
@@ -614,7 +620,7 @@ def test_single_record_exact():
 def test_single_record_unfinished():
     """One gold record with no verdict is unfinished and invalid."""
 
-    report = score_verdicts([], ["True"], marker=MARKER, labels=LABELS)
+    report = score_verdicts([], ["True"], marker=MARKER, labels=LABELS, source="parsed")
 
     assert report["records"] == 1
     assert report["unfinished"] == 1
@@ -646,7 +652,8 @@ def test_labels_order_defines_key_order():
 
     reversed_labels = ["Conflicting", "False", "True"]
     report = score_verdicts(
-        MIXED_VERDICTS, MIXED_GOLD, marker=MARKER, labels=reversed_labels
+        MIXED_VERDICTS, MIXED_GOLD, marker=MARKER, labels=reversed_labels,
+        source="parsed",
     )
 
     assert list(report["precision"]) == reversed_labels
@@ -716,6 +723,7 @@ def test_score_report_has_every_contract_key():
         ["True"],
         marker=MARKER,
         labels=LABELS,
+        source="parsed",
     )
 
     expected = {
@@ -747,3 +755,14 @@ def test_score_report_has_every_contract_key():
     assert set(report) == set(ScoreReport.__annotations__)
     assert set(report["exact_metrics"]) == set(METRIC_KEYS)
     assert set(report["inclusive_metrics"]) == set(METRIC_KEYS)
+
+
+def test_source_is_required():
+    """source has no default, so a caller cannot silently mislabel the origin.
+
+    ``table_only`` logs must be scored with ``source="script_table"``; a
+    default of ``"parsed"`` would contradict ScoreReport rule 1 without any
+    visible symptom, so the argument is keyword-only and mandatory.
+    """
+    with pytest.raises(TypeError):
+        score_verdicts([], ["True"], marker=MARKER, labels=LABELS)

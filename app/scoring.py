@@ -254,9 +254,15 @@ def score_verdicts(
     *,
     marker: str,
     labels: Sequence[str],
-    source: Literal["parsed", "script_table"] = "parsed",
+    source: Literal["parsed", "script_table"],
 ) -> ScoreReport:
     """Align verdicts with gold labels and score them.
+
+    ``source`` is required on purpose: the caller must state where the
+    verdicts came from (``parsed`` for the banner and think layouts,
+    ``script_table`` for table-only logs), because a wrong value silently
+    contradicts ``ScoreReport`` rule 1. ``app.parsing.verdicts`` returns it
+    from ``extract_verdicts_with_source()``.
 
     ``gold_labels`` is the test file's ``label`` field in file order and
     defines ``records``. ``verdicts`` are aligned by their ``index`` rather
