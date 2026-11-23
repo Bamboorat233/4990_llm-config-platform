@@ -219,13 +219,14 @@ def test_terminated_fixture_yields_only_its_complete_records():
     assert records[-1]["parsed"] == "False"
 
 
-def test_terminated_fixture_with_a_cut_block_drops_it(tmp_path: Path):
-    """A kill inside the last block leaves the record missing, not empty.
+def test_terminated_fixture_with_a_cut_block_keeps_it(tmp_path: Path):
+    """A cut block that holds a response line is a record: 7 becomes 8.
 
     The fixture is the real terminated log with one more ``OUTPUT`` block
     spliced in before the terminal line, cut in the middle of its verdict.
-    ``layout`` is not supplied, so :func:`detect` reports the terminated
-    status and that status alone must drop the block.
+    The block holds ``### Response: Verdict: Fal``, so the stream itself
+    proves the record was written; the value is ``unparsed``. The run's
+    termination status no longer drops it.
     """
 
     source = (FIX / "s15_inference_terminated.log").read_text(encoding="utf-8")
@@ -241,12 +242,21 @@ def test_terminated_fixture_with_a_cut_block_drops_it(tmp_path: Path):
     log.write_text("\n".join(lines[:-1] + cut + [TIME_LIMIT]), encoding="utf-8")
 
     records = extract_verdicts(log, marker=MARKER)
-    assert len(records) == 7
-    assert all(record["kind"] == "exact" for record in records)
+    assert len(records) == 8
+    assert [record["index"] for record in records] == list(range(8))
+    assert all(record["kind"] == "exact" for record in records[:7])
+    assert records[7]["raw"] == "Fal"
+    assert records[7]["parsed"] is None
+    assert records[7]["kind"] == "unparsed"
 
 
-def test_banner_cut_at_eof_is_dropped_when_terminated(tmp_path: Path):
-    """A half-written ``Verdict: Fal`` before the time limit is not a record."""
+def test_banner_cut_at_eof_is_kept_when_it_has_a_marker(tmp_path: Path):
+    """A half-written ``Verdict: Fal`` before the time limit is a record: 1 to 2.
+
+    The final open block contains a ``### Response:`` line, so the stream
+    proves the record was written. The partial value is ``unparsed``; only
+    the termination status is ignored now.
+    """
 
     log = tmp_path / "banner_terminated.log"
     log.write_text(
@@ -255,9 +265,12 @@ def test_banner_cut_at_eof_is_dropped_when_terminated(tmp_path: Path):
     )
 
     records = extract_verdicts(log, marker=MARKER, layout="banner")
-    assert len(records) == 1
+    assert len(records) == 2
     assert records[0]["parsed"] == "True"
     assert records[0]["kind"] == "exact"
+    assert records[1]["raw"] == "Fal"
+    assert records[1]["parsed"] is None
+    assert records[1]["kind"] == "unparsed"
 
 
 def test_banner_cut_at_eof_is_kept_without_a_terminal_line(tmp_path: Path):
@@ -276,8 +289,55 @@ def test_banner_cut_at_eof_is_kept_without_a_terminal_line(tmp_path: Path):
     assert records[1]["kind"] == "unparsed"
 
 
-def test_terminated_think_log_drops_the_open_record(tmp_path: Path):
-    """The think layout applies the same rule to its decoded records."""
+def test_banner_final_block_without_a_response_is_not_a_record(tmp_path: Path):
+    """The final open block needs a ``### Response:`` line; earlier blocks do not.
+
+    A block closed by a later banner is always a record, even with no marker
+    (it is ``empty``). The block still open at end of file is a record only
+    when it holds a response line, so the third block here is absent rather
+    than an invented ``empty``.
+    """
+
+    closed_without_marker = [
+        "*************************************INPUTS****************************************",
+        "### Claim: a claim",
+        "******************************OUTPUT*****************************",
+        "    ### Instruction:",
+        "    Give the response in the format - Verdict: <verdict>",
+    ]
+    open_without_marker = [
+        "*************************************INPUTS****************************************",
+        "### Claim: another claim",
+        "******************************OUTPUT*****************************",
+        "    ### Instruction:",
+        "    Give the response in the format - Verdict: <verdict>",
+    ]
+    log = tmp_path / "banner_missing_response.log"
+    log.write_text(
+        "\n".join(
+            banner_block("True") + closed_without_marker + open_without_marker
+        ),
+        encoding="utf-8",
+    )
+
+    records = extract_verdicts(log, marker=MARKER, layout="banner")
+    assert len(records) == 2
+    assert [record["index"] for record in records] == [0, 1]
+    assert records[0]["parsed"] == "True"
+    assert records[0]["kind"] == "exact"
+    # Closed by the next INPUTS: a record, with the literal "No response".
+    assert records[1]["raw"] == "No response"
+    assert records[1]["parsed"] is None
+    assert records[1]["kind"] == "empty"
+
+
+def test_terminated_think_log_keeps_a_complete_open_block(tmp_path: Path):
+    """The think layout applies the same stream test: 2 becomes 3.
+
+    The third block holds both ``Done Decoding`` and a response line, so it
+    is a record even though the terminal line follows it. The partial value
+    ``Verdict: Tru`` is ``unparsed``.
+    """
 
     log = tmp_path / "think_terminated.log"
     log.write_text(
@@ -296,6 +356,45 @@ def test_terminated_think_log_drops_the_open_record(tmp_path: Path):
     assert [(record["parsed"], record["kind"]) for record in records] == [
         ("True", "exact"),
         ("False", "exact"),
+        (None, "unparsed"),
+    ]
+
+
+def test_think_block_needs_both_done_decoding_and_a_response(tmp_path: Path):
+    """A record needs ``Done Decoding`` *and* a response line; one is not enough.
+
+    Three decoded blocks, only the middle one complete. The first has ``Done
+    Decoding`` but no response (the ~0.14 ms window before the decoded text)
+    and the third has a response but no ``Done Decoding`` (a block the run
+    never completed). Requiring only one of the two would invent a record:
+    either an ``empty`` one or an unstarted one. Exactly one record survives.
+    """
+
+    log = tmp_path / "think_incomplete_blocks.log"
+    log.write_text(
+        "\n".join(
+            [
+                "Tokenizing Inputs" + TIMESTAMP,
+                "Done Decoding" + TIMESTAMP,
+                "Decoded output:  ",
+                "Give the response in the format - Verdict: <verdict>",
+                "Tokenizing Inputs" + TIMESTAMP,
+                "Done Decoding" + TIMESTAMP,
+                "Decoded output:  ",
+                "Give the response in the format - Verdict: <verdict>",
+                "### Response: Verdict: True",
+                "Tokenizing Inputs" + TIMESTAMP,
+                "Decoded output:  ",
+                "Give the response in the format - Verdict: <verdict>",
+                "### Response: Verdict: False",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    records = extract_verdicts(log, marker=MARKER, layout="think")
+    assert [(record["parsed"], record["kind"]) for record in records] == [
+        ("True", "exact")
     ]
 
 
@@ -321,15 +420,13 @@ def test_think_log_cut_without_a_terminal_line_keeps_the_record(tmp_path: Path):
 
 
 def test_terminated_think_run_keeps_the_last_complete_record(tmp_path: Path):
-    """A kill after the next record started must not lose record N.
+    """A kill after the next record started must not lose record N: one record.
 
-    This is the real shape of a time-limit kill (s04 around the record
-    boundary): record N's generation, then the ``***`` separator, then the
-    next record's ``Tokenizing Inputs`` phase line, and only much later its
-    ``Decoded output:``. The kill lands between the last two, so record N's
-    decoded block is still open at end of file although its verdict was
-    printed. It must still be emitted; before the fix this log yields zero
-    records.
+    The real record shape includes the phase lines (``Done Decoding`` and the
+    response); a block without them is not a record, so the old shape with
+    only ``Decoded output:`` and a response yielded zero records. Here the
+    block holds both, is closed by the ``***`` separator, and yields record N
+    even though the kill lands before the next ``Decoded output:``.
     """
 
     log = tmp_path / "think_terminated_between_records.log"
@@ -338,8 +435,8 @@ def test_terminated_think_run_keeps_the_last_complete_record(tmp_path: Path):
             [
                 "Decoded output:  ",
                 "Give the response in the format - Verdict: <verdict>",
-                "### Response: ",
-                "Verdict: True",
+                "Done Decoding" + TIMESTAMP,
+                "### Response: Verdict: True",
                 SEPARATOR,
                 "Tokenizing Inputs" + TIMESTAMP,
                 TIME_LIMIT,
@@ -357,9 +454,10 @@ def test_terminated_think_run_keeps_the_last_complete_record(tmp_path: Path):
 def test_terminated_think_run_drops_the_started_record(tmp_path: Path):
     """The record that only started tokenizing stays missing, not empty.
 
-    Same shape as the test above, but the kill lands after the next record's
-    phase lines and before any ``Decoded output:`` header or verdict, so only
-    record N is a record.
+    Same real record shape as the test above, but the kill lands after the
+    next record's phase lines and before any ``Decoded output:`` header or
+    verdict. Only record N has ``Done Decoding`` and a response, so only it
+    is a record.
     """
 
     log = tmp_path / "think_terminated_started_record.log"
@@ -368,8 +466,8 @@ def test_terminated_think_run_drops_the_started_record(tmp_path: Path):
             [
                 "Decoded output:  ",
                 "Give the response in the format - Verdict: <verdict>",
-                "### Response: ",
-                "Verdict: True",
+                "Done Decoding" + TIMESTAMP,
+                "### Response: Verdict: True",
                 SEPARATOR,
                 "Tokenizing Inputs" + TIMESTAMP,
                 "Done Preparing the Input" + TIMESTAMP,
@@ -443,6 +541,25 @@ def test_terminated_and_clean_fixtures_keep_seven_records():
         records = extract_verdicts(FIX / name, marker=MARKER)
         assert len(records) == 7, name
         assert [record["index"] for record in records] == list(range(7)), name
+
+
+def test_banner_fixture_record_counts_match_records_done():
+    """s02 and s15: the record count equals the run's ``records_done`` (7).
+
+    ``records_done`` is the progress collector's independent count for the
+    banner layout, so it is the oracle for the completeness rule.
+    """
+
+    from app.parsing import parse_log_file
+
+    for name in (
+        "s02_inference_success.log",
+        "s15_inference_terminated.log",
+    ):
+        path = FIX / name
+        records = extract_verdicts(path, marker=MARKER)
+        assert len(records) == parse_log_file(path)["progress"]["records_done"]
+        assert len(records) == 7, name
 
 
 def test_instruction_placeholder_output_is_empty(tmp_path: Path):
@@ -584,7 +701,8 @@ def test_think_mangled_final_table_line_is_unparsed(tmp_path: Path):
 
     records = by_index(extract_verdicts(mangled, marker=MARKER))
     assert records[128]["kind"] == "unparsed"
-    assert records[128]["parsed"] == "this is not a verdict"
+    # ``unparsed`` is not a parse: ``parsed`` stays empty, as for ``empty``.
+    assert records[128]["parsed"] is None
 
 
 def test_table_only_fixture_uses_the_second_table():
@@ -614,6 +732,41 @@ def test_table_only_fixture_uses_the_second_table():
         extract_verdicts(path, marker=MARKER, source="parsed")
 
 
+def test_lone_script_table_is_not_treated_as_final(tmp_path: Path):
+    """One table is not the final table; the decoded records are the source.
+
+    A lone table may be the script's first pass. Treating it as final turns
+    its ``Verdict: True`` cells into ``recovered`` and skips the decoded
+    records for ``think``; for ``table_only`` it asserts a final output that
+    was never printed. This file has one decoded record and a two-row table,
+    so the old rule would return two ``recovered`` records instead of one
+    exact decoded record.
+    """
+
+    think = tmp_path / "think_lone_table.log"
+    think.write_text(
+        "\n".join(
+            [
+                think_block("Verdict: True"),
+                "0 | Verdict: True",
+                "1 | Verdict: False",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    think_records = extract_verdicts(think, marker=MARKER, layout="think")
+    assert [(record["parsed"], record["kind"]) for record in think_records] == [
+        ("True", "exact")
+    ]
+
+    table = tmp_path / "table_only_lone_table.log"
+    table.write_text(
+        "\n".join(["0 | Verdict: True", "1 | Verdict: False"]),
+        encoding="utf-8",
+    )
+    assert extract_verdicts(table, marker=MARKER, layout="table_only") == []
+
+
 @pytest.mark.parametrize(
     "value",
     [
@@ -622,6 +775,7 @@ def test_table_only_fixture_uses_the_second_table():
         "Not enough information",
         "Supports",
         "Refutes",
+        "Incorrect",
     ],
 )
 def test_out_of_set_values_are_kept_for_review(tmp_path: Path, value):
@@ -775,6 +929,29 @@ def test_full_log15_terminated_keeps_records_done():
     assert detect(path)["progress"]["records_done"] == 2480
     assert len(records) == 2480
     assert [record["index"] for record in records] == list(range(2480))
+
+
+@slow
+def test_full_logs_yield_exactly_records_done():
+    """Logs 02, 04 and 15: record count equals ``records_done`` (2495/2495/2480).
+
+    ``records_done`` is computed by the progress collector from the stream
+    (``app.parsing.inference_log``) and shares no code with this extractor,
+    so it is the independent oracle for the completeness rules.
+    """
+
+    from app.parsing import parse_log_file
+
+    expected = {
+        "sampleOutput02.txt": 2495,
+        "sampleOutput04.txt": 2495,
+        "sampleOutput15.txt": 2480,
+    }
+    for name, count in expected.items():
+        path = Path(LOGS_DIR) / name
+        records = extract_verdicts(path, marker=MARKER)
+        assert len(records) == parse_log_file(path)["progress"]["records_done"]
+        assert len(records) == count, name
 
 
 @slow

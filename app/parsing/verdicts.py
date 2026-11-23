@@ -13,11 +13,13 @@ Layouts
     Each record is an ``OUTPUT`` block that echoes the prompt and then the
     generation. The prompt echo means the marker can occur more than once, so
     the value is the text after the *last* marker in the block (``rfind``, as
-    ``inferenceMistral.py`` does). A block with no marker (or one cut short
-    when the next record starts) is the literal ``No response`` and is
-    ``empty``. Some runs append a bare list of every response after the last
-    ``OUTPUT`` block; a pair of consecutive marker lines starts that list, so
-    only the first line of the pair belongs to the record.
+    ``inferenceMistral.py`` does). A block closed by a later banner that
+    holds no marker is the literal ``No response`` and is ``empty``. The
+    block still open at end of file is dropped unless it holds a
+    ``### Response:`` line, so a record the run never finished stays missing.
+    Some runs append a bare list of every response after the last ``OUTPUT``
+    block; a pair of consecutive marker lines starts that list, so only the
+    first line of the pair belongs to the record.
 ``think`` (log 04)
     The decoded record contains a prompt echo and then the generation after
     ``### Response:``. The verdict is the text after the last ``Verdict: `` in
@@ -25,10 +27,14 @@ Layouts
     for an answer. Two ``N | ...`` tables follow the records: the first is the
     script's first pass and the second is its final output. The decoded record
     is the primary source; the final table resolves the indices where the
-    decoded record carries no verdict (the script's fallback).
+    decoded record carries no verdict (the script's fallback). The table is
+    the *final* table only when two tables were printed; with a single table
+    the decoded records are the source.
 ``table_only`` (log 07)
     There is no prompt echo and no decoded record in the log. The second
-    (final) script table is the source, hence ``source="script_table"``.
+    (final) script table is the source, hence ``source="script_table"``. A
+    lone table is not treated as final, so a log that printed only one table
+    yields no records: nothing can be asserted as the final output.
 
 The script tables are **0-based**: log 04 has rows ``0`` to ``2494`` (2,495
 rows) for a gold set of 2,495 records, and log 07 has exactly the same range.
@@ -50,7 +56,9 @@ Five kinds (design section 3.5)
     ``Not enough information``, ``Supports``, ``Refutes``). ``parsed`` keeps
     the trimmed text for review.
 ``unparsed``
-    Anything else; the trimmed text is kept. Never coerced into a label.
+    Anything else; never coerced into a label. ``parsed`` is ``None`` and
+    ``raw`` keeps the text, because a filled Parsed cell would look like a
+    successful parse.
 
 Step 0, locate
 --------------
@@ -70,32 +78,34 @@ First line only; strip trailing whitespace, the model EOS tokens (``</s>``,
 the DeepSeek ``<|end of sentence|>`` token), trailing punctuation and a
 leading ``Verdict: ``.
 
-Termination
------------
-A run killed at the SLURM time limit ends with the ``time_limit`` line of
-:mod:`app.parsing.errors`. Verdicts come only from **complete** records
-(design section 3.4), and the next record's start proves that the previous
-one was written: a decoded ``think`` block is therefore closed by the next
-``Tokenizing Inputs`` phase line (or the ``***`` separator that precedes it),
-not only by the next ``Decoded output:`` header. Generation takes almost all
-of the wall time, so a kill normally lands between ``Tokenizing Inputs`` and
-``Decoded output:`` -- *after* the previous verdict was printed. That record
-is complete and must not be lost.
+Completeness
+------------
+Whether a record is present is decided from evidence inside the stream, not
+from the run's termination status (design section 3.4). The rules are the
+same whether or not the caller supplies ``layout``.
 
-Only a block still open at end of file with no complete verdict in it is
-dropped when the run was terminated: a record the kill cut short must stay
-*missing*, because scoring counts a missing index as ``unfinished`` whereas
-an ``empty`` record is an answer the model never gave. A block that already
-holds ``### Response: Verdict: X`` is emitted even though the kill followed
-it; a block holding a half-written value (``Verdict: Fal``) is not, because
-its text cannot be told apart from a finished answer and the kill may have
-cut the label. A log that ends cleanly at end of file, with no terminal
-event (log 02, whose last block has no closing ``INPUTS``), still yields that
-last block, whatever its text.
+``banner``
+    A block closed by a later banner (``INPUTS``, ``OUTPUT``, ``VERDICTS``)
+    is **always** a record, even when it holds no marker; the marker-less
+    block is the literal ``No response`` and ``empty``. The block still open
+    at end of file is a record only when it contains a ``### Response:``
+    line. A marker test on every block would lose the marker-less records the
+    script completed (log 02 and log 15 each have such records).
 
-The terminal line is observed in the same pass, so a caller that passes
-``layout`` never pays for a second read of the file. When ``layout`` is not
-supplied, ``detect()`` runs anyway and its ``status`` is used as well.
+``think``
+    A decoded block is a record only when ``Done Decoding`` was seen for it
+    and the block contains a ``### Response:`` line. In the real logs the
+    phase line precedes ``Decoded output:``, so the flag is carried into the
+    block. Requiring only ``Done Decoding`` would invent an ``empty`` record
+    in the short window between that phase line and the decoded text. A block
+    still open at end of file is tested the same way, because the kill may
+    have cut it short.
+
+A record the run never finished must stay *missing*, because scoring counts a
+missing index as ``unfinished`` whereas an ``empty`` record is an answer the
+model never gave. The absence of a response line in the final open banner
+block, or of ``Done Decoding`` plus a response in the final open think block,
+is that evidence: the record is dropped.
 
 Scoring
 -------
@@ -127,7 +137,7 @@ from pathlib import Path
 from typing import Final, Literal, Sequence
 
 from app.parsing.detect import detect
-from app.parsing.errors import PATTERNS, TOKENIZING_INPUTS
+from app.parsing.errors import TOKENIZING_INPUTS
 from app.scoring import VerdictKind, VerdictRecord
 
 __all__ = [
@@ -190,6 +200,7 @@ OUT_OF_SET_PHRASES: Final[frozenset[str]] = frozenset(
         "supported",
         "refutes",
         "refuted",
+        "incorrect",
         "mixed",
         "true and false",
     }
@@ -219,6 +230,7 @@ _RANK_PREFIX: Final = re.compile(r"^\[rank\d+\]: ?")
 _LEADING_VERDICT: Final = re.compile(r"^Verdict:\s*", re.IGNORECASE)
 
 _DECODED_HEADER: Final = "Decoded output:"
+_DONE_DECODING: Final = "Done Decoding"
 _RESPONSE: Final = "### Response:"
 _VERDICT_PREFIX: Final = "Verdict: "
 _NO_RESPONSE: Final = "No response"
@@ -228,33 +240,14 @@ _NO_RESPONSE: Final = "No response"
 #: :mod:`app.parsing.errors`, so it is compiled here.
 _SEPARATOR: Final = re.compile(r"^\*{20,}$")
 
-#: Cheap substring guard for the SLURM terminal line. The full rule stays in
-#: :data:`app.parsing.errors.PATTERNS` so this module adds no second pattern.
-_TIME_LIMIT_HINT: Final = "DUE TO TIME LIMIT"
-
-#: Kinds that prove the model finished writing its answer. Only they make an
-#: otherwise open block a record when a kill followed it, because a truncated
-#: label cannot be told apart from a finished one.
-_COMPLETE_KINDS: Final = ("exact", "recovered")
-
-
-def _is_terminal_line(line: str) -> bool:
-    """True for the SLURM line that ends a run killed at the time limit."""
-
-    if _TIME_LIMIT_HINT not in line:
-        return False
-    return PATTERNS["time_limit"].search(line) is not None
-
 
 def _starts_next_record(line: str) -> bool:
     """True for a line that proves the record before it was completed.
 
     In the ``think`` layout the next record begins with the ``Tokenizing
     Inputs`` phase line of :mod:`app.parsing.errors`, printed after the
-    ``***`` separator. Either marker closes the decoded block: the kill
-    normally lands just after the phase line, so waiting for the next
-    ``Decoded output:`` header would lose the record whose verdict is already
-    printed.
+    ``***`` separator. Either marker closes the decoded block; the block is a
+    record only if ``Done Decoding`` was seen and it holds a response line.
     """
 
     if line.startswith(TOKENIZING_INPUTS):
@@ -314,7 +307,8 @@ def _classify(value: str, labels: Sequence[str]) -> tuple[str | None, VerdictKin
     ``value`` is the text after the layout's marker (or a table cell). Step 1
     is :func:`_trim`; Step 2 applies the five kinds in the documented order.
     ``parsed`` is the label for ``exact``/``recovered``, ``None`` for
-    ``empty`` and the trimmed text for the two invalid kinds.
+    ``empty`` and ``unparsed``, and the trimmed text for ``out_of_set``
+    (out-of-set values are counted by value for review).
     """
 
     line = _first_line(value).strip()
@@ -341,7 +335,7 @@ def _classify(value: str, labels: Sequence[str]) -> tuple[str | None, VerdictKin
             return label, "recovered"
     if _is_out_of_set(trimmed):
         return trimmed, "out_of_set"
-    return trimmed, "unparsed"
+    return None, "unparsed"
 
 
 def _record(
@@ -398,16 +392,13 @@ def verdict_source(layout: str) -> VerdictSource:
         ) from None
 
 
-def _resolve_layout_and_status(
-    path: str | Path, layout: OutputLayout | None
-) -> tuple[OutputLayout, bool]:
+def _resolve_layout(path: str | Path, layout: OutputLayout | None) -> OutputLayout:
     """Use the caller's layout or ask :func:`detect` for one.
 
-    The second element says whether the run is *known* to be terminated. With
-    an explicit ``layout`` no extra pass is made, so the answer is ``False``
-    here and the caller must rely on the terminal line it sees in the stream.
-    Without a layout :func:`detect` has already read the file, so its
-    ``status`` is free to use.
+    :func:`detect` is consulted only when ``layout`` is ``None`` and exists
+    only to resolve the layout, not to decide completeness. The records are
+    therefore identical whether or not the caller passes ``layout``; an
+    explicit layout merely skips the extra pass.
     """
 
     if layout is not None:
@@ -416,7 +407,7 @@ def _resolve_layout_and_status(
                 f"unknown output layout {layout!r}; expected one of "
                 f"{list(OUTPUT_FORMATS)!r}"
             )
-        return layout, False
+        return layout
 
     result = detect(path)
     detected = result.get("output_format")
@@ -428,8 +419,7 @@ def _resolve_layout_and_status(
         )
     if detected not in OUTPUT_FORMATS:
         raise ValueError(f"detect() reported an unsupported layout: {detected!r}")
-    terminated = result.get("status") == "terminated"
-    return detected, terminated  # type: ignore[return-value]
+    return detected  # type: ignore[return-value]
 
 
 # ---------------------------------------------------------------------------
@@ -465,32 +455,25 @@ def _banner_records(
     path: str | Path,
     marker: str,
     labels: Sequence[str],
-    *,
-    terminated: bool = False,
 ) -> list[VerdictRecord]:
-    """One record per complete ``OUTPUT`` block, in file order.
+    """One record per ``OUTPUT`` block, in file order.
 
-    ``terminated`` says the run is already known to have been killed; the
-    terminal line is also honoured when it appears in the stream, so a caller
-    that supplied ``layout`` gets the same rule without a second pass.
+    A block closed by a later banner is always a record, even without a
+    marker. The block still open at end of file is a record only when it
+    holds a ``### Response:`` line; otherwise the record is missing rather
+    than invented as ``empty``.
     """
 
     records: list[VerdictRecord] = []
     block: list[str] = []
     inside = False
-    terminal_seen = False
 
-    def close(only_if_complete: bool = False) -> None:
+    def close() -> None:
         nonlocal block, inside
         if not inside:
             return
         value = _banner_value(block, marker)
         parsed, kind = _classify(value, labels)
-        if only_if_complete and kind not in _COMPLETE_KINDS:
-            # A kill inside the block. The record is missing, not empty.
-            block = []
-            inside = False
-            return
         records.append(_record(len(records), value, parsed, kind))
         block = []
         inside = False
@@ -501,9 +484,6 @@ def _banner_records(
             match = _RANK_PREFIX.match(line)
             if match:
                 line = line[match.end() :]
-
-            if _is_terminal_line(line):
-                terminal_seen = True
 
             banner = _BANNER.match(line)
             if banner is not None:
@@ -521,14 +501,10 @@ def _banner_records(
             if inside:
                 block.append(line)
 
-    # A block still open at end of file is the last record only when the log
-    # ended cleanly, or when it already holds a complete verdict. A terminated
-    # run whose block was cut before its verdict leaves the record missing
-    # rather than empty: scoring reports a missing index as ``unfinished``.
-    # Log 02 has no terminal line and keeps its last block.
-    if terminated or terminal_seen:
-        close(only_if_complete=True)
-    else:
+    # The final open block is a record only when the model printed a response
+    # line. Without one the run never finished the record, so it stays
+    # missing and scoring reports it as ``unfinished``.
+    if inside and any(line.startswith(_RESPONSE) for line in block):
         close()
     return records
 
@@ -571,22 +547,19 @@ def _scan_timestamped(
     path: str | Path,
     *,
     collect_decoded: bool,
-    labels: Sequence[str] = DEFAULT_LABELS,
-    terminated: bool = False,
 ) -> tuple[list[dict[int, str]], list[str]]:
     """One streaming pass over a ``think``/``table_only`` log.
 
     Returns the tables in file order (a new table starts when the row index
-    stops increasing) and, when requested, one located value per completed
-    decoded record. Only the current record block is buffered.
+    stops increasing) and, when requested, one located value per decoded
+    record. Only the current record block is buffered.
 
-    A decoded record is complete once the next record begins: the
-    ``Tokenizing Inputs`` phase line (or the ``***`` separator) closes it, so
-    a kill that lands between that line and the next ``Decoded output:`` does
-    not lose the record whose verdict is already printed. A record still open
-    at end of file counts only when the log ended cleanly or the block already
-    holds a complete verdict; ``terminated`` (or a terminal line in the
-    stream) means the kill may have cut it short.
+    A decoded record is a record only when ``Done Decoding`` was seen for it
+    (the line precedes the ``Decoded output:`` header in the real logs) and
+    its block holds a ``### Response:`` line. The next record's start (the
+    ``Tokenizing Inputs`` phase line or the ``***`` separator) closes the
+    block, and a block still open at end of file is tested the same way, so a
+    record the run never finished stays missing.
     """
 
     tables: list[dict[int, str]] = []
@@ -594,19 +567,21 @@ def _scan_timestamped(
     block: list[str] = []
     inside = False
     has_response = False
-    terminal_seen = False
+    has_done_decoding = False
+    # ``Done Decoding`` is printed *before* the ``Decoded output:`` header in
+    # the real logs, so the phase flag is carried into the block the header
+    # opens. A synthetic record that prints it inside the block also counts.
+    pending_done_decoding = False
     previous_index: int | None = None
 
-    def close(only_if_complete: bool = False) -> None:
-        nonlocal block, inside, has_response
-        if collect_decoded and inside and has_response:
-            value = _think_value(block)
-            kind = _classify(value, labels)[1]
-            if not only_if_complete or kind in _COMPLETE_KINDS:
-                decoded.append(value)
+    def close() -> None:
+        nonlocal block, inside, has_response, has_done_decoding
+        if collect_decoded and inside and has_response and has_done_decoding:
+            decoded.append(_think_value(block))
         block = []
         inside = False
         has_response = False
+        has_done_decoding = False
 
     with open(path, encoding="utf-8", errors="replace", newline=None) as handle:
         for raw_line in handle:
@@ -614,9 +589,6 @@ def _scan_timestamped(
             match = _RANK_PREFIX.match(line)
             if match:
                 line = line[match.end() :]
-
-            if _is_terminal_line(line):
-                terminal_seen = True
 
             row = _ROW.match(line)
             if row is not None:
@@ -638,6 +610,8 @@ def _scan_timestamped(
                 close()
                 inside = True
                 block = []
+                has_done_decoding = pending_done_decoding
+                pending_done_decoding = False
                 continue
 
             if inside and _starts_next_record(line):
@@ -650,11 +624,13 @@ def _scan_timestamped(
                 block.append(line)
                 if line.startswith(_RESPONSE):
                     has_response = True
+                elif line.startswith(_DONE_DECODING):
+                    has_done_decoding = True
+            elif line.startswith(_DONE_DECODING):
+                # Belongs to the record whose ``Decoded output:`` follows.
+                pending_done_decoding = True
 
-    if terminated or terminal_seen:
-        close(only_if_complete=True)
-    else:
-        close()
+    close()
     return tables, decoded
 
 
@@ -699,24 +675,27 @@ def _table_row_record(
 
 
 def _think_records(
-    path: str | Path, labels: Sequence[str], *, terminated: bool = False
+    path: str | Path, labels: Sequence[str]
 ) -> list[VerdictRecord]:
-    """Records for a ``think`` log, decoded record first, final table next."""
+    """Records for a ``think`` log, decoded record first, final table next.
 
-    tables, decoded = _scan_timestamped(
-        path, collect_decoded=True, labels=labels, terminated=terminated
-    )
+    The script tables are the fallback only when two of them were printed:
+    a lone table is not the final output, so the decoded records are used
+    instead.
+    """
 
-    if not tables:
-        # A terminated run without tables: one record per completed decoded
-        # block, in file order. This mirrors records_done for the banner
-        # layout; an incomplete block is not a record.
+    tables, decoded = _scan_timestamped(path, collect_decoded=True)
+
+    if len(tables) < 2:
+        # A lone table is not a final table. The decoded records are the
+        # source; a block is a record only when ``Done Decoding`` was seen
+        # and it holds a response line.
         return [
             _record(index, value, *_classify(value, labels))
             for index, value in enumerate(decoded)
         ]
 
-    first = tables[0] if len(tables) >= 2 else {}
+    first = tables[0]
     final = tables[-1]
     indices = sorted(final)
 
@@ -769,17 +748,20 @@ def _think_records(
 
 
 def _table_only_records(
-    path: str | Path, labels: Sequence[str], *, terminated: bool = False
+    path: str | Path, labels: Sequence[str]
 ) -> list[VerdictRecord]:
-    """Records for a ``table_only`` log: the second table is the source."""
+    """Records for a ``table_only`` log: the second table is the source.
 
-    tables, _ = _scan_timestamped(
-        path, collect_decoded=False, terminated=terminated
-    )
-    if not tables:
+    A lone table is not treated as final, so it yields no records: there is
+    no decoded record to fall back on and nothing can be asserted as the
+    script's final output.
+    """
+
+    tables, _ = _scan_timestamped(path, collect_decoded=False)
+    if len(tables) < 2:
         return []
 
-    first = tables[0] if len(tables) >= 2 else {}
+    first = tables[0]
     final = tables[-1]
     return [
         _table_row_record(index, first.get(index), final[index], labels)
@@ -808,8 +790,9 @@ def extract_verdicts_with_source(
 
     When ``layout`` is ``None`` the layout is read from
     :func:`app.parsing.detect.detect`, and ``ValueError`` is raised for an
-    inference log that never reached the output stage. Passing ``layout``
-    explicitly skips that extra pass.
+    inference log that never reached the output stage. ``detect()`` is used
+    only to resolve the layout: the records are identical whether or not the
+    caller passes ``layout``; an explicit layout merely skips that extra pass.
 
     The returned ``source`` is the one the resolved layout requires:
     ``"parsed"`` for ``banner``/``think`` and ``"script_table"`` for
@@ -832,7 +815,7 @@ def extract_verdicts_with_source(
     if not labels:
         raise ValueError("labels must not be empty")
 
-    resolved, terminated = _resolve_layout_and_status(path, layout)
+    resolved = _resolve_layout(path, layout)
     expected = verdict_source(resolved)
     if source is not None and source != expected:
         raise ValueError(
@@ -841,11 +824,11 @@ def extract_verdicts_with_source(
         )
 
     if resolved == "banner":
-        records = _banner_records(path, marker, labels, terminated=terminated)
+        records = _banner_records(path, marker, labels)
     elif resolved == "think":
-        records = _think_records(path, labels, terminated=terminated)
+        records = _think_records(path, labels)
     else:
-        records = _table_only_records(path, labels, terminated=terminated)
+        records = _table_only_records(path, labels)
     return expected, records
 
 
