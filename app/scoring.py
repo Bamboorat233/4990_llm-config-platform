@@ -26,8 +26,9 @@ the optional :func:`load_gold_labels` helper reads a file.
 (``app/parsing/verdicts.py``) is not merged yet. When it lands it should
 produce exactly this shape: ``index`` is the 0-based position in the gold
 set, ``raw`` is the decoded text as extracted, ``parsed`` is the normalised
-verdict (``None`` when unusable) and ``kind`` is one of the five verdict
-kinds of design section 3.5. Scoring never imports from :mod:`app.parsing`.
+verdict (``None`` for ``empty`` and ``unparsed``; the trimmed value for
+``out_of_set``) and ``kind`` is one of the five verdict kinds of design
+section 3.5. Scoring never imports from :mod:`app.parsing`.
 """
 
 from __future__ import annotations
@@ -83,8 +84,9 @@ class VerdictRecord(TypedDict):
     Issue #34 (``app/parsing/verdicts.py``) will produce this shape; it is
     declared here because #34 is not merged yet. ``index`` is the 0-based
     position in the gold set, ``raw`` is the decoded text as extracted,
-    ``parsed`` is the normalised verdict (``None`` when unusable) and
-    ``kind`` is the classification from design section 3.5.
+    ``parsed`` is the normalised verdict (``None`` for ``empty`` and
+    ``unparsed``; the trimmed value for ``out_of_set``) and ``kind`` is the
+    classification from design section 3.5.
     """
 
     index: int
