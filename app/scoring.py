@@ -26,8 +26,9 @@ the optional :func:`load_gold_labels` helper reads a file.
 (``app/parsing/verdicts.py``) is not merged yet. When it lands it should
 produce exactly this shape: ``index`` is the 0-based position in the gold
 set, ``raw`` is the decoded text as extracted, ``parsed`` is the normalised
-verdict (``None`` when unusable) and ``kind`` is one of the five verdict
-kinds of design section 3.5. Scoring never imports from :mod:`app.parsing`.
+verdict (``None`` for ``empty`` and ``unparsed``; the trimmed value for
+``out_of_set``) and ``kind`` is one of the five verdict kinds of design
+section 3.5. Scoring never imports from :mod:`app.parsing`.
 """
 
 from __future__ import annotations
@@ -83,8 +84,9 @@ class VerdictRecord(TypedDict):
     Issue #34 (``app/parsing/verdicts.py``) will produce this shape; it is
     declared here because #34 is not merged yet. ``index`` is the 0-based
     position in the gold set, ``raw`` is the decoded text as extracted,
-    ``parsed`` is the normalised verdict (``None`` when unusable) and
-    ``kind`` is the classification from design section 3.5.
+    ``parsed`` is the normalised verdict (``None`` for ``empty`` and
+    ``unparsed``; the trimmed value for ``out_of_set``) and ``kind`` is the
+    classification from design section 3.5.
     """
 
     index: int
@@ -254,9 +256,15 @@ def score_verdicts(
     *,
     marker: str,
     labels: Sequence[str],
-    source: Literal["parsed", "script_table"] = "parsed",
+    source: Literal["parsed", "script_table"],
 ) -> ScoreReport:
     """Align verdicts with gold labels and score them.
+
+    ``source`` is required on purpose: the caller must state where the
+    verdicts came from (``parsed`` for the banner and think layouts,
+    ``script_table`` for table-only logs), because a wrong value silently
+    contradicts ``ScoreReport`` rule 1. ``app.parsing.verdicts`` returns it
+    from ``extract_verdicts_with_source()``.
 
     ``gold_labels`` is the test file's ``label`` field in file order and
     defines ``records``. ``verdicts`` are aligned by their ``index`` rather
