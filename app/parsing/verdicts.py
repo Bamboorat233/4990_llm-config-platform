@@ -3,9 +3,10 @@
 One log yields one :class:`app.scoring.VerdictRecord` per gold index:
 ``{"index", "raw", "parsed", "kind"}``. ``index`` is the 0-based position in
 the gold set, ``raw`` is the decoded text (first line, capped at 500
-characters) so the UI can show it, ``parsed`` is the normalised value (or
-``None`` for ``empty``) and ``kind`` is one of the five kinds below. The
-module never emits ``unfinished``: scoring adds that for missing indices.
+characters) so the UI can show it, ``parsed`` is the normalised value
+(``None`` for ``empty`` and ``unparsed``) and ``kind`` is one of the five
+kinds below. The module never emits ``unfinished``: scoring adds that for
+missing indices.
 
 Layouts
 -------
@@ -18,8 +19,12 @@ Layouts
     block still open at end of file is dropped unless it holds a
     ``### Response:`` line, so a record the run never finished stays missing.
     Some runs append a bare list of every response after the last ``OUTPUT``
-    block; a pair of consecutive marker lines starts that list, so only the
-    first line of the pair belongs to the record.
+    block, so the list belongs to the block still open at end of file. It
+    holds one line per record (a marker line, or the literal ``No response``
+    for a record without a verdict), so it is removed by length: this
+    block's trailing run of such lines must hold at least one more line than
+    the records already emitted, and exactly that many lines are dropped.
+    Blocks closed by a later banner never hold the list.
 ``think`` (log 04)
     The decoded record contains a prompt echo and then the generation after
     ``### Response:``. The verdict is the text after the last ``Verdict: `` in
@@ -34,7 +39,12 @@ Layouts
     There is no prompt echo and no decoded record in the log. The second
     (final) script table is the source, hence ``source="script_table"``. A
     lone table is not treated as final, so a log that printed only one table
-    yields no records: nothing can be asserted as the final output.
+    yields no records: nothing can be asserted as the final output. The
+    extractor reports that case with the machine-readable reason
+    :data:`TABLE_ONLY_SINGLE_TABLE` (see the ``warnings`` argument of
+    :func:`extract_verdicts_with_source`), so the UI can say the run was
+    killed before the final table instead of showing an unexplained empty
+    result.
 
 The script tables are **0-based**: log 04 has rows ``0`` to ``2494`` (2,495
 rows) for a gold set of 2,495 records, and log 07 has exactly the same range.
@@ -98,8 +108,11 @@ same whether or not the caller supplies ``layout``.
     phase line precedes ``Decoded output:``, so the flag is carried into the
     block. Requiring only ``Done Decoding`` would invent an ``empty`` record
     in the short window between that phase line and the decoded text. A block
-    still open at end of file is tested the same way, because the kill may
-    have cut it short.
+    still open at end of file goes through the same test as a block closed by
+    the next record: it is a record only when both ``Done Decoding`` and a
+    response line were seen. A kill that cut the tail before the response
+    line therefore leaves the record missing; a response line the kill did
+    write keeps it, and Step 2 classifies the partial value.
 
 A record the run never finished must stay *missing*, because scoring counts a
 missing index as ``unfinished`` whereas an ``empty`` record is an answer the
@@ -142,6 +155,7 @@ from app.scoring import VerdictKind, VerdictRecord
 
 __all__ = [
     "OutputLayout",
+    "TABLE_ONLY_SINGLE_TABLE",
     "VerdictSource",
     "extract_verdicts",
     "extract_verdicts_with_source",
@@ -150,6 +164,14 @@ __all__ = [
 
 OutputLayout = Literal["banner", "think", "table_only"]
 VerdictSource = Literal["parsed", "script_table"]
+
+#: Machine-readable reason reported for a ``table_only`` log that printed a
+#: single script table. A lone table is not the final output, so there are no
+#: records to assert, but an empty result alone does not tell the UI why. The
+#: caller passes a list as ``warnings`` to
+#: :func:`extract_verdicts_with_source`; the UI maps this code to its message
+#: ("the run was killed before the final table").
+TABLE_ONLY_SINGLE_TABLE: Final = "table_only_single_table"
 
 DEFAULT_LABELS: Final[tuple[str, ...]] = ("True", "False", "Conflicting")
 OUTPUT_FORMATS: Final[tuple[str, ...]] = ("banner", "think", "table_only")
@@ -241,18 +263,20 @@ _NO_RESPONSE: Final = "No response"
 _SEPARATOR: Final = re.compile(r"^\*{20,}$")
 
 
-def _starts_next_record(line: str) -> bool:
+def _starts_next_record(line: str, has_response: bool) -> bool:
     """True for a line that proves the record before it was completed.
 
-    In the ``think`` layout the next record begins with the ``Tokenizing
-    Inputs`` phase line of :mod:`app.parsing.errors`, printed after the
-    ``***`` separator. Either marker closes the decoded block; the block is a
-    record only if ``Done Decoding`` was seen and it holds a response line.
+    The ``Tokenizing Inputs`` phase line always starts the next record. The
+    ``***`` separator printed between records also ends the current one, but
+    only once the block holds a response line: a rule of 20 asterisks inside
+    the echoed prompt must not drop the record before its answer arrives. The
+    block is a record only if ``Done Decoding`` was seen and it holds a
+    response line.
     """
 
     if line.startswith(TOKENIZING_INPUTS):
         return True
-    return _SEPARATOR.match(line) is not None
+    return has_response and _SEPARATOR.match(line) is not None
 
 
 # ---------------------------------------------------------------------------
@@ -427,24 +451,56 @@ def _resolve_layout(path: str | Path, layout: OutputLayout | None) -> OutputLayo
 # ---------------------------------------------------------------------------
 
 
-def _banner_value(block: Sequence[str], marker: str) -> str:
-    """Return the located value of one ``OUTPUT`` block (Step 0).
+def _bare_list_line(line: str, marker: str) -> bool:
+    """True for one line of the trailing bare list of every response.
 
-    The value is the text after the *last* marker (``rfind``). A trailing
-    bare list of responses (some runs print every verdict again with no
-    banner) starts at the first pair of consecutive marker lines; the list is
-    not part of the record, so the search is cut just after the first line of
-    the pair.
+    The list prints one line per record: either a marker line or the literal
+    ``No response`` for a record without a verdict. Nothing else belongs to
+    it, so the first other line (the echoed prompt) ends the run.
     """
 
-    cutoff = len(block)
-    for position in range(len(block) - 1):
-        if marker in block[position] and marker in block[position + 1]:
-            cutoff = position + 1
-            break
+    return marker in line or line == _NO_RESPONSE
+
+
+def _banner_value(
+    block: Sequence[str],
+    marker: str,
+    *,
+    trailing_records: int | None = None,
+) -> str:
+    """Return the located value of one ``OUTPUT`` block (Step 0).
+
+    The value is the text after the *last* marker (``rfind``). Some runs
+    print a bare list of every response after the last ``OUTPUT`` block, and
+    because no later banner closes that block the list is part of it. The
+    list holds one line per record, so its length is ``trailing_records + 1``
+    (one line for every record, this one included). The block's trailing run
+    of marker/``No response`` lines must hold at least that many lines before
+    it can be a list; exactly that many lines are dropped and the search runs
+    over what remains. A shorter run is the record's own response at most,
+    never a list.
+
+    ``trailing_records`` is the number of records already emitted when this
+    block is the one still open at end of file, and ``None`` for a block a
+    later banner closed. Only the final block can hold the list, and only a
+    log with at least one earlier record can hold a list that is longer than
+    the record's own response: for a single record a one-line run is that
+    response (a lone ``No response`` list line would not make the block a
+    record at all), so it is never cut.
+    """
+
+    lines = block
+    if trailing_records is not None and trailing_records >= 1:
+        run = 0
+        for line in reversed(lines):
+            if not _bare_list_line(line, marker):
+                break
+            run += 1
+        if run >= trailing_records + 1:
+            lines = lines[: len(lines) - (trailing_records + 1)]
 
     found: str | None = None
-    for line in block[:cutoff]:
+    for line in lines:
         at = line.rfind(marker)
         if at >= 0:
             found = line[at + len(marker) :]
@@ -461,18 +517,23 @@ def _banner_records(
     A block closed by a later banner is always a record, even without a
     marker. The block still open at end of file is a record only when it
     holds a ``### Response:`` line; otherwise the record is missing rather
-    than invented as ``empty``.
+    than invented as ``empty``. The bare list of every response is only cut
+    from that final block: a closed block never holds it.
     """
 
     records: list[VerdictRecord] = []
     block: list[str] = []
     inside = False
 
-    def close() -> None:
+    def close(*, final: bool = False) -> None:
         nonlocal block, inside
         if not inside:
             return
-        value = _banner_value(block, marker)
+        value = _banner_value(
+            block,
+            marker,
+            trailing_records=len(records) if final else None,
+        )
         parsed, kind = _classify(value, labels)
         records.append(_record(len(records), value, parsed, kind))
         block = []
@@ -505,7 +566,7 @@ def _banner_records(
     # line. Without one the run never finished the record, so it stays
     # missing and scoring reports it as ``unfinished``.
     if inside and any(line.startswith(_RESPONSE) for line in block):
-        close()
+        close(final=True)
     return records
 
 
@@ -556,10 +617,14 @@ def _scan_timestamped(
 
     A decoded record is a record only when ``Done Decoding`` was seen for it
     (the line precedes the ``Decoded output:`` header in the real logs) and
-    its block holds a ``### Response:`` line. The next record's start (the
-    ``Tokenizing Inputs`` phase line or the ``***`` separator) closes the
-    block, and a block still open at end of file is tested the same way, so a
-    record the run never finished stays missing.
+    its block holds a ``### Response:`` line. The next record's
+    ``Tokenizing Inputs`` phase line closes the block; the ``***`` separator
+    also closes it, but only once the block holds a response line, so a rule
+    of 20 asterisks inside the echoed prompt cannot drop the record. The
+    ``Done Decoding`` flag belongs to one record only: it is cleared at every
+    ``Tokenizing Inputs`` line, so a stray phase line cannot carry into the
+    next block. A block still open at end of file goes through the same test,
+    so a record the run never finished stays missing.
     """
 
     tables: list[dict[int, str]] = []
@@ -614,9 +679,18 @@ def _scan_timestamped(
                 pending_done_decoding = False
                 continue
 
-            if inside and _starts_next_record(line):
-                # The next record has begun, so this one is complete even
-                # though its closing ``Decoded output:`` has not arrived.
+            if line.startswith(TOKENIZING_INPUTS):
+                # A phase line always belongs to a new record, so a stray
+                # ``Done Decoding`` seen since the last one must not carry
+                # into the block whose ``Decoded output:`` follows.
+                pending_done_decoding = False
+                if inside:
+                    # The next record has begun, so this one is complete even
+                    # though its closing ``Decoded output:`` has not arrived.
+                    close()
+                continue
+
+            if inside and _starts_next_record(line, has_response):
                 close()
                 continue
 
@@ -748,17 +822,24 @@ def _think_records(
 
 
 def _table_only_records(
-    path: str | Path, labels: Sequence[str]
+    path: str | Path,
+    labels: Sequence[str],
+    warnings: list[str] | None = None,
 ) -> list[VerdictRecord]:
     """Records for a ``table_only`` log: the second table is the source.
 
     A lone table is not treated as final, so it yields no records: there is
     no decoded record to fall back on and nothing can be asserted as the
-    script's final output.
+    script's final output. When only one table was printed, the
+    machine-readable :data:`TABLE_ONLY_SINGLE_TABLE` reason is appended to
+    ``warnings`` (if the caller supplied one) so the empty result can be
+    explained instead of looking like a parse failure.
     """
 
     tables, _ = _scan_timestamped(path, collect_decoded=False)
     if len(tables) < 2:
+        if warnings is not None and len(tables) == 1:
+            warnings.append(TABLE_ONLY_SINGLE_TABLE)
         return []
 
     first = tables[0]
@@ -781,6 +862,7 @@ def extract_verdicts_with_source(
     labels: Sequence[str] = DEFAULT_LABELS,
     layout: OutputLayout | None = None,
     source: VerdictSource | None = None,
+    warnings: list[str] | None = None,
 ) -> tuple[VerdictSource, list[VerdictRecord]]:
     """Extract records together with the ``score_verdicts`` source.
 
@@ -803,6 +885,14 @@ def extract_verdicts_with_source(
     ``source`` is optional. When supplied it must equal
     :func:`verdict_source` of the resolved layout; a mismatch is a caller
     error, so a caller cannot label a table extraction as parsed output.
+
+    ``warnings`` is an optional list the caller passes in to receive
+    machine-readable reasons. A ``table_only`` log that printed a single
+    table yields no records (that table is not the final output) and appends
+    :data:`TABLE_ONLY_SINGLE_TABLE` to it, so the UI can explain the empty
+    result ("the run was killed before the final table") instead of showing
+    an unexplained blank. The records themselves are unchanged and stay an
+    empty list.
 
     The function makes one streaming pass over the file (plus the layout
     pass of ``detect`` when ``layout`` is ``None``). It raises ``ValueError``
@@ -828,7 +918,7 @@ def extract_verdicts_with_source(
     elif resolved == "think":
         records = _think_records(path, labels)
     else:
-        records = _table_only_records(path, labels)
+        records = _table_only_records(path, labels, warnings)
     return expected, records
 
 
@@ -839,15 +929,22 @@ def extract_verdicts(
     labels: Sequence[str] = DEFAULT_LABELS,
     layout: OutputLayout | None = None,
     source: VerdictSource | None = None,
+    warnings: list[str] | None = None,
 ) -> list[VerdictRecord]:
     """Extract one verdict record per index present in ``path``.
 
     A thin wrapper around :func:`extract_verdicts_with_source` that keeps
     only the records. Use the latter when the records are going to
     :func:`app.scoring.score_verdicts`, because that function also needs the
-    ``source``.
+    ``source``. ``warnings`` is forwarded unchanged; see the wrapped function
+    for the reasons it can receive.
     """
 
     return extract_verdicts_with_source(
-        path, marker=marker, labels=labels, layout=layout, source=source
+        path,
+        marker=marker,
+        labels=labels,
+        layout=layout,
+        source=source,
+        warnings=warnings,
     )[1]

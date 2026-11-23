@@ -113,6 +113,31 @@ def banner_block(generated: str) -> list[str]:
     ]
 
 
+def marker_less_block(claim: str) -> list[str]:
+    """A banner record whose prompt was echoed but whose response never came."""
+
+    return [
+        "*************************************INPUTS****************************************",
+        f"### Claim: {claim}",
+        "******************************OUTPUT*****************************",
+        "    ### Instruction:",
+        "    Give the response in the format - Verdict: <verdict>",
+    ]
+
+
+def bare_list(*values: str | None) -> list[str]:
+    """The trailing list some runs print: one line per record, in order.
+
+    A record without a verdict is the literal ``No response``, exactly as the
+    list prints it.
+    """
+
+    return [
+        "No response" if value is None else "### Response: Verdict: " + value
+        for value in values
+    ]
+
+
 def complete_output_blocks(path: Path) -> int:
     """Count the ``OUTPUT`` blocks that a later banner closes.
 
@@ -163,6 +188,27 @@ def test_banner_eos_token_is_recovered():
     )
 
 
+def test_eos_followed_by_a_period_needs_the_trim_loop(tmp_path: Path):
+    """``False</s>.``: the period hides the EOS token, so ``_trim`` repeats.
+
+    The trailing period is removed first, which exposes ``</s>``; only a
+    second pass of the loop removes the token. The value is recovered, not
+    exact, and ``raw`` still shows what the model printed.
+    """
+
+    from app.parsing.verdicts import _trim
+
+    assert _trim("False</s>.") == "False"
+
+    log = tmp_path / "eos_then_period.log"
+    log.write_text("\n".join(banner_block("False</s>.")), encoding="utf-8")
+    records = extract_verdicts(log, marker=MARKER, layout="banner")
+    assert [(record["parsed"], record["kind"]) for record in records] == [
+        ("False", "recovered")
+    ]
+    assert records[0]["raw"] == "False</s>."
+
+
 def test_records_are_accepted_by_the_scoring_engine():
     """The shape and the ``exact``/``recovered`` values satisfy #35."""
 
@@ -190,11 +236,86 @@ def test_records_are_accepted_by_the_scoring_engine():
 def test_banner_trailing_bare_list_is_not_extra_records():
     """s03 ends with a bare list of every response; only the blocks count."""
 
-    records = extract_verdicts(FIX / "s03_inference_success.log", marker=MARKER)
+    path = FIX / "s03_inference_success.log"
+    records = extract_verdicts(path, marker=MARKER)
     assert len(records) == 7
     assert [record["index"] for record in records] == list(range(7))
     # These responses have no EOS token, so they are exact.
     assert all(record["kind"] == "exact" for record in records)
+
+    # The file prints the seven records' own responses first and then the bare
+    # list, so the first seven response lines are the seven records. The last
+    # record's value must be its own answer, not a later line of the list
+    # (which belongs to another record in the full log).
+    listed = [
+        line[len("### Response: Verdict: ") :]
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if line.startswith("### Response: Verdict: ")
+    ]
+    assert [record["parsed"] for record in records] == listed[:7]
+    assert records[-1]["parsed"] == "False"
+    assert records[-1]["raw"] == "False"
+
+
+def test_bare_list_does_not_verdict_a_marker_less_last_record(tmp_path: Path):
+    """The last record has no marker; the list must not supply record 0's.
+
+    The trailing list holds one line per record, so its first line is record
+    0's answer. Cutting after the first pair of consecutive marker lines
+    lands inside the list and classifies the final record ``exact`` with
+    record 0's verdict; the list must instead be removed by its length.
+    """
+
+    log = tmp_path / "banner_markerless_last_with_list.log"
+    log.write_text(
+        "\n".join(
+            banner_block("True")
+            + banner_block("False")
+            + marker_less_block("the last claim")
+            + bare_list("True", "False", None)
+        ),
+        encoding="utf-8",
+    )
+
+    records = extract_verdicts(log, marker=MARKER, layout="banner")
+    assert len(records) == 3
+    assert records[0]["parsed"] == "True"
+    assert records[1]["parsed"] == "False"
+    assert records[2]["parsed"] is None
+    assert records[2]["kind"] == "empty"
+    assert records[2]["raw"] == "No response"
+    assert records[2]["parsed"] != records[0]["parsed"]
+
+
+def test_bare_list_keeps_a_final_verdict_when_record_zero_has_none(
+    tmp_path: Path,
+):
+    """Record 0 has no marker, so the list starts with ``No response``.
+
+    The first pair of consecutive marker lines is then the second and third
+    list lines, which lands after record 1's answer: the final record would
+    inherit record 1's verdict. The trailing run is the record's own response
+    plus the whole list, so dropping one line per record leaves that own
+    response and the record keeps its verdict.
+    """
+
+    log = tmp_path / "banner_markerless_first_with_list.log"
+    log.write_text(
+        "\n".join(
+            marker_less_block("the first claim")
+            + banner_block("False")
+            + banner_block("True")
+            + bare_list(None, "False", "True")
+        ),
+        encoding="utf-8",
+    )
+
+    records = extract_verdicts(log, marker=MARKER, layout="banner")
+    assert [(record["parsed"], record["kind"]) for record in records] == [
+        (None, "empty"),
+        ("False", "exact"),
+        ("True", "exact"),
+    ]
 
 
 def test_terminated_fixture_yields_only_its_complete_records():
@@ -398,6 +519,65 @@ def test_think_block_needs_both_done_decoding_and_a_response(tmp_path: Path):
     ]
 
 
+def test_stray_done_decoding_does_not_carry_into_the_next_block(
+    tmp_path: Path,
+):
+    """The pending phase flag belongs to one record and is cleared at the phase.
+
+    ``Done Decoding`` is printed before ``Decoded output:`` in the real logs,
+    so the flag is carried into the block the header opens. A stray one seen
+    while no block is open must not survive the next ``Tokenizing Inputs``:
+    otherwise a block with no phase evidence of its own becomes a record.
+    """
+
+    log = tmp_path / "think_stray_done_decoding.log"
+    log.write_text(
+        "\n".join(
+            [
+                "Done Decoding" + TIMESTAMP,
+                "Tokenizing Inputs" + TIMESTAMP,
+                "Decoded output:  ",
+                "Give the response in the format - Verdict: <verdict>",
+                "### Response: Verdict: True",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    assert extract_verdicts(log, marker=MARKER, layout="think") == []
+
+
+def test_separator_inside_a_prompt_echo_does_not_drop_the_record(
+    tmp_path: Path,
+):
+    """A 20-asterisk rule before the response is prompt echo, not a closer.
+
+    The block holds ``Done Decoding`` and then a separator line inside the
+    echoed prompt. Closing there drops the record before its response line
+    arrives; the separator closes only a block that already has a response.
+    """
+
+    log = tmp_path / "think_separator_in_prompt.log"
+    log.write_text(
+        "\n".join(
+            [
+                "Tokenizing Inputs" + TIMESTAMP,
+                "Done Decoding" + TIMESTAMP,
+                "Decoded output:  ",
+                "Give the response in the format - Verdict: <verdict>",
+                SEPARATOR,
+                "### Response: Verdict: True",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    records = extract_verdicts(log, marker=MARKER, layout="think")
+    assert [(record["parsed"], record["kind"]) for record in records] == [
+        ("True", "exact")
+    ]
+
+
 def test_think_log_cut_without_a_terminal_line_keeps_the_record(tmp_path: Path):
     """Without a terminal event the open decoded record is completed."""
 
@@ -514,7 +694,7 @@ def test_banner_block_with_a_complete_response_before_the_kill_is_kept(
 ):
     """A complete response line is a record even when the kill follows it.
 
-    The mirror of ``test_banner_cut_at_eof_is_dropped_when_terminated``: the
+    The mirror of ``test_banner_cut_at_eof_is_kept_when_it_has_a_marker``: the
     block already holds ``### Response: Verdict: True</s>``, so the terminal
     line did not cut anything.
     """
@@ -767,6 +947,41 @@ def test_lone_script_table_is_not_treated_as_final(tmp_path: Path):
     assert extract_verdicts(table, marker=MARKER, layout="table_only") == []
 
 
+def test_lone_table_only_run_reports_a_machine_readable_reason(
+    tmp_path: Path,
+):
+    """A single table yields no records but tells the UI why.
+
+    The empty list alone cannot distinguish "the run was killed before the
+    final table" from a parse failure, so the optional ``warnings`` list
+    receives :data:`TABLE_ONLY_SINGLE_TABLE`. A complete log with both tables
+    reports nothing, and the records are unchanged.
+    """
+
+    from app.parsing.verdicts import TABLE_ONLY_SINGLE_TABLE
+
+    table = tmp_path / "table_only_lone_table.log"
+    table.write_text(
+        "\n".join(["0 | Verdict: True", "1 | Verdict: False"]),
+        encoding="utf-8",
+    )
+    warnings: list[str] = []
+    source, records = extract_verdicts_with_source(
+        table, marker=MARKER, layout="table_only", warnings=warnings
+    )
+    assert source == "script_table"
+    assert records == []
+    assert warnings == [TABLE_ONLY_SINGLE_TABLE]
+
+    warnings.clear()
+    source, records = extract_verdicts_with_source(
+        FIX / "s07_inference_success.log", marker=MARKER, warnings=warnings
+    )
+    assert source == "script_table"
+    assert len(records) == 163
+    assert warnings == []
+
+
 @pytest.mark.parametrize(
     "value",
     [
@@ -823,22 +1038,37 @@ def test_source_must_match_the_layout():
 
 
 def test_extract_with_source_reports_the_resolved_layout():
-    """The caller must be able to score ``table_only`` as ``script_table``."""
+    """The caller must be able to score ``table_only`` as ``script_table``.
+
+    Each fixture is extracted through its own resolved layout, so the records
+    carry that layout's properties: the banner records trim the model EOS
+    token, while the table records come from the 0-based final table. A
+    wrapper that resolved the wrong layout could not produce both.
+    """
 
     banner = FIX / "s02_inference_success.log"
     source, records = extract_verdicts_with_source(banner, marker=MARKER)
     assert source == "parsed"
-    assert records == extract_verdicts(banner, marker=MARKER)
+    assert [record["index"] for record in records] == list(range(7))
+    assert all(record["kind"] == "recovered" for record in records)
 
     table = FIX / "s07_inference_success.log"
     source, records = extract_verdicts_with_source(table, marker=MARKER)
     assert source == "script_table"
-    assert records == extract_verdicts(table, marker=MARKER)
+    assert len(records) == 163
+    _, final = tables(table)
+    assert [record["index"] for record in records] == [
+        index for index, _ in final
+    ]
 
     think = FIX / "s04_inference_success.log"
     source, records = extract_verdicts_with_source(think, marker=MARKER)
     assert source == "parsed"
-    assert records == extract_verdicts(think, marker=MARKER)
+    assert len(records) == 162
+    _, final = tables(think)
+    assert [record["index"] for record in records] == [
+        index for index, _ in final
+    ]
 
 
 # ---------------------------------------------------------------------------
