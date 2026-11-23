@@ -34,6 +34,10 @@ TIMESTAMP = " :  2026-02-20 10:45:18.187166"
 ROW = re.compile(r"^(\d+) \| (.*)$")
 BANNER = re.compile(r"^[*#]{5,}\s*(INPUTS|OUTPUT|VERDICTS|LENGTH)\s*[*#]{5,}$")
 
+#: The rule the ``think`` script prints between two records, copied from
+#: ``tests/fixtures/logs/s04_inference_success.log``.
+SEPARATOR = "*" * 78
+
 #: The terminal line of a run killed at the SLURM time limit, copied from
 #: ``tests/fixtures/logs/s15_inference_terminated.log``.
 TIME_LIMIT = (
@@ -164,11 +168,19 @@ def test_records_are_accepted_by_the_scoring_engine():
 
     from app.scoring import score_verdicts
 
-    records = extract_verdicts(FIX / "s02_inference_success.log", marker=MARKER)
+    # ``source`` is resolved by the extractor and passed on explicitly. The
+    # scoring branch makes it a required argument, so a call that relied on
+    # this branch's default would raise ``TypeError`` once both branches are
+    # merged; passing it by keyword works with either signature.
+    source, records = extract_verdicts_with_source(
+        FIX / "s02_inference_success.log", marker=MARKER
+    )
     # The engine validates the shape and the exact/recovered values; the gold
     # list here only has to be well formed.
     gold = [record["parsed"] for record in records]
-    report = score_verdicts(records, gold, marker=MARKER, labels=LABELS)
+    report = score_verdicts(
+        records, gold, marker=MARKER, labels=LABELS, source=source
+    )
     assert report["records"] == 7
     assert report["complete"] is True
     assert report["recovered"] == 7
@@ -308,6 +320,131 @@ def test_think_log_cut_without_a_terminal_line_keeps_the_record(tmp_path: Path):
     assert records[-1]["kind"] == "unparsed"
 
 
+def test_terminated_think_run_keeps_the_last_complete_record(tmp_path: Path):
+    """A kill after the next record started must not lose record N.
+
+    This is the real shape of a time-limit kill (s04 around the record
+    boundary): record N's generation, then the ``***`` separator, then the
+    next record's ``Tokenizing Inputs`` phase line, and only much later its
+    ``Decoded output:``. The kill lands between the last two, so record N's
+    decoded block is still open at end of file although its verdict was
+    printed. It must still be emitted; before the fix this log yields zero
+    records.
+    """
+
+    log = tmp_path / "think_terminated_between_records.log"
+    log.write_text(
+        "\n".join(
+            [
+                "Decoded output:  ",
+                "Give the response in the format - Verdict: <verdict>",
+                "### Response: ",
+                "Verdict: True",
+                SEPARATOR,
+                "Tokenizing Inputs" + TIMESTAMP,
+                TIME_LIMIT,
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    records = extract_verdicts(log, marker=MARKER, layout="think")
+    assert [(record["parsed"], record["kind"]) for record in records] == [
+        ("True", "exact")
+    ]
+
+
+def test_terminated_think_run_drops_the_started_record(tmp_path: Path):
+    """The record that only started tokenizing stays missing, not empty.
+
+    Same shape as the test above, but the kill lands after the next record's
+    phase lines and before any ``Decoded output:`` header or verdict, so only
+    record N is a record.
+    """
+
+    log = tmp_path / "think_terminated_started_record.log"
+    log.write_text(
+        "\n".join(
+            [
+                "Decoded output:  ",
+                "Give the response in the format - Verdict: <verdict>",
+                "### Response: ",
+                "Verdict: True",
+                SEPARATOR,
+                "Tokenizing Inputs" + TIMESTAMP,
+                "Done Preparing the Input" + TIMESTAMP,
+                "Preparing Outputs" + TIMESTAMP,
+                TIME_LIMIT,
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    records = extract_verdicts(log, marker=MARKER, layout="think")
+    assert [(record["parsed"], record["kind"]) for record in records] == [
+        ("True", "exact")
+    ]
+
+
+def test_clean_think_log_keeps_its_last_block(tmp_path: Path):
+    """A log that ends cleanly, with no terminal event, keeps its last block.
+
+    Guard against over-dropping after closing blocks at the next record's
+    start: the last record is complete and has no successor to prove it.
+    """
+
+    log = tmp_path / "think_clean_two_records.log"
+    log.write_text(
+        "\n".join(
+            [
+                think_block("Verdict: True"),
+                think_block("Verdict: False"),
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    records = extract_verdicts(log, marker=MARKER, layout="think")
+    assert [(record["parsed"], record["kind"]) for record in records] == [
+        ("True", "exact"),
+        ("False", "exact"),
+    ]
+
+
+def test_banner_block_with_a_complete_response_before_the_kill_is_kept(
+    tmp_path: Path,
+):
+    """A complete response line is a record even when the kill follows it.
+
+    The mirror of ``test_banner_cut_at_eof_is_dropped_when_terminated``: the
+    block already holds ``### Response: Verdict: True</s>``, so the terminal
+    line did not cut anything.
+    """
+
+    log = tmp_path / "banner_terminated_complete.log"
+    log.write_text(
+        "\n".join(banner_block("True</s>") + [TIME_LIMIT]),
+        encoding="utf-8",
+    )
+
+    records = extract_verdicts(log, marker=MARKER, layout="banner")
+    assert [(record["parsed"], record["kind"]) for record in records] == [
+        ("True", "recovered")
+    ]
+
+
+def test_terminated_and_clean_fixtures_keep_seven_records():
+    """Guard: s02 (clean) and s15 (terminated) both still yield seven."""
+
+    for name in (
+        "s02_inference_success.log",
+        "s15_inference_terminated.log",
+    ):
+        records = extract_verdicts(FIX / name, marker=MARKER)
+        assert len(records) == 7, name
+        assert [record["index"] for record in records] == list(range(7)), name
+
+
 def test_instruction_placeholder_output_is_empty(tmp_path: Path):
     """A generated text that starts with ``Verdict: <verdict>`` is empty.
 
@@ -425,9 +562,10 @@ def test_synthetic_think_log_covers_the_decoded_record_path(tmp_path: Path):
     ]
     # These raws are the decoded record, not the first table's cell, which is
     # what proves the decoded-record path ran rather than the table path.
-    # ``_think_value`` keeps the space that follows ``### Response:``.
+    # A generation with no verdict line keeps its first line only, with the
+    # layout space that follows ``### Response:`` stripped.
     assert records[1]["raw"] == "Conflicting."
-    assert records[2]["raw"].strip() == "<think>No verdict line here.</think>"
+    assert records[2]["raw"] == "<think>No verdict line here.</think>"
     assert records[3]["raw"] == "<verdict>"
 
 

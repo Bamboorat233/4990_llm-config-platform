@@ -73,14 +73,25 @@ leading ``Verdict: ``.
 Termination
 -----------
 A run killed at the SLURM time limit ends with the ``time_limit`` line of
-:mod:`app.parsing.errors`. Verdicts come only from **complete** ``OUTPUT``
-blocks (design section 3.4), so the block still open at end of file is
+:mod:`app.parsing.errors`. Verdicts come only from **complete** records
+(design section 3.4), and the next record's start proves that the previous
+one was written: a decoded ``think`` block is therefore closed by the next
+``Tokenizing Inputs`` phase line (or the ``***`` separator that precedes it),
+not only by the next ``Decoded output:`` header. Generation takes almost all
+of the wall time, so a kill normally lands between ``Tokenizing Inputs`` and
+``Decoded output:`` -- *after* the previous verdict was printed. That record
+is complete and must not be lost.
+
+Only a block still open at end of file with no complete verdict in it is
 dropped when the run was terminated: a record the kill cut short must stay
 *missing*, because scoring counts a missing index as ``unfinished`` whereas
-an ``empty`` record is an answer the model never gave. A log that ends
-cleanly at end of file, with no terminal event (log 02, whose last block has
-no closing ``INPUTS``), still yields that last block. The same rule applies
-to an open decoded record in the ``think`` layout.
+an ``empty`` record is an answer the model never gave. A block that already
+holds ``### Response: Verdict: X`` is emitted even though the kill followed
+it; a block holding a half-written value (``Verdict: Fal``) is not, because
+its text cannot be told apart from a finished answer and the kill may have
+cut the label. A log that ends cleanly at end of file, with no terminal
+event (log 02, whose last block has no closing ``INPUTS``), still yields that
+last block, whatever its text.
 
 The terminal line is observed in the same pass, so a caller that passes
 ``layout`` never pays for a second read of the file. When ``layout`` is not
@@ -98,7 +109,8 @@ disagree.
 
 Memory
 ------
-:func:`extract_verdicts` makes one forward-only pass over the file, opened
+:func:`extract_verdicts_with_source` makes one forward-only pass over the
+file (plus the ``detect()`` pass only when ``layout`` is ``None``), opened
 with ``encoding="utf-8", errors="replace", newline=None``. Only the current
 ``OUTPUT``/decoded block, the two table dictionaries and one short string
 per record are retained, never the file's lines: a 200k-line log uses the
@@ -115,7 +127,7 @@ from pathlib import Path
 from typing import Final, Literal, Sequence
 
 from app.parsing.detect import detect
-from app.parsing.errors import PATTERNS
+from app.parsing.errors import PATTERNS, TOKENIZING_INPUTS
 from app.scoring import VerdictKind, VerdictRecord
 
 __all__ = [
@@ -132,7 +144,7 @@ VerdictSource = Literal["parsed", "script_table"]
 DEFAULT_LABELS: Final[tuple[str, ...]] = ("True", "False", "Conflicting")
 OUTPUT_FORMATS: Final[tuple[str, ...]] = ("banner", "think", "table_only")
 
-#: ``kind`` per layout. The table of design section 3.5 and the contract in
+#: ``source`` per layout. The table of design section 3.5 and the contract in
 #: ``specs/interfaces.md`` section 5 rule 1.
 SOURCES: Final[dict[str, VerdictSource]] = {
     "banner": "parsed",
@@ -211,9 +223,19 @@ _RESPONSE: Final = "### Response:"
 _VERDICT_PREFIX: Final = "Verdict: "
 _NO_RESPONSE: Final = "No response"
 
+#: The rule line the script prints between two records, just before the next
+#: ``Tokenizing Inputs``. No pattern for it exists in
+#: :mod:`app.parsing.errors`, so it is compiled here.
+_SEPARATOR: Final = re.compile(r"^\*{20,}$")
+
 #: Cheap substring guard for the SLURM terminal line. The full rule stays in
 #: :data:`app.parsing.errors.PATTERNS` so this module adds no second pattern.
 _TIME_LIMIT_HINT: Final = "DUE TO TIME LIMIT"
+
+#: Kinds that prove the model finished writing its answer. Only they make an
+#: otherwise open block a record when a kill followed it, because a truncated
+#: label cannot be told apart from a finished one.
+_COMPLETE_KINDS: Final = ("exact", "recovered")
 
 
 def _is_terminal_line(line: str) -> bool:
@@ -222,6 +244,22 @@ def _is_terminal_line(line: str) -> bool:
     if _TIME_LIMIT_HINT not in line:
         return False
     return PATTERNS["time_limit"].search(line) is not None
+
+
+def _starts_next_record(line: str) -> bool:
+    """True for a line that proves the record before it was completed.
+
+    In the ``think`` layout the next record begins with the ``Tokenizing
+    Inputs`` phase line of :mod:`app.parsing.errors`, printed after the
+    ``***`` separator. Either marker closes the decoded block: the kill
+    normally lands just after the phase line, so waiting for the next
+    ``Decoded output:`` header would lose the record whose verdict is already
+    printed.
+    """
+
+    if line.startswith(TOKENIZING_INPUTS):
+        return True
+    return _SEPARATOR.match(line) is not None
 
 
 # ---------------------------------------------------------------------------
@@ -442,12 +480,17 @@ def _banner_records(
     inside = False
     terminal_seen = False
 
-    def close() -> None:
+    def close(only_if_complete: bool = False) -> None:
         nonlocal block, inside
         if not inside:
             return
         value = _banner_value(block, marker)
         parsed, kind = _classify(value, labels)
+        if only_if_complete and kind not in _COMPLETE_KINDS:
+            # A kill inside the block. The record is missing, not empty.
+            block = []
+            inside = False
+            return
         records.append(_record(len(records), value, parsed, kind))
         block = []
         inside = False
@@ -479,10 +522,13 @@ def _banner_records(
                 block.append(line)
 
     # A block still open at end of file is the last record only when the log
-    # ended cleanly. A terminated run was cut inside it, so the record is
-    # missing rather than empty: scoring reports a missing index as
-    # ``unfinished``. Log 02 has no terminal line and keeps its last block.
-    if not (terminated or terminal_seen):
+    # ended cleanly, or when it already holds a complete verdict. A terminated
+    # run whose block was cut before its verdict leaves the record missing
+    # rather than empty: scoring reports a missing index as ``unfinished``.
+    # Log 02 has no terminal line and keeps its last block.
+    if terminated or terminal_seen:
+        close(only_if_complete=True)
+    else:
         close()
     return records
 
@@ -498,8 +544,8 @@ def _think_value(block: Sequence[str]) -> str:
     Only the text after the last ``### Response:`` is searched, so the
     ``Verdict: <verdict>`` in the echoed prompt is never an answer. The value
     is the text after the last ``Verdict: `` in the generation; when there is
-    none, the first non-empty generated line is returned as raw evidence for
-    the UI while Step 2 reports ``empty``.
+    none, the first non-empty generated line is returned, stripped, as raw
+    evidence for the UI while Step 2 reports ``empty``.
     """
 
     content = "\n".join(block)
@@ -514,12 +560,19 @@ def _think_value(block: Sequence[str]) -> str:
 
     for line in generated.splitlines():
         if line.strip():
-            return line
+            # The space that follows ``### Response:`` is layout, not text;
+            # stripping it cannot change a classification, which strips the
+            # first line too.
+            return line.strip()
     return _NO_RESPONSE
 
 
 def _scan_timestamped(
-    path: str | Path, *, collect_decoded: bool, terminated: bool = False
+    path: str | Path,
+    *,
+    collect_decoded: bool,
+    labels: Sequence[str] = DEFAULT_LABELS,
+    terminated: bool = False,
 ) -> tuple[list[dict[int, str]], list[str]]:
     """One streaming pass over a ``think``/``table_only`` log.
 
@@ -527,9 +580,13 @@ def _scan_timestamped(
     stops increasing) and, when requested, one located value per completed
     decoded record. Only the current record block is buffered.
 
-    A decoded record still open at end of file is completed only when the
-    log ended cleanly; ``terminated`` (or a terminal line in the stream)
-    means the kill cut it short, so it is not a record.
+    A decoded record is complete once the next record begins: the
+    ``Tokenizing Inputs`` phase line (or the ``***`` separator) closes it, so
+    a kill that lands between that line and the next ``Decoded output:`` does
+    not lose the record whose verdict is already printed. A record still open
+    at end of file counts only when the log ended cleanly or the block already
+    holds a complete verdict; ``terminated`` (or a terminal line in the
+    stream) means the kill may have cut it short.
     """
 
     tables: list[dict[int, str]] = []
@@ -540,10 +597,13 @@ def _scan_timestamped(
     terminal_seen = False
     previous_index: int | None = None
 
-    def close() -> None:
+    def close(only_if_complete: bool = False) -> None:
         nonlocal block, inside, has_response
         if collect_decoded and inside and has_response:
-            decoded.append(_think_value(block))
+            value = _think_value(block)
+            kind = _classify(value, labels)[1]
+            if not only_if_complete or kind in _COMPLETE_KINDS:
+                decoded.append(value)
         block = []
         inside = False
         has_response = False
@@ -580,12 +640,20 @@ def _scan_timestamped(
                 block = []
                 continue
 
+            if inside and _starts_next_record(line):
+                # The next record has begun, so this one is complete even
+                # though its closing ``Decoded output:`` has not arrived.
+                close()
+                continue
+
             if inside:
                 block.append(line)
                 if line.startswith(_RESPONSE):
                     has_response = True
 
-    if not (terminated or terminal_seen):
+    if terminated or terminal_seen:
+        close(only_if_complete=True)
+    else:
         close()
     return tables, decoded
 
@@ -636,7 +704,7 @@ def _think_records(
     """Records for a ``think`` log, decoded record first, final table next."""
 
     tables, decoded = _scan_timestamped(
-        path, collect_decoded=True, terminated=terminated
+        path, collect_decoded=True, labels=labels, terminated=terminated
     )
 
     if not tables:
