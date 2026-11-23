@@ -19,7 +19,11 @@ from pathlib import Path
 
 import pytest
 
-from app.parsing.verdicts import extract_verdicts, verdict_source
+from app.parsing.verdicts import (
+    extract_verdicts,
+    extract_verdicts_with_source,
+    verdict_source,
+)
 
 FIX = Path(__file__).parent / "fixtures" / "logs"
 LOGS_DIR = os.environ.get("LOGS_DIR")
@@ -28,6 +32,14 @@ MARKER = "### Response: Verdict: "
 LABELS = ("True", "False", "Conflicting")
 TIMESTAMP = " :  2026-02-20 10:45:18.187166"
 ROW = re.compile(r"^(\d+) \| (.*)$")
+BANNER = re.compile(r"^[*#]{5,}\s*(INPUTS|OUTPUT|VERDICTS|LENGTH)\s*[*#]{5,}$")
+
+#: The terminal line of a run killed at the SLURM time limit, copied from
+#: ``tests/fixtures/logs/s15_inference_terminated.log``.
+TIME_LIMIT = (
+    "slurmstepd: error: *** JOB 29242690 ON fc00000 "
+    "CANCELLED AT 2026-03-27T18:48:59 DUE TO TIME LIMIT ***"
+)
 
 slow = pytest.mark.skipif(
     not LOGS_DIR, reason="set LOGS_DIR to the folder with the full sample logs"
@@ -64,6 +76,12 @@ def expected_value(final_value: str) -> str | None:
     return None if final_value == "Empty Response" else final_value
 
 
+def first_pass_value(cell: str) -> str:
+    """The first table's cell as a value (the script prints ``Verdict: X``)."""
+
+    return re.sub(r"^Verdict:\s*", "", cell, count=1).strip()
+
+
 def think_block(generated: str) -> str:
     """A minimal ``think`` decoded record around one generated text."""
 
@@ -76,6 +94,46 @@ def think_block(generated: str) -> str:
             "### Response: " + generated,
         ]
     )
+
+
+def banner_block(generated: str) -> list[str]:
+    """The lines of one banner record, up to and including its response."""
+
+    return [
+        "*************************************INPUTS****************************************",
+        "### Claim: a claim",
+        "******************************OUTPUT*****************************",
+        "    ### Instruction:",
+        "    Give the response in the format - Verdict: <verdict>",
+        "### Response: Verdict: " + generated,
+    ]
+
+
+def complete_output_blocks(path: Path) -> int:
+    """Count the ``OUTPUT`` blocks that a later banner closes.
+
+    This is the oracle for "complete record" in the terminated-run tests: a
+    block is complete when the next ``INPUTS``, ``VERDICTS`` or ``OUTPUT``
+    banner proves the script moved on. A block still open at end of file is
+    not complete. It shares no code with the parser.
+    """
+
+    complete = 0
+    inside = False
+    with open(path, encoding="utf-8", errors="replace", newline=None) as handle:
+        for raw_line in handle:
+            match = BANNER.match(raw_line.rstrip("\r\n"))
+            if match is None:
+                continue
+            section = match.group(1)
+            if section == "OUTPUT":
+                if inside:
+                    complete += 1
+                inside = True
+            elif inside and section in ("INPUTS", "VERDICTS"):
+                complete += 1
+                inside = False
+    return complete
 
 
 # ---------------------------------------------------------------------------
@@ -125,6 +183,129 @@ def test_banner_trailing_bare_list_is_not_extra_records():
     assert [record["index"] for record in records] == list(range(7))
     # These responses have no EOS token, so they are exact.
     assert all(record["kind"] == "exact" for record in records)
+
+
+def test_terminated_fixture_yields_only_its_complete_records():
+    """s15: the number of records equals the number of complete blocks.
+
+    The fixture was killed while the eighth record was being tokenized, so
+    the kill sits *between* records: seven ``OUTPUT`` blocks were each closed
+    by a later banner, and nothing is left open at end of file. The expected
+    count is therefore read from the fixture itself, not from the parser, and
+    no record may appear for the record that never started.
+    """
+
+    path = FIX / "s15_inference_terminated.log"
+    assert complete_output_blocks(path) == 7
+    records = extract_verdicts(path, marker=MARKER)
+
+    assert len(records) == 7
+    assert [record["index"] for record in records] == list(range(7))
+    # Every complete block in this excerpt carries a real verdict. A trailing
+    # ``empty`` record would be the invented "No response" of a cut block.
+    assert all(record["kind"] != "empty" for record in records)
+    assert records[-1]["parsed"] == "False"
+
+
+def test_terminated_fixture_with_a_cut_block_drops_it(tmp_path: Path):
+    """A kill inside the last block leaves the record missing, not empty.
+
+    The fixture is the real terminated log with one more ``OUTPUT`` block
+    spliced in before the terminal line, cut in the middle of its verdict.
+    ``layout`` is not supplied, so :func:`detect` reports the terminated
+    status and that status alone must drop the block.
+    """
+
+    source = (FIX / "s15_inference_terminated.log").read_text(encoding="utf-8")
+    lines = source.splitlines()
+    assert lines[-1] == TIME_LIMIT
+    cut = [
+        "******************************OUTPUT*****************************",
+        "    ### Instruction:",
+        "    Give the response in the format - Verdict: <verdict>",
+        "### Response: Verdict: Fal",
+    ]
+    log = tmp_path / "s15_cut_inside_record.log"
+    log.write_text("\n".join(lines[:-1] + cut + [TIME_LIMIT]), encoding="utf-8")
+
+    records = extract_verdicts(log, marker=MARKER)
+    assert len(records) == 7
+    assert all(record["kind"] == "exact" for record in records)
+
+
+def test_banner_cut_at_eof_is_dropped_when_terminated(tmp_path: Path):
+    """A half-written ``Verdict: Fal`` before the time limit is not a record."""
+
+    log = tmp_path / "banner_terminated.log"
+    log.write_text(
+        "\n".join(banner_block("True") + banner_block("Fal") + [TIME_LIMIT]),
+        encoding="utf-8",
+    )
+
+    records = extract_verdicts(log, marker=MARKER, layout="banner")
+    assert len(records) == 1
+    assert records[0]["parsed"] == "True"
+    assert records[0]["kind"] == "exact"
+
+
+def test_banner_cut_at_eof_is_kept_without_a_terminal_line(tmp_path: Path):
+    """The same cut with no terminal event keeps its block, as log 02 does."""
+
+    log = tmp_path / "banner_clean_eof.log"
+    log.write_text(
+        "\n".join(banner_block("True") + banner_block("Fal")),
+        encoding="utf-8",
+    )
+
+    records = extract_verdicts(log, marker=MARKER, layout="banner")
+    assert len(records) == 2
+    assert records[0]["parsed"] == "True"
+    assert records[1]["raw"] == "Fal"
+    assert records[1]["kind"] == "unparsed"
+
+
+def test_terminated_think_log_drops_the_open_record(tmp_path: Path):
+    """The think layout applies the same rule to its decoded records."""
+
+    log = tmp_path / "think_terminated.log"
+    log.write_text(
+        "\n".join(
+            [
+                think_block("Verdict: True"),
+                think_block("Verdict: False"),
+                think_block("Verdict: Tru"),
+                TIME_LIMIT,
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    records = extract_verdicts(log, marker=MARKER, layout="think")
+    assert [(record["parsed"], record["kind"]) for record in records] == [
+        ("True", "exact"),
+        ("False", "exact"),
+    ]
+
+
+def test_think_log_cut_without_a_terminal_line_keeps_the_record(tmp_path: Path):
+    """Without a terminal event the open decoded record is completed."""
+
+    log = tmp_path / "think_clean_eof.log"
+    log.write_text(
+        "\n".join(
+            [
+                think_block("Verdict: True"),
+                think_block("Verdict: False"),
+                think_block("Verdict: Tru"),
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    records = extract_verdicts(log, marker=MARKER, layout="think")
+    assert len(records) == 3
+    assert records[-1]["raw"] == "Tru"
+    assert records[-1]["kind"] == "unparsed"
 
 
 def test_instruction_placeholder_output_is_empty(tmp_path: Path):
@@ -192,6 +373,62 @@ def test_think_fixture_matches_the_visible_final_table():
     assert records_by_index[270]["kind"] == "recovered"
     assert records_by_index[12]["kind"] == "empty"
     assert records_by_index[0]["kind"] == "exact"
+
+
+def test_synthetic_think_log_covers_the_decoded_record_path(tmp_path: Path):
+    """The think main path: decoded record first, final table as fallback.
+
+    ``s04`` is a trimmed excerpt, so it exercises the table path only. This
+    log has one decoded record per index, which makes ``aligned`` true and
+    runs the primary path: four generations covering a clean label, a label
+    with a trailing period, a generation with no verdict line (the script's
+    fallback) and an empty generation.
+    """
+
+    log = tmp_path / "think_decoded.log"
+    generations = [
+        "Verdict: True",
+        "Verdict: Conflicting.",
+        "<think>No verdict line here.</think>",
+        "Verdict: <verdict>",
+    ]
+    first = [
+        "0 | Verdict: True",
+        "1 | Verdict: Conflicting.",
+        "2 | Verdict: <verdict>",
+        "3 | Verdict: <verdict>",
+    ]
+    final = [
+        "0 | True",
+        "1 | Conflicting",
+        "2 | False",
+        "3 | Empty Response",
+    ]
+    log.write_text(
+        "\n".join(
+            [think_block(generation) for generation in generations]
+            + first
+            + final
+        ),
+        encoding="utf-8",
+    )
+
+    source, records = extract_verdicts_with_source(
+        log, marker=MARKER, layout="think"
+    )
+    assert source == "parsed"
+    assert [(record["parsed"], record["kind"]) for record in records] == [
+        ("True", "exact"),
+        ("Conflicting", "recovered"),
+        ("False", "recovered"),
+        (None, "empty"),
+    ]
+    # These raws are the decoded record, not the first table's cell, which is
+    # what proves the decoded-record path ran rather than the table path.
+    # ``_think_value`` keeps the space that follows ``### Response:``.
+    assert records[1]["raw"] == "Conflicting."
+    assert records[2]["raw"].strip() == "<think>No verdict line here.</think>"
+    assert records[3]["raw"] == "<verdict>"
 
 
 def test_think_mangled_final_table_line_is_unparsed(tmp_path: Path):
@@ -293,6 +530,25 @@ def test_source_must_match_the_layout():
     assert len(extract_verdicts(path, marker=MARKER, source="parsed")) == 7
 
 
+def test_extract_with_source_reports_the_resolved_layout():
+    """The caller must be able to score ``table_only`` as ``script_table``."""
+
+    banner = FIX / "s02_inference_success.log"
+    source, records = extract_verdicts_with_source(banner, marker=MARKER)
+    assert source == "parsed"
+    assert records == extract_verdicts(banner, marker=MARKER)
+
+    table = FIX / "s07_inference_success.log"
+    source, records = extract_verdicts_with_source(table, marker=MARKER)
+    assert source == "script_table"
+    assert records == extract_verdicts(table, marker=MARKER)
+
+    think = FIX / "s04_inference_success.log"
+    source, records = extract_verdicts_with_source(think, marker=MARKER)
+    assert source == "parsed"
+    assert records == extract_verdicts(think, marker=MARKER)
+
+
 # ---------------------------------------------------------------------------
 # Slow full-log acceptance tests (the logs stay outside the repository)
 # ---------------------------------------------------------------------------
@@ -312,6 +568,18 @@ def test_full_log04_reproduces_the_final_table():
     records_by_index = by_index(records)
     for index, value in final:
         assert records_by_index[index]["parsed"] == expected_value(value), index
+
+    # The first table prints the script's own parse of the same generation,
+    # so it decides exact versus recovered for *every* row: a clean label is
+    # exact, a placeholder or a trailing period is a recovery.
+    for (index, first_value), (_, final_value) in zip(first, final):
+        if final_value == "Empty Response":
+            expected_kind = "empty"
+        elif first_pass_value(first_value) == final_value:
+            expected_kind = "exact"
+        else:
+            expected_kind = "recovered"
+        assert records_by_index[index]["kind"] == expected_kind, index
 
     # The 3 rows where the first pass printed the placeholder and the final
     # table holds a real verdict: the script's fallback recovered them.
@@ -350,6 +618,25 @@ def test_full_log07_reproduces_the_final_table():
     assert fallback == [170, 247, 947, 1211, 2277, 2283]
     for index in fallback:
         assert records_by_index[index]["kind"] == "recovered", index
+
+
+@slow
+def test_full_log15_terminated_keeps_records_done():
+    """The terminated full log still yields the 2,480 records it reports.
+
+    ``records_done`` is the script's own count, so it is the oracle: dropping
+    the block open at end of file must not remove a record the script
+    finished, and the cut record must not be invented as ``empty``.
+    """
+
+    from app.parsing.detect import detect
+
+    path = Path(LOGS_DIR) / "sampleOutput15.txt"
+    records = extract_verdicts(path, marker=MARKER)
+
+    assert detect(path)["progress"]["records_done"] == 2480
+    assert len(records) == 2480
+    assert [record["index"] for record in records] == list(range(2480))
 
 
 @slow

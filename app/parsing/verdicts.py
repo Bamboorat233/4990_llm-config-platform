@@ -70,6 +70,32 @@ First line only; strip trailing whitespace, the model EOS tokens (``</s>``,
 the DeepSeek ``<|end of sentence|>`` token), trailing punctuation and a
 leading ``Verdict: ``.
 
+Termination
+-----------
+A run killed at the SLURM time limit ends with the ``time_limit`` line of
+:mod:`app.parsing.errors`. Verdicts come only from **complete** ``OUTPUT``
+blocks (design section 3.4), so the block still open at end of file is
+dropped when the run was terminated: a record the kill cut short must stay
+*missing*, because scoring counts a missing index as ``unfinished`` whereas
+an ``empty`` record is an answer the model never gave. A log that ends
+cleanly at end of file, with no terminal event (log 02, whose last block has
+no closing ``INPUTS``), still yields that last block. The same rule applies
+to an open decoded record in the ``think`` layout.
+
+The terminal line is observed in the same pass, so a caller that passes
+``layout`` never pays for a second read of the file. When ``layout`` is not
+supplied, ``detect()`` runs anyway and its ``status`` is used as well.
+
+Scoring
+-------
+:func:`extract_verdicts_with_source` returns the ``source`` that
+:func:`app.scoring.score_verdicts` requires (``"parsed"`` for ``banner`` and
+``think``, ``"script_table"`` for ``table_only``) together with the
+records; callers must pass it to ``score_verdicts(source=...)`` or a
+``table_only`` extraction would be scored as parsed output. The
+records-only :func:`extract_verdicts` delegates to it, so the two can never
+disagree.
+
 Memory
 ------
 :func:`extract_verdicts` makes one forward-only pass over the file, opened
@@ -89,9 +115,16 @@ from pathlib import Path
 from typing import Final, Literal, Sequence
 
 from app.parsing.detect import detect
+from app.parsing.errors import PATTERNS
 from app.scoring import VerdictKind, VerdictRecord
 
-__all__ = ["OutputLayout", "VerdictSource", "extract_verdicts", "verdict_source"]
+__all__ = [
+    "OutputLayout",
+    "VerdictSource",
+    "extract_verdicts",
+    "extract_verdicts_with_source",
+    "verdict_source",
+]
 
 OutputLayout = Literal["banner", "think", "table_only"]
 VerdictSource = Literal["parsed", "script_table"]
@@ -177,6 +210,18 @@ _DECODED_HEADER: Final = "Decoded output:"
 _RESPONSE: Final = "### Response:"
 _VERDICT_PREFIX: Final = "Verdict: "
 _NO_RESPONSE: Final = "No response"
+
+#: Cheap substring guard for the SLURM terminal line. The full rule stays in
+#: :data:`app.parsing.errors.PATTERNS` so this module adds no second pattern.
+_TIME_LIMIT_HINT: Final = "DUE TO TIME LIMIT"
+
+
+def _is_terminal_line(line: str) -> bool:
+    """True for the SLURM line that ends a run killed at the time limit."""
+
+    if _TIME_LIMIT_HINT not in line:
+        return False
+    return PATTERNS["time_limit"].search(line) is not None
 
 
 # ---------------------------------------------------------------------------
@@ -315,10 +360,17 @@ def verdict_source(layout: str) -> VerdictSource:
         ) from None
 
 
-def _resolve_layout(
+def _resolve_layout_and_status(
     path: str | Path, layout: OutputLayout | None
-) -> OutputLayout:
-    """Use the caller's layout or ask :func:`detect` for one."""
+) -> tuple[OutputLayout, bool]:
+    """Use the caller's layout or ask :func:`detect` for one.
+
+    The second element says whether the run is *known* to be terminated. With
+    an explicit ``layout`` no extra pass is made, so the answer is ``False``
+    here and the caller must rely on the terminal line it sees in the stream.
+    Without a layout :func:`detect` has already read the file, so its
+    ``status`` is free to use.
+    """
 
     if layout is not None:
         if layout not in OUTPUT_FORMATS:
@@ -326,7 +378,7 @@ def _resolve_layout(
                 f"unknown output layout {layout!r}; expected one of "
                 f"{list(OUTPUT_FORMATS)!r}"
             )
-        return layout
+        return layout, False
 
     result = detect(path)
     detected = result.get("output_format")
@@ -338,7 +390,8 @@ def _resolve_layout(
         )
     if detected not in OUTPUT_FORMATS:
         raise ValueError(f"detect() reported an unsupported layout: {detected!r}")
-    return detected  # type: ignore[return-value]
+    terminated = result.get("status") == "terminated"
+    return detected, terminated  # type: ignore[return-value]
 
 
 # ---------------------------------------------------------------------------
@@ -371,13 +424,23 @@ def _banner_value(block: Sequence[str], marker: str) -> str:
 
 
 def _banner_records(
-    path: str | Path, marker: str, labels: Sequence[str]
+    path: str | Path,
+    marker: str,
+    labels: Sequence[str],
+    *,
+    terminated: bool = False,
 ) -> list[VerdictRecord]:
-    """One record per ``OUTPUT`` block, in file order."""
+    """One record per complete ``OUTPUT`` block, in file order.
+
+    ``terminated`` says the run is already known to have been killed; the
+    terminal line is also honoured when it appears in the stream, so a caller
+    that supplied ``layout`` gets the same rule without a second pass.
+    """
 
     records: list[VerdictRecord] = []
     block: list[str] = []
     inside = False
+    terminal_seen = False
 
     def close() -> None:
         nonlocal block, inside
@@ -396,6 +459,9 @@ def _banner_records(
             if match:
                 line = line[match.end() :]
 
+            if _is_terminal_line(line):
+                terminal_seen = True
+
             banner = _BANNER.match(line)
             if banner is not None:
                 section = banner.group(1)
@@ -412,9 +478,12 @@ def _banner_records(
             if inside:
                 block.append(line)
 
-    # An OUTPUT block still open at end of file is the last record: emit it
-    # whether or not it has a marker. Without a marker it is "No response".
-    close()
+    # A block still open at end of file is the last record only when the log
+    # ended cleanly. A terminated run was cut inside it, so the record is
+    # missing rather than empty: scoring reports a missing index as
+    # ``unfinished``. Log 02 has no terminal line and keeps its last block.
+    if not (terminated or terminal_seen):
+        close()
     return records
 
 
@@ -450,13 +519,17 @@ def _think_value(block: Sequence[str]) -> str:
 
 
 def _scan_timestamped(
-    path: str | Path, *, collect_decoded: bool
+    path: str | Path, *, collect_decoded: bool, terminated: bool = False
 ) -> tuple[list[dict[int, str]], list[str]]:
     """One streaming pass over a ``think``/``table_only`` log.
 
     Returns the tables in file order (a new table starts when the row index
     stops increasing) and, when requested, one located value per completed
     decoded record. Only the current record block is buffered.
+
+    A decoded record still open at end of file is completed only when the
+    log ended cleanly; ``terminated`` (or a terminal line in the stream)
+    means the kill cut it short, so it is not a record.
     """
 
     tables: list[dict[int, str]] = []
@@ -464,6 +537,7 @@ def _scan_timestamped(
     block: list[str] = []
     inside = False
     has_response = False
+    terminal_seen = False
     previous_index: int | None = None
 
     def close() -> None:
@@ -480,6 +554,9 @@ def _scan_timestamped(
             match = _RANK_PREFIX.match(line)
             if match:
                 line = line[match.end() :]
+
+            if _is_terminal_line(line):
+                terminal_seen = True
 
             row = _ROW.match(line)
             if row is not None:
@@ -508,7 +585,8 @@ def _scan_timestamped(
                 if line.startswith(_RESPONSE):
                     has_response = True
 
-    close()
+    if not (terminated or terminal_seen):
+        close()
     return tables, decoded
 
 
@@ -553,11 +631,13 @@ def _table_row_record(
 
 
 def _think_records(
-    path: str | Path, labels: Sequence[str]
+    path: str | Path, labels: Sequence[str], *, terminated: bool = False
 ) -> list[VerdictRecord]:
     """Records for a ``think`` log, decoded record first, final table next."""
 
-    tables, decoded = _scan_timestamped(path, collect_decoded=True)
+    tables, decoded = _scan_timestamped(
+        path, collect_decoded=True, terminated=terminated
+    )
 
     if not tables:
         # A terminated run without tables: one record per completed decoded
@@ -621,11 +701,13 @@ def _think_records(
 
 
 def _table_only_records(
-    path: str | Path, labels: Sequence[str]
+    path: str | Path, labels: Sequence[str], *, terminated: bool = False
 ) -> list[VerdictRecord]:
     """Records for a ``table_only`` log: the second table is the source."""
 
-    tables, _ = _scan_timestamped(path, collect_decoded=False)
+    tables, _ = _scan_timestamped(
+        path, collect_decoded=False, terminated=terminated
+    )
     if not tables:
         return []
 
@@ -638,8 +720,65 @@ def _table_only_records(
 
 
 # ---------------------------------------------------------------------------
-# Public entry point
+# Public entry points
 # ---------------------------------------------------------------------------
+
+
+def extract_verdicts_with_source(
+    path: str | Path,
+    *,
+    marker: str,
+    labels: Sequence[str] = DEFAULT_LABELS,
+    layout: OutputLayout | None = None,
+    source: VerdictSource | None = None,
+) -> tuple[VerdictSource, list[VerdictRecord]]:
+    """Extract records together with the ``score_verdicts`` source.
+
+    ``marker`` is the configured ``p.verdict_parse_marker`` used by the
+    ``banner`` layout. ``labels`` is ``c.label_values`` and defines the label
+    domain; a value outside it is never coerced.
+
+    When ``layout`` is ``None`` the layout is read from
+    :func:`app.parsing.detect.detect`, and ``ValueError`` is raised for an
+    inference log that never reached the output stage. Passing ``layout``
+    explicitly skips that extra pass.
+
+    The returned ``source`` is the one the resolved layout requires:
+    ``"parsed"`` for ``banner``/``think`` and ``"script_table"`` for
+    ``table_only``. Callers must pass it to
+    :func:`app.scoring.score_verdicts`, which needs it to report where the
+    verdicts came from.
+
+    ``source`` is optional. When supplied it must equal
+    :func:`verdict_source` of the resolved layout; a mismatch is a caller
+    error, so a caller cannot label a table extraction as parsed output.
+
+    The function makes one streaming pass over the file (plus the layout
+    pass of ``detect`` when ``layout`` is ``None``). It raises ``ValueError``
+    for an empty marker, an unknown layout or a source mismatch, and
+    ``OSError`` for an unreadable path.
+    """
+
+    if not marker:
+        raise ValueError("marker must be a non-empty string")
+    if not labels:
+        raise ValueError("labels must not be empty")
+
+    resolved, terminated = _resolve_layout_and_status(path, layout)
+    expected = verdict_source(resolved)
+    if source is not None and source != expected:
+        raise ValueError(
+            f"source {source!r} does not match layout {resolved!r}, whose "
+            f"source is {expected!r}"
+        )
+
+    if resolved == "banner":
+        records = _banner_records(path, marker, labels, terminated=terminated)
+    elif resolved == "think":
+        records = _think_records(path, labels, terminated=terminated)
+    else:
+        records = _table_only_records(path, labels, terminated=terminated)
+    return expected, records
 
 
 def extract_verdicts(
@@ -652,39 +791,12 @@ def extract_verdicts(
 ) -> list[VerdictRecord]:
     """Extract one verdict record per index present in ``path``.
 
-    ``marker`` is the configured ``p.verdict_parse_marker`` used by the
-    ``banner`` layout. ``labels`` is ``c.label_values`` and defines the label
-    domain; a value outside it is never coerced.
-
-    When ``layout`` is ``None`` the layout is read from
-    :func:`app.parsing.detect.detect`, and ``ValueError`` is raised for an
-    inference log that never reached the output stage. Passing ``layout``
-    explicitly skips that extra pass.
-
-    ``source`` is optional. When supplied it must equal
-    :func:`verdict_source` of the resolved layout; a mismatch is a caller
-    error, so a caller cannot label a table extraction as parsed output.
-
-    The function makes one streaming pass over the file. It raises
-    ``ValueError`` for an empty marker, an unknown layout or a source
-    mismatch, and ``OSError`` for an unreadable path.
+    A thin wrapper around :func:`extract_verdicts_with_source` that keeps
+    only the records. Use the latter when the records are going to
+    :func:`app.scoring.score_verdicts`, because that function also needs the
+    ``source``.
     """
 
-    if not marker:
-        raise ValueError("marker must be a non-empty string")
-    if not labels:
-        raise ValueError("labels must not be empty")
-
-    resolved = _resolve_layout(path, layout)
-    expected = verdict_source(resolved)
-    if source is not None and source != expected:
-        raise ValueError(
-            f"source {source!r} does not match layout {resolved!r}, whose "
-            f"source is {expected!r}"
-        )
-
-    if resolved == "banner":
-        return _banner_records(path, marker, labels)
-    if resolved == "think":
-        return _think_records(path, labels)
-    return _table_only_records(path, labels)
+    return extract_verdicts_with_source(
+        path, marker=marker, labels=labels, layout=layout, source=source
+    )[1]
