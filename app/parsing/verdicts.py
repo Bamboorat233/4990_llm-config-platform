@@ -31,14 +31,18 @@ Layouts
     the generation, so the prompt's ``Verdict: <verdict>`` cannot be mistaken
     for an answer. Two ``N | ...`` tables follow the records: the first is the
     script's first pass and the second is its final output. The decoded record
-    is the primary source; the final table resolves the indices where the
-    decoded record carries no verdict (the script's fallback). The table is
-    the *final* table only when two tables were printed; with a single table
-    the decoded records are the source.
+    is the primary source; missing-verdict decoded records are **not** rescued
+    by the second (final) script table (Option B: anything outside the
+    ``Verdict: <verdict>`` format is a failure, so such records stay
+    ``empty``/``unparsed`` with ``parsed=None`` rather than ``recovered``).
 ``table_only`` (log 07)
     There is no prompt echo and no decoded record in the log. The second
-    (final) script table is the source, hence ``source="script_table"``. A
-    lone table is not treated as final, so a log that printed only one table
+    (final) script table is the final table, hence ``source="script_table"``.
+    When both tables exist (first pass vs final), the first-pass table is
+    checked so records where the first-pass table had no verdict /
+    placeholder (and the second table only filled them via script fallback)
+    count as failures (``empty``, ``parsed=None``), not ``recovered``. A lone
+    table is not treated as final, so a log that printed only one table
     yields no records: nothing can be asserted as the final output. The
     extractor reports that case with the machine-readable reason
     :data:`TABLE_ONLY_SINGLE_TABLE` (see the ``warnings`` argument of
@@ -59,8 +63,10 @@ Five kinds (design section 3.5)
 ``exact``
     The located text is one of ``labels`` before Step 1 trims it.
 ``recovered``
-    The located text matches a label only after trimming (``False</s>``,
-    ``Conflicting.``) or after the script's fallback. ``parsed`` is the label.
+    The located text matches a label only after formatting trimming
+    (``False</s>``, ``Conflicting.``). ``parsed`` is the label. Script
+    fallback rows (where the model failed to emit ``Verdict: <verdict>``)
+    are failures (``empty``/``unparsed``), never ``recovered``.
 ``out_of_set``
     A plausible verdict outside ``labels`` (``Mostly True``, ``Half true``,
     ``Not enough information``, ``Supports``, ``Refutes``). ``parsed`` keeps
@@ -78,9 +84,9 @@ default is ``### Response: Verdict: ``). The rule was verified against
 ``Verdict: <verdict>`` rule of design section 3.5: the generated text that
 starts with the literal instruction placeholder ``Verdict: <verdict>`` is
 empty; otherwise the value is the text after the last ``Verdict: `` in the
-generation. That script (``inferenceFactCheckerThanh.py``) is **not in this
-repository**, so the rule is implemented exactly as documented in the design
-note and nothing that the logs contradict is invented.
+generation. That extraction and fallback logic is identical across the
+inference script variants (e.g. ``inferenceFactCheckerThanh.py`` and
+other experiment configs).
 
 Step 1, trim
 ------------
@@ -717,9 +723,12 @@ def _table_row_record(
     """Build a record when the script tables are the (only) source.
 
     Used for ``table_only`` and for a trimmed ``think`` excerpt whose decoded
-    records do not cover every index. The final table supplies the value; the
-    first table says whether the script's fallback had to recover it, and
-    supplies the raw first-pass text for the UI.
+    records do not cover every index. The first-pass table is checked before
+    accepting a label from the final table: records where the first-pass table
+    held a placeholder or non-verdict (and the final table only filled them
+    via script fallback) count as failures (``empty``/``unparsed`` with
+    ``parsed=None``), not ``recovered``. Only formatting trims (e.g.
+    ``Conflicting.``) stay ``recovered``.
     """
 
     final_parsed, final_kind = _classify(final_value, labels)
@@ -734,15 +743,15 @@ def _table_row_record(
         return _record(index, first_cell, None, "empty")
 
     if final_kind in ("exact", "recovered"):
-        # ``cell_kind`` is exact when the first pass already held the final
-        # label; anything else (a placeholder, punctuation or a different
-        # value) is a fallback recovery.
+        # Only exact or format-trimmed (recovered) verdicts in the first pass
+        # are valid; placeholders or non-verdicts filled by script fallback
+        # count as failures under Option B.
         cell_parsed, cell_kind = _classify(_table_cell(first_cell), labels)
-        if cell_parsed == final_parsed and cell_kind == "exact":
-            kind: VerdictKind = "exact"
-        else:
-            kind = "recovered"
-        return _record(index, first_cell, final_parsed, kind)
+        if cell_parsed == final_parsed and cell_kind in ("exact", "recovered"):
+            return _record(index, first_cell, final_parsed, cell_kind)
+        if cell_kind in ("empty", "out_of_set", "unparsed"):
+            return _record(index, first_cell, cell_parsed, cell_kind)
+        return _record(index, first_cell, None, "empty")
 
     # Out-of-set or unparsed in the script's own final table.
     return _record(index, first_cell, final_parsed, final_kind)
@@ -751,11 +760,13 @@ def _table_row_record(
 def _think_records(
     path: str | Path, labels: Sequence[str]
 ) -> list[VerdictRecord]:
-    """Records for a ``think`` log, decoded record first, final table next.
+    """Records for a ``think`` log, using decoded records as the source.
 
-    The script tables are the fallback only when two of them were printed:
-    a lone table is not the final output, so the decoded records are used
-    instead.
+    When two tables were printed and decoded records cover every index, the
+    decoded records remain authoritative and missing-verdict decoded records
+    are never rescued by the final script table (Option B). When only a
+    trimmed excerpt is present (not aligned with decoded records), the table
+    cross-check in :func:`_table_row_record` applies.
     """
 
     tables, decoded = _scan_timestamped(path, collect_decoded=True)
@@ -798,21 +809,13 @@ def _think_records(
             continue
 
         if final_kind in ("exact", "recovered"):
-            if primary_parsed == final_parsed and primary_kind in (
-                "exact",
-                "recovered",
-            ):
-                # The decoded record already carries the final value; keep
-                # its exact-versus-recovered distinction.
-                records.append(
-                    _record(index, primary_raw, primary_parsed, primary_kind)
-                )
-            else:
-                # The decoded record had no usable verdict and the final
-                # table does: this is the script's fallback (log 04: 128,
-                # 925 and 1064), so the value is recovered, not exact.
-                raw = primary_raw or first.get(index, final_value)
-                records.append(_record(index, raw, final_parsed, "recovered"))
+            # Decoded records are authoritative: keep exact/recovered when
+            # present, and under Option B do not rescue missing-verdict
+            # decoded records (e.g. log 04: 128, 925, 1064) via the final
+            # script table.
+            records.append(
+                _record(index, primary_raw, primary_parsed, primary_kind)
+            )
             continue
 
         # Out-of-set or unparsed in the final table: keep the raw text.

@@ -2,8 +2,8 @@
 
 Pipeline position (``design/M1.5-2_Spec_and_roadmap.md`` section 1)::
 
-    app.parsing.verdicts        (#34, not merged yet)
-        -> VerdictRecord        (defined here until #34 lands)
+    app.parsing.verdicts
+        -> VerdictRecord
         -> app.scoring.score_verdicts        (this module, issue #35)
         -> ScoreReport          (specs/interfaces.md section 5)
         -> app.store.upsert_score, app.ui.results
@@ -13,22 +13,23 @@ Three guarantees hold for every report:
 1. The denominator is always ``records``, the size of the gold set. A
    partial run (log 15) is never rescored on a shorter denominator: the
    missing records are ``unfinished`` and count as wrong predictions.
-2. Every prediction that is not ``exact`` or ``recovered`` is scored as
-   ``__INVALID__``, including ``empty``, ``out_of_set``, ``unparsed`` and
-   ``unfinished``.
+2. In headline ``exact_metrics`` (and the top-level fields that mirror it),
+   only ``exact`` predictions are scored against labels while ``recovered``,
+   ``empty``, ``out_of_set``, ``unparsed`` and ``unfinished`` are scored as
+   ``__INVALID__``. In ``inclusive_metrics``, both ``exact`` and ``recovered``
+   are scored against labels and the remaining four kinds become ``__INVALID__``.
 3. Every division by zero yields ``0.0``. A report never contains ``NaN``
    and never raises because a class has no gold support or no prediction.
 
 The module is pure: no file I/O, no database and no NiceGUI import. Only
 the optional :func:`load_gold_labels` helper reads a file.
 
-``VerdictRecord`` is defined here because issue #34
-(``app/parsing/verdicts.py``) is not merged yet. When it lands it should
-produce exactly this shape: ``index`` is the 0-based position in the gold
-set, ``raw`` is the decoded text as extracted, ``parsed`` is the normalised
-verdict (``None`` for ``empty`` and ``unparsed``; the trimmed value for
-``out_of_set``) and ``kind`` is one of the five verdict kinds of design
-section 3.5. Scoring never imports from :mod:`app.parsing`.
+``VerdictRecord`` defines the shape produced by ``app.parsing.verdicts``:
+``index`` is the 0-based position in the gold set, ``raw`` is the decoded
+text as extracted, ``parsed`` is the normalised verdict (``None`` for
+``empty`` and ``unparsed``; the trimmed value for ``out_of_set``) and
+``kind`` is one of the five verdict kinds of design section 3.5. Scoring
+never imports from :mod:`app.parsing`.
 """
 
 from __future__ import annotations
@@ -116,7 +117,9 @@ class ScoreReport(TypedDict):
 
     Every key is always present. ``records`` is the gold size and the only
     denominator; ``complete`` is ``False`` exactly when ``unfinished > 0``.
-    The top-level metric fields mirror ``inclusive_metrics``.
+    The top-level metric fields mirror ``exact_metrics`` (strict exact match),
+    while ``inclusive_metrics`` is reported alongside for dual reporting.
+    ``invalid_rate`` is ``(empty + out_of_set + unparsed + unfinished) / records``.
     """
 
     marker: str
@@ -345,8 +348,9 @@ def score_verdicts(
         aligned[index] = verdict
         counts[kind] += 1
 
-    # Rule 6: a prediction is usable only when the verdict is correct. All
-    # four other kinds, plus a missing verdict, become __INVALID__.
+    # Rule 6: in headline exact_metrics only exact predictions are usable and
+    # recovered/empty/out_of_set/unparsed/unfinished become __INVALID__; in
+    # inclusive_metrics exact and recovered are usable.
     inclusive_predicted: list[str] = []
     exact_predicted: list[str] = []
     for index in range(records):
@@ -371,6 +375,7 @@ def score_verdicts(
 
     inclusive_metrics = _metric_block(gold, inclusive_predicted, label_list)
     exact_metrics = _metric_block(gold, exact_predicted, label_list)
+    headline = _copy_block(exact_metrics)
 
     unfinished = records - len(ordered)
     invalid = (
@@ -398,17 +403,14 @@ def score_verdicts(
         "unfinished": unfinished,
         "empty_rate": _safe_ratio(counts["empty"], records),
         "invalid_rate": _safe_ratio(invalid, records),
-        "accuracy": inclusive_metrics["accuracy"],
-        "macro_f1": inclusive_metrics["macro_f1"],
-        "micro_f1": inclusive_metrics["micro_f1"],
-        "weighted_f1": inclusive_metrics["weighted_f1"],
-        "precision": dict(inclusive_metrics["precision"]),
-        "recall": dict(inclusive_metrics["recall"]),
-        "f1": dict(inclusive_metrics["f1"]),
-        "confusion": {
-            gold_label: dict(row)
-            for gold_label, row in inclusive_metrics["confusion"].items()
-        },
+        "accuracy": headline["accuracy"],
+        "macro_f1": headline["macro_f1"],
+        "micro_f1": headline["micro_f1"],
+        "weighted_f1": headline["weighted_f1"],
+        "precision": headline["precision"],
+        "recall": headline["recall"],
+        "f1": headline["f1"],
+        "confusion": headline["confusion"],
         "exact_metrics": exact_metrics,
         "inclusive_metrics": inclusive_metrics,
     }
@@ -418,22 +420,29 @@ def score_verdicts(
 def render_report_markdown(report: ScoreReport) -> str:
     """Render a report as a compact Markdown block.
 
-    The block has a one-line summary, a one-line kind-count breakdown, a
-    per-class precision/recall/F1 table (with support) and the confusion
-    matrix with one row per gold label and the ``__INVALID__`` column.
-    Every line is free of trailing whitespace and the result ends with a
-    newline.
+    The block has a headline Exact Match summary line, an Inclusive comparison
+    line, a one-line kind-count breakdown, a per-class precision/recall/F1
+    table (with support) and the confusion matrix with one row per gold label
+    and the ``__INVALID__`` column. Every line is free of trailing whitespace
+    and the result ends with a newline.
     """
 
     complete = "yes" if report["complete"] else "no"
+    incl = report["inclusive_metrics"]
     lines = [
         (
-            f"**Summary:** records={report['records']}, complete={complete}, "
-            f"unfinished={report['unfinished']}, "
+            f"**Summary (Exact Match):** records={report['records']}, "
+            f"complete={complete}, unfinished={report['unfinished']}, "
             f"accuracy={report['accuracy']:.4f}, "
             f"macro_f1={report['macro_f1']:.4f}, "
             f"empty_rate={report['empty_rate']:.4f}, "
             f"invalid_rate={report['invalid_rate']:.4f}"
+        ),
+        (
+            f"**Inclusive Comparison (Exact + Recovered):** "
+            f"accuracy={incl['accuracy']:.4f}, "
+            f"macro_f1={incl['macro_f1']:.4f}, "
+            f"weighted_f1={incl['weighted_f1']:.4f}"
         ),
         (
             f"**Counts:** exact={report['exact']}, "

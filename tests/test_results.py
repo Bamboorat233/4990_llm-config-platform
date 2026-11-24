@@ -357,12 +357,14 @@ def test_log_03_linked_config_dashboard_and_sqlite_persistence(tmp_path: Path) -
         assert report["source"] == "parsed"
         assert report["accuracy"] == round(6 / 7, 4)
 
-        # Dual exact/inclusive visibility & toggle
+        # Dual exact/inclusive visibility & toggle (Exact Match is default)
+        assert panel.include_recovered is False
         assert f"{report['accuracy'] * 100:.2f}%" == panel.accuracy_value_label.text
-        assert "Exact only:" in panel.accuracy_sub_label.text
-        panel.set_exact_only(True)
         assert "Inclusive:" in panel.accuracy_sub_label.text
-        panel.set_exact_only(False)
+        panel.set_include_recovered(True)
+        assert "Exact:" in panel.accuracy_sub_label.text
+        panel.set_include_recovered(False)
+        assert "Inclusive:" in panel.accuracy_sub_label.text
 
         # Verdict review table + anomalies toggle
         assert len(panel.verdict_table.rows) == 7
@@ -500,10 +502,11 @@ def test_confusion_matrix_invalid_column_and_out_of_set_counts(tmp_path: Path) -
         assert report["unparsed"] == 1
         assert report["unfinished"] == 0
 
-        # Confusion matrix has __INVALID__ column populated for empty/out_of_set/unparsed
+        # Headline exact confusion matrix buckets recovered + empty/out_of_set/unparsed into __INVALID__
         assert report["confusion"]["True"][INVALID_LABEL] == 2
-        assert report["confusion"]["False"][INVALID_LABEL] == 1
+        assert report["confusion"]["False"][INVALID_LABEL] == 2
         assert report["confusion"]["Conflicting"][INVALID_LABEL] == 2
+        assert report["inclusive_metrics"]["confusion"]["False"][INVALID_LABEL] == 1
 
         confusion_texts = _collect_ui_texts(panel.confusion_container)
         assert "Invalid" in confusion_texts
@@ -518,11 +521,14 @@ def test_confusion_matrix_invalid_column_and_out_of_set_counts(tmp_path: Path) -
         assert "Mostly True" in oos_texts
         assert "Half true" in oos_texts
 
-        # Dual exact vs inclusive reporting: inclusive has 2/7 correct, exact has 1/7
+        # Dual exact vs inclusive reporting: default is Exact (1/7); toggling Include recovered shows 2/7
         assert report["inclusive_metrics"]["accuracy"] == round(2 / 7, 4)
         assert report["exact_metrics"]["accuracy"] == round(1 / 7, 4)
+        assert report["accuracy"] == report["exact_metrics"]["accuracy"]
+        assert f"{round(1 / 7, 4) * 100:.2f}%" == panel.accuracy_value_label.text
+        panel.set_include_recovered(True)
         assert f"{round(2 / 7, 4) * 100:.2f}%" == panel.accuracy_value_label.text
-        panel.set_exact_only(True)
+        panel.set_include_recovered(False)
         assert f"{round(1 / 7, 4) * 100:.2f}%" == panel.accuracy_value_label.text
 
         panel.clear_uploaded_gold_file()

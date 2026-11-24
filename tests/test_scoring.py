@@ -272,7 +272,9 @@ def test_partition_with_verdicts_in_reverse_order():
 
     assert report["exact"] == 2
     assert report["recovered"] == 1
-    assert report["accuracy"] == 1.0
+    assert report["accuracy"] == round(2 / 3, 4)
+    assert report["exact_metrics"]["accuracy"] == round(2 / 3, 4)
+    assert report["inclusive_metrics"]["accuracy"] == 1.0
     assert report["confusion"]["True"]["True"] == 1
     assert report["confusion"]["Conflicting"]["Conflicting"] == 1
     assert_partition(report)
@@ -284,7 +286,7 @@ def test_partition_with_verdicts_in_reverse_order():
 
 
 def test_recovered_is_invalid_in_exact_and_correct_in_inclusive():
-    """A recovered verdict is bucketed per metric block."""
+    """A recovered verdict is bucketed per metric block; top-level mirrors exact."""
 
     gold = ["True", "False", "Conflicting"]
     verdicts = [
@@ -306,9 +308,9 @@ def test_recovered_is_invalid_in_exact_and_correct_in_inclusive():
     assert report["exact_metrics"]["confusion"]["False"]["False"] == 0
     assert report["exact_metrics"]["confusion"]["False"][INVALID_LABEL] == 1
 
-    # Top-level metric fields mirror the inclusive block exactly.
+    # Top-level metric fields mirror the exact block.
     for key in METRIC_KEYS:
-        assert report[key] == report["inclusive_metrics"][key]
+        assert report[key] == report["exact_metrics"][key]
 
 
 def test_exact_kind_that_disagrees_with_gold_is_misclassified():
@@ -339,7 +341,7 @@ def test_exact_kind_that_disagrees_with_gold_is_misclassified():
 
 
 def test_top_level_metrics_are_independent_copies():
-    """Mutating top-level metrics cannot corrupt inclusive_metrics."""
+    """Mutating top-level metrics cannot corrupt exact_metrics or inclusive_metrics."""
 
     gold = ["True"]
     report = score_verdicts(
@@ -348,6 +350,7 @@ def test_top_level_metrics_are_independent_copies():
     )
 
     report["precision"]["True"] = 0.123
+    assert report["exact_metrics"]["precision"]["True"] == 1.0
     assert report["inclusive_metrics"]["precision"]["True"] == 1.0
 
 
@@ -357,7 +360,7 @@ def test_top_level_metrics_are_independent_copies():
 
 
 def test_confusion_rows_columns_and_invalid_column():
-    """Every row sums to its support; the invalid column collects all kinds."""
+    """Every row sums to its support; headline exact invalid column includes recovered."""
 
     report = score_verdicts(
         MIXED_VERDICTS, MIXED_GOLD, marker=MARKER, labels=LABELS,
@@ -379,9 +382,9 @@ def test_confusion_rows_columns_and_invalid_column():
     }
     assert report["confusion"]["False"] == {
         "True": 0,
-        "False": 1,
+        "False": 0,
         "Conflicting": 0,
-        INVALID_LABEL: 1,
+        INVALID_LABEL: 2,
     }
     assert report["confusion"]["Conflicting"] == {
         "True": 0,
@@ -390,16 +393,29 @@ def test_confusion_rows_columns_and_invalid_column():
         INVALID_LABEL: 2,
     }
 
-    invalid_column = sum(
+    exact_invalid_column = sum(
         report["confusion"][label][INVALID_LABEL] for label in LABELS
     )
-    assert invalid_column == (
+    assert exact_invalid_column == (
+        report["recovered"]
+        + report["empty"]
+        + report["out_of_set"]
+        + report["unparsed"]
+        + report["unfinished"]
+    )
+    assert exact_invalid_column == 5
+
+    inclusive_invalid_column = sum(
+        report["inclusive_metrics"]["confusion"][label][INVALID_LABEL]
+        for label in LABELS
+    )
+    assert inclusive_invalid_column == (
         report["empty"]
         + report["out_of_set"]
         + report["unparsed"]
         + report["unfinished"]
     )
-    assert invalid_column == 4
+    assert inclusive_invalid_column == 4
     assert_partition(report)
     assert_finite(report)
 
@@ -483,7 +499,9 @@ def test_rates_match_hand_computed_values():
     assert report["empty_rate"] == round(1 / 6, 4)
     # empty + out_of_set + unparsed + unfinished = 1 + 1 + 1 + 1
     assert report["invalid_rate"] == round(4 / 6, 4)
-    assert report["accuracy"] == round(2 / 6, 4)
+    assert report["accuracy"] == round(1 / 6, 4)
+    assert report["exact_metrics"]["accuracy"] == round(1 / 6, 4)
+    assert report["inclusive_metrics"]["accuracy"] == round(2 / 6, 4)
     assert report["unfinished"] == 1
     assert report["complete"] is False
 
@@ -494,7 +512,7 @@ def test_rates_match_hand_computed_values():
 
 
 def test_render_report_markdown_contents():
-    """The block carries counts, both tables and the invalid column."""
+    """The block carries counts, exact/inclusive summary, both tables and the invalid column."""
 
     gold = ["True", "False", "Conflicting", "True", "False", "Conflicting"]
     report = score_verdicts(
@@ -504,6 +522,8 @@ def test_render_report_markdown_contents():
 
     rendered = render_report_markdown(report)
 
+    assert "Summary (Exact Match):" in rendered
+    assert "Inclusive Comparison (Exact + Recovered):" in rendered
     assert "records=6" in rendered
     assert "complete=no" in rendered
     assert "unfinished=1" in rendered

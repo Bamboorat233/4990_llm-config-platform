@@ -230,7 +230,9 @@ def test_records_are_accepted_by_the_scoring_engine():
     assert report["records"] == 7
     assert report["complete"] is True
     assert report["recovered"] == 7
-    assert report["accuracy"] == 1.0
+    assert report["accuracy"] == 0.0
+    assert report["exact_metrics"]["accuracy"] == 0.0
+    assert report["inclusive_metrics"]["accuracy"] == 1.0
 
 
 def test_banner_trailing_bare_list_is_not_extra_records():
@@ -775,7 +777,7 @@ def test_instruction_placeholder_output_is_empty(tmp_path: Path):
 
 
 def test_think_fixture_matches_the_visible_final_table():
-    """s04: one record per visible index; kinds agree with the final table."""
+    """s04: one record per visible index; script-fallback placeholders stay failures."""
 
     path = FIX / "s04_inference_success.log"
     records = extract_verdicts(path, marker=MARKER)
@@ -785,24 +787,23 @@ def test_think_fixture_matches_the_visible_final_table():
         index for index, _ in final
     ]
 
+    fallback_indices = {128, 925, 1064}
     records_by_index = by_index(records)
     for index, value in final:
         record = records_by_index[index]
-        if value == "Empty Response":
+        if value == "Empty Response" or index in fallback_indices:
             assert record["kind"] == "empty", index
             assert record["parsed"] is None, index
         else:
             assert record["parsed"] == value, index
             assert record["kind"] in ("exact", "recovered"), index
 
-    # The three first-table placeholders the script recovered, plus the two
-    # trailing-period recoveries visible in this excerpt.
-    assert records_by_index[128]["parsed"] == "False"
-    assert records_by_index[128]["kind"] == "recovered"
-    assert records_by_index[925]["parsed"] == "False"
-    assert records_by_index[925]["kind"] == "recovered"
-    assert records_by_index[1064]["parsed"] == "Conflicting"
-    assert records_by_index[1064]["kind"] == "recovered"
+    # Option B: the three first-table placeholders filled only by script
+    # fallback stay failures (empty, parsed=None); trailing-period recoveries
+    # like 270 stay recovered.
+    for index in fallback_indices:
+        assert records_by_index[index]["parsed"] is None
+        assert records_by_index[index]["kind"] == "empty"
     assert records_by_index[270]["parsed"] == "Conflicting"
     assert records_by_index[270]["kind"] == "recovered"
     assert records_by_index[12]["kind"] == "empty"
@@ -810,13 +811,14 @@ def test_think_fixture_matches_the_visible_final_table():
 
 
 def test_synthetic_think_log_covers_the_decoded_record_path(tmp_path: Path):
-    """The think main path: decoded record first, final table as fallback.
+    """The think main path: decoded record is authoritative; no fallback rescue.
 
     ``s04`` is a trimmed excerpt, so it exercises the table path only. This
     log has one decoded record per index, which makes ``aligned`` true and
     runs the primary path: four generations covering a clean label, a label
-    with a trailing period, a generation with no verdict line (the script's
-    fallback) and an empty generation.
+    with a trailing period, a generation with no ``Verdict:`` line (kept as
+    ``unparsed`` under Option B rather than rescued from the final table) and
+    an empty placeholder generation.
     """
 
     log = tmp_path / "think_decoded.log"
@@ -854,7 +856,7 @@ def test_synthetic_think_log_covers_the_decoded_record_path(tmp_path: Path):
     assert [(record["parsed"], record["kind"]) for record in records] == [
         ("True", "exact"),
         ("Conflicting", "recovered"),
-        ("False", "recovered"),
+        (None, "unparsed"),
         (None, "empty"),
     ]
     # These raws are the decoded record, not the first table's cell, which is
@@ -886,7 +888,7 @@ def test_think_mangled_final_table_line_is_unparsed(tmp_path: Path):
 
 
 def test_table_only_fixture_uses_the_second_table():
-    """s07: no prompt echo; the final table is the source (``script_table``)."""
+    """s07: no prompt echo; script-fallback placeholders stay failures (``empty``)."""
 
     path = FIX / "s07_inference_success.log"
     records = extract_verdicts(path, marker=MARKER, source="script_table")
@@ -896,20 +898,58 @@ def test_table_only_fixture_uses_the_second_table():
         index for index, _ in final
     ]
 
+    fallback_indices = {170, 247, 947, 1211, 2277, 2283}
     records_by_index = by_index(records)
     for index, value in final:
-        assert records_by_index[index]["parsed"] == expected_value(value), index
+        if index in fallback_indices:
+            assert records_by_index[index]["parsed"] is None, index
+            assert records_by_index[index]["kind"] == "empty", index
+        else:
+            assert records_by_index[index]["parsed"] == expected_value(value), index
 
-    # The six rows the script's fallback recovered, and one it could not.
-    for index in (170, 247, 947, 1211, 2277, 2283):
-        assert records_by_index[index]["parsed"] == "Conflicting", index
-        assert records_by_index[index]["kind"] == "recovered", index
+    # Option B: the six rows where the first pass printed the placeholder and
+    # the second table only filled them via script fallback count as empty
+    # failures, just like 208.
+    for index in fallback_indices:
+        assert records_by_index[index]["parsed"] is None, index
+        assert records_by_index[index]["kind"] == "empty", index
     assert records_by_index[208]["kind"] == "empty"
     assert records_by_index[208]["parsed"] is None
 
     assert verdict_source("table_only") == "script_table"
     with pytest.raises(ValueError):
         extract_verdicts(path, marker=MARKER, source="parsed")
+
+
+def test_table_only_distinguishes_trim_recovery_from_script_fallback(
+    tmp_path: Path,
+):
+    """In table_only, trailing punctuation stays recovered; fallback stays empty."""
+
+    log = tmp_path / "table_only_kinds.log"
+    log.write_text(
+        "\n".join(
+            [
+                "0 | Verdict: True",
+                "1 | Verdict: Conflicting.",
+                "2 | Verdict: <verdict>",
+                "3 | Verdict: <verdict>",
+                "0 | True",
+                "1 | Conflicting",
+                "2 | False",
+                "3 | Empty Response",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    records = extract_verdicts(log, marker=MARKER, layout="table_only")
+    assert [(r["parsed"], r["kind"]) for r in records] == [
+        ("True", "exact"),
+        ("Conflicting", "recovered"),
+        (None, "empty"),
+        (None, "empty"),
+    ]
 
 
 def test_lone_script_table_is_not_treated_as_final(tmp_path: Path):
@@ -1078,7 +1118,7 @@ def test_extract_with_source_reports_the_resolved_layout():
 
 @slow
 def test_full_log04_reproduces_the_final_table():
-    """2,495 records; every value equals the script's final table."""
+    """2,495 records; matches final table except 3 Option-B script-fallback failures."""
 
     path = Path(LOGS_DIR) / "sampleOutput04.txt"
     records = extract_verdicts(path, marker=MARKER)
@@ -1087,14 +1127,31 @@ def test_full_log04_reproduces_the_final_table():
     assert len(records) == 2495
     assert [record["index"] for record in records] == list(range(2495))
 
+    fallback = [
+        index
+        for (index, first_value), (_, final_value) in zip(first, final)
+        if first_value == "Verdict: <verdict>" and final_value in LABELS
+    ]
+    print("log 04 script-fallback indices:", fallback)
+    assert fallback == [128, 925, 1064]
+    fallback_set = set(fallback)
+
     records_by_index = by_index(records)
     for index, value in final:
-        assert records_by_index[index]["parsed"] == expected_value(value), index
+        if index in fallback_set:
+            assert records_by_index[index]["parsed"] is None, index
+            assert records_by_index[index]["kind"] in ("empty", "unparsed"), index
+        else:
+            assert records_by_index[index]["parsed"] == expected_value(value), index
 
     # The first table prints the script's own parse of the same generation,
-    # so it decides exact versus recovered for *every* row: a clean label is
-    # exact, a placeholder or a trailing period is a recovery.
+    # so it decides exact versus recovered for non-fallback rows: a clean
+    # label is exact, a trailing period is recovered, and fallback rows stay
+    # unparsed/empty.
     for (index, first_value), (_, final_value) in zip(first, final):
+        if index in fallback_set:
+            assert records_by_index[index]["kind"] in ("empty", "unparsed"), index
+            continue
         if final_value == "Empty Response":
             expected_kind = "empty"
         elif first_pass_value(first_value) == final_value:
@@ -1103,22 +1160,10 @@ def test_full_log04_reproduces_the_final_table():
             expected_kind = "recovered"
         assert records_by_index[index]["kind"] == expected_kind, index
 
-    # The 3 rows where the first pass printed the placeholder and the final
-    # table holds a real verdict: the script's fallback recovered them.
-    fallback = [
-        index
-        for (index, first_value), (_, final_value) in zip(first, final)
-        if first_value == "Verdict: <verdict>" and final_value in LABELS
-    ]
-    print("log 04 script-fallback indices:", fallback)
-    assert fallback == [128, 925, 1064]
-    for index in fallback:
-        assert records_by_index[index]["kind"] == "recovered", index
-
 
 @slow
 def test_full_log07_reproduces_the_final_table():
-    """2,495 records from the second table, including the 6 fallback rows."""
+    """2,495 records from the second table; 6 fallback rows stay empty failures."""
 
     path = Path(LOGS_DIR) / "sampleOutput07.txt"
     records = extract_verdicts(path, marker=MARKER)
@@ -1127,10 +1172,6 @@ def test_full_log07_reproduces_the_final_table():
     assert len(records) == 2495
     assert [record["index"] for record in records] == list(range(2495))
 
-    records_by_index = by_index(records)
-    for index, value in final:
-        assert records_by_index[index]["parsed"] == expected_value(value), index
-
     fallback = [
         index
         for (index, first_value), (_, final_value) in zip(first, final)
@@ -1138,8 +1179,15 @@ def test_full_log07_reproduces_the_final_table():
     ]
     print("log 07 script-fallback indices:", fallback)
     assert fallback == [170, 247, 947, 1211, 2277, 2283]
-    for index in fallback:
-        assert records_by_index[index]["kind"] == "recovered", index
+    fallback_set = set(fallback)
+
+    records_by_index = by_index(records)
+    for index, value in final:
+        if index in fallback_set:
+            assert records_by_index[index]["parsed"] is None, index
+            assert records_by_index[index]["kind"] == "empty", index
+        else:
+            assert records_by_index[index]["parsed"] == expected_value(value), index
 
 
 @slow

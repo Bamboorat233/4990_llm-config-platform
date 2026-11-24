@@ -178,7 +178,7 @@ def test_log_02_eos_token_verdicts_are_recovered_and_dual_scored() -> None:
     assert report["recovered"] == len(verdicts)
     assert report["exact_metrics"]["accuracy"] == 0.0
     assert report["inclusive_metrics"]["accuracy"] == 1.0
-    assert report["accuracy"] == report["inclusive_metrics"]["accuracy"]
+    assert report["accuracy"] == report["exact_metrics"]["accuracy"]
 
 
 def test_log_03_clean_banner_outputs_are_exact() -> None:
@@ -266,12 +266,15 @@ def test_empty_response_placeholder_out_of_set_and_unparsed_rules(
     assert report["out_of_set"] == 1
     assert report["unparsed"] == 1
     assert report["recovered"] == 1
-    assert report["accuracy"] == 0.25
+    assert report["accuracy"] == 0.0
+    assert report["exact_metrics"]["accuracy"] == 0.0
+    assert report["inclusive_metrics"]["accuracy"] == 0.25
     assert report["empty_rate"] == 0.25
     assert report["invalid_rate"] == 0.75
     assert report["confusion"]["True"][INVALID_LABEL] == 2
     assert report["confusion"]["False"][INVALID_LABEL] == 1
-    assert report["confusion"]["Conflicting"]["Conflicting"] == 1
+    assert report["confusion"]["Conflicting"][INVALID_LABEL] == 1
+    assert report["inclusive_metrics"]["confusion"]["Conflicting"]["Conflicting"] == 1
     assert count_out_of_set_values(verdicts) == [("Mostly True", 1)]
 
 

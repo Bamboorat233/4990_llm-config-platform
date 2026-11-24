@@ -866,7 +866,7 @@ class ResultsPanel:
         self.current_eval: InferenceEvaluationView | None = None
         self.active_alert_index: int = 0
         self.anomalies_only: bool = False
-        self.exact_only: bool = False
+        self.include_recovered: bool = False
 
         self.uploaded_gold_path: Path | None = None
         self.uploaded_gold_name: str | None = None
@@ -1288,11 +1288,11 @@ class ResultsPanel:
                                 self.dashboard_source_tag = ui.label("").classes(
                                     "info-tag tag-info"
                                 )
-                            self.exact_only_switch = (
+                            self.include_recovered_switch = (
                                 ui.switch(
-                                    "Exact only",
+                                    "Include recovered",
                                     value=False,
-                                    on_change=lambda e: self.set_exact_only(
+                                    on_change=lambda e: self.set_include_recovered(
                                         bool(e.value)
                                     ),
                                 )
@@ -2110,13 +2110,22 @@ class ResultsPanel:
             self.anomalies_switch.value = self.anomalies_only
         return self._refresh_verdict_table()
 
-    def set_exact_only(self, enabled: bool) -> None:
-        """Switch the Metrics Dashboard between inclusive and exact-only metrics."""
-        self.exact_only = bool(enabled)
-        if self.exact_only_switch.value != self.exact_only:
-            self.exact_only_switch.value = self.exact_only
+    @property
+    def exact_only(self) -> bool:
+        """True when the Metrics Dashboard is showing strict Exact Match metrics."""
+        return not self.include_recovered
+
+    def set_include_recovered(self, enabled: bool) -> None:
+        """Switch the Metrics Dashboard between Exact Match (default) and Inclusive metrics."""
+        self.include_recovered = bool(enabled)
+        if self.include_recovered_switch.value != self.include_recovered:
+            self.include_recovered_switch.value = self.include_recovered
         if self.current_eval is not None and self.current_eval.score_report is not None:
             self._render_metrics_dashboard(self.current_eval)
+
+    def set_exact_only(self, enabled: bool) -> None:
+        """Backward-compatible wrapper around :meth:`set_include_recovered`."""
+        self.set_include_recovered(not bool(enabled))
 
     def _refresh_verdict_table(self) -> list[dict[str, Any]]:
         if self.current_eval is None:
@@ -2167,16 +2176,20 @@ class ResultsPanel:
         self.dashboard_source_tag.text = f"Source: {report['source']}"
 
         active_block = (
-            report["exact_metrics"] if self.exact_only else report["inclusive_metrics"]
+            report["inclusive_metrics"]
+            if self.include_recovered
+            else report["exact_metrics"]
         )
         alt_block = (
-            report["inclusive_metrics"] if self.exact_only else report["exact_metrics"]
+            report["exact_metrics"]
+            if self.include_recovered
+            else report["inclusive_metrics"]
         )
-        alt_prefix = "Inclusive" if self.exact_only else "Exact only"
+        alt_prefix = "Exact" if self.include_recovered else "Inclusive"
 
         self.accuracy_value_label.text = f"{active_block['accuracy'] * 100:.2f}%"
         self.accuracy_sub_label.text = (
-            f"{alt_prefix}: {alt_block['accuracy'] * 100:.2f}% ({active_block['accuracy']:.4f})"
+            f"{alt_prefix}: {alt_block['accuracy'] * 100:.2f}%"
         )
 
         self.macro_f1_value_label.text = f"{active_block['macro_f1']:.4f}"
@@ -2195,14 +2208,12 @@ class ResultsPanel:
             + report["unfinished"]
         )
         self.invalid_rate_value_label.text = f"{report['invalid_rate'] * 100:.2f}%"
-        self.invalid_rate_sub_label.text = (
-            f"{invalid_total:,} / {records:,} invalid"
-            + (
-                f" ({report['unfinished']:,} unfinished)"
-                if report["unfinished"] > 0
-                else ""
-            )
-        )
+        sub_parts = [f"{invalid_total:,} / {records:,} invalid"]
+        if report["unfinished"] > 0:
+            sub_parts.append(f"({report['unfinished']:,} unfinished)")
+        if not self.include_recovered and report["recovered"] > 0:
+            sub_parts.append(f"· {report['recovered']:,} recovered in exact __INVALID__")
+        self.invalid_rate_sub_label.text = " ".join(sub_parts)
 
         # Six kind counts strip
         self.kind_counts_row.clear()
