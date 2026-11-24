@@ -955,6 +955,9 @@ class ResultsPanel:
                             .props("flat dense accept=.log,.out,.txt")
                             .classes("w-full compact-uploader")
                         )
+                        # Quasar emits "finish" once every queued file is done; only then is
+                        # it safe to reset (resetting earlier aborts in-flight uploads).
+                        self.uploader.on("finish", self._on_uploads_finished)
                         # Uploaded files list rendered directly inside the dropdown box
                         self.uploaded_files_container = ui.column().classes(
                             "w-full gap-0"
@@ -1893,15 +1896,18 @@ class ResultsPanel:
         self.uploaded_file_name = orig_name
         self.uploaded_file_size = size_bytes
 
-        # Reset Quasar's internal uploader queue so its empty box stays hidden and more files can be added
+        # Do NOT reset the uploader here: with multiple files, other uploads may still be
+        # in flight and reset() would abort them. See _on_uploads_finished.
+        self._render_uploaded_files_list()
+        await self.parse_async(tmp_path, display_name=orig_name)
+        self._render_uploaded_files_list()
+
+    def _on_uploads_finished(self, _: Any = None) -> None:
+        """Clear Quasar's internal queue after the whole batch finished uploading."""
         try:
             self.uploader.reset()
         except Exception:
             pass
-
-        self._render_uploaded_files_list()
-        await self.parse_async(tmp_path, display_name=orig_name)
-        self._render_uploaded_files_list()
 
     def remove_uploaded_file(self, temp_path: Path | str) -> ResultSummaryView:
         """Remove one specific uploaded file from the Upload dropdown list."""
