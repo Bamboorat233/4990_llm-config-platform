@@ -148,8 +148,14 @@ def test_generate_bundle_preflight_and_contract() -> None:
         generate_bundle(invalid_cfg)
 
     valid_cfg = _make_cfg(MISTRAL_ID, "inference")
-    with pytest.raises(NotImplementedError):
-        generate_bundle(valid_cfg)
+    result = generate_bundle(valid_cfg)
+    assert result["syntax_ok"] is True
+    assert result["syntax_error"] is None
+    assert result["parity_ok"] is True
+    assert result["parity_diffs"] == []
+    assert result["pitfall_issues"] == []
+    assert result["marker_issues"] == []
+    assert result["slurm_script"] is None
 
     expected_keys = {
         "config_id",
