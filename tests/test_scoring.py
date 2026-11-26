@@ -90,8 +90,8 @@ def support_for(report: ScoreReport, label: str) -> int:
 # ---------------------------------------------------------------------------
 
 
-def test_log15_partial_run_uses_gold_denominator():
-    """2,495 gold records, 2,480 verdicts, 15 unfinished."""
+def test_log15_partial_run_uses_scored_verdict_denominator_and_gold_rates():
+    """2,495 gold records, 2,480 exact verdicts, 15 unfinished."""
 
     gold = [LABELS[position % 3] for position in range(2495)]
     verdicts = [verdict(position, "exact", gold[position]) for position in range(2480)]
@@ -103,14 +103,78 @@ def test_log15_partial_run_uses_gold_denominator():
     assert report["complete"] is False
     assert report["exact"] == 2480
     assert report["recovered"] == 0
-    # The denominator is the gold size, not the 2,480 records that finished.
-    assert report["accuracy"] == round(2480 / 2495, 4)
-    assert report["accuracy"] != 1.0
-    assert report["micro_f1"] == report["accuracy"]
-    # All 15 missing records are invalid predictions.
+    # Accuracy and F1 use the exact verdict count (2,480), not gold size (2,495).
+    assert report["accuracy"] == 1.0
+    assert report["micro_f1"] == 1.0
+    assert report["exact_metrics"]["accuracy"] == 1.0
+    # Rates still use the full 2,495-record gold denominator.
     assert report["invalid_rate"] == round(15 / 2495, 4)
     assert report["empty_rate"] == 0.0
     assert_partition(report)
+    assert_finite(report)
+
+
+def test_exact_and_inclusive_denominators_exclude_invalid_and_unfinished():
+    """Exact denominator = exact (2,400); inclusive = exact + recovered (2,405), not 2,495."""
+
+    gold = [LABELS[position % 3] for position in range(2495)]
+    verdicts: list[VerdictRecord] = []
+    # 2,400 exact: 2,160 matching gold, 240 misclassified (exact denominator = 2,400)
+    for idx in range(2400):
+        pred = gold[idx] if idx < 2160 else LABELS[(idx + 1) % 3]
+        verdicts.append(verdict(idx, "exact", pred))
+    # 5 recovered: all 5 match gold (inclusive denominator = 2,400 + 5 = 2,405)
+    for idx in range(2400, 2405):
+        verdicts.append(verdict(idx, "recovered", gold[idx]))
+    # 75 invalid: 50 empty, 15 out_of_set, 10 unparsed; remaining 15 unfinished
+    for idx in range(2405, 2455):
+        verdicts.append(verdict(idx, "empty"))
+    for idx in range(2455, 2470):
+        verdicts.append(verdict(idx, "out_of_set", "Maybe"))
+    for idx in range(2470, 2480):
+        verdicts.append(verdict(idx, "unparsed", None, raw="???"))
+
+    report = score_verdicts(verdicts, gold, marker=MARKER, labels=LABELS, source="parsed")
+
+    assert report["records"] == 2495
+    assert report["exact"] == 2400
+    assert report["recovered"] == 5
+    assert report["unfinished"] == 15
+    assert report["exact_metrics"]["accuracy"] == round(2160 / 2400, 4)
+    assert report["exact_metrics"]["accuracy"] != round(2160 / 2495, 4)
+    assert report["inclusive_metrics"]["accuracy"] == round(2165 / 2405, 4)
+    assert report["inclusive_metrics"]["accuracy"] != round(2165 / 2495, 4)
+    assert report["empty_rate"] == round(50 / 2495, 4)
+    assert report["invalid_rate"] == round(90 / 2495, 4)
+    # Confusion retains all 2,495 records, bucketing excluded ones into __INVALID__.
+    assert sum(sum(row.values()) for row in report["confusion"].values()) == 2495
+    assert sum(report["confusion"][lbl][INVALID_LABEL] for lbl in LABELS) == 95
+    assert sum(report["inclusive_metrics"]["confusion"][lbl][INVALID_LABEL] for lbl in LABELS) == 90
+    assert_partition(report)
+    assert_finite(report)
+
+
+def test_zero_exact_yields_zero_metrics_safely():
+    """When exact == 0 (e.g. Log 02), all exact metrics yield 0.0 without NaN."""
+
+    gold = ["True", "False", "Conflicting"]
+    verdicts = [
+        verdict(0, "recovered", "True", raw="True</s>"),
+        verdict(1, "recovered", "False", raw="False</s>"),
+        verdict(2, "empty"),
+    ]
+
+    report = score_verdicts(verdicts, gold, marker=MARKER, labels=LABELS, source="parsed")
+
+    assert report["exact"] == 0
+    assert report["accuracy"] == 0.0
+    assert report["macro_f1"] == 0.0
+    assert report["micro_f1"] == 0.0
+    assert report["weighted_f1"] == 0.0
+    assert report["precision"] == {"True": 0.0, "False": 0.0, "Conflicting": 0.0}
+    assert report["recall"] == {"True": 0.0, "False": 0.0, "Conflicting": 0.0}
+    assert report["f1"] == {"True": 0.0, "False": 0.0, "Conflicting": 0.0}
+    assert report["inclusive_metrics"]["accuracy"] == 1.0
     assert_finite(report)
 
 
@@ -272,9 +336,11 @@ def test_partition_with_verdicts_in_reverse_order():
 
     assert report["exact"] == 2
     assert report["recovered"] == 1
-    assert report["accuracy"] == round(2 / 3, 4)
-    assert report["exact_metrics"]["accuracy"] == round(2 / 3, 4)
+    assert report["accuracy"] == 1.0
+    assert report["exact_metrics"]["accuracy"] == 1.0
     assert report["inclusive_metrics"]["accuracy"] == 1.0
+    assert report["exact_metrics"]["macro_f1"] == round(2 / 3, 4)
+    assert report["inclusive_metrics"]["macro_f1"] == 1.0
     assert report["confusion"]["True"]["True"] == 1
     assert report["confusion"]["Conflicting"]["Conflicting"] == 1
     assert_partition(report)
@@ -297,8 +363,10 @@ def test_recovered_is_invalid_in_exact_and_correct_in_inclusive():
 
     report = score_verdicts(verdicts, gold, marker=MARKER, labels=LABELS, source="parsed")
 
-    assert report["inclusive_metrics"]["accuracy"] == round(2 / 3, 4)
-    assert report["exact_metrics"]["accuracy"] == round(1 / 3, 4)
+    assert report["inclusive_metrics"]["accuracy"] == 1.0
+    assert report["exact_metrics"]["accuracy"] == 1.0
+    assert report["exact_metrics"]["macro_f1"] == round(1 / 3, 4)
+    assert report["inclusive_metrics"]["macro_f1"] == round(2 / 3, 4)
     assert report["exact_metrics"]["macro_f1"] < report["inclusive_metrics"]["macro_f1"]
 
     # Inclusive confusion: the recovered record lands in the False column.
@@ -499,11 +567,34 @@ def test_rates_match_hand_computed_values():
     assert report["empty_rate"] == round(1 / 6, 4)
     # empty + out_of_set + unparsed + unfinished = 1 + 1 + 1 + 1
     assert report["invalid_rate"] == round(4 / 6, 4)
-    assert report["accuracy"] == round(1 / 6, 4)
-    assert report["exact_metrics"]["accuracy"] == round(1 / 6, 4)
-    assert report["inclusive_metrics"]["accuracy"] == round(2 / 6, 4)
+    assert report["accuracy"] == 1.0
+    assert report["exact_metrics"]["accuracy"] == 1.0
+    assert report["inclusive_metrics"]["accuracy"] == 1.0
     assert report["unfinished"] == 1
     assert report["complete"] is False
+
+
+def test_exact_vs_inclusive_fractional_accuracies():
+    """Fractional accuracies use exact (2) and exact+recovered (3), not records (5)."""
+
+    gold = ["True", "False", "Conflicting", "True", "False"]
+    verdicts = [
+        verdict(0, "exact", "True"),        # exact match
+        verdict(1, "exact", "True"),        # exact mismatch
+        verdict(2, "recovered", "Conflicting", raw="Conflicting</s>"),  # recovered match
+        verdict(3, "empty"),
+        # index 4 unfinished
+    ]
+
+    report = score_verdicts(verdicts, gold, marker=MARKER, labels=LABELS, source="parsed")
+
+    assert report["records"] == 5
+    assert report["exact"] == 2
+    assert report["recovered"] == 1
+    assert report["exact_metrics"]["accuracy"] == round(1 / 2, 4)
+    assert report["inclusive_metrics"]["accuracy"] == round(2 / 3, 4)
+    assert report["empty_rate"] == round(1 / 5, 4)
+    assert report["invalid_rate"] == round(2 / 5, 4)
 
 
 # ---------------------------------------------------------------------------
@@ -525,6 +616,8 @@ def test_render_report_markdown_contents():
     assert "Summary (Exact Match):" in rendered
     assert "Inclusive Comparison (Exact + Recovered):" in rendered
     assert "records=6" in rendered
+    assert "scored=1" in rendered
+    assert "scored=2" in rendered
     assert "complete=no" in rendered
     assert "unfinished=1" in rendered
     assert "exact=1" in rendered

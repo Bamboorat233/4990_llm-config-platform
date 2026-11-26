@@ -268,7 +268,7 @@ def test_empty_response_placeholder_out_of_set_and_unparsed_rules(
     assert report["recovered"] == 1
     assert report["accuracy"] == 0.0
     assert report["exact_metrics"]["accuracy"] == 0.0
-    assert report["inclusive_metrics"]["accuracy"] == 0.25
+    assert report["inclusive_metrics"]["accuracy"] == 1.0
     assert report["empty_rate"] == 0.25
     assert report["invalid_rate"] == 0.75
     assert report["confusion"]["True"][INVALID_LABEL] == 2
@@ -305,8 +305,8 @@ def test_single_table_only_log_emits_machine_readable_warning(
 # ======================================================================
 
 
-def test_log_15_scores_against_full_2495_gold_denominator() -> None:
-    """M2.0 acceptance: partial run (log 15) scores against 2,495 gold records."""
+def test_log_15_scores_with_exact_denominator_and_full_gold_rates() -> None:
+    """M2.0 acceptance: partial run (log 15) scores over exact verdicts while rates/confusion track 2,495 gold."""
     log_path = FIXTURE_LOGS_DIR / "s15_inference_terminated.log"
     source, verdicts = extract_verdicts_with_source(
         log_path,
@@ -331,8 +331,17 @@ def test_log_15_scores_against_full_2495_gold_denominator() -> None:
         sum(row.values()) for row in report["confusion"].values()
     ) == 2495
 
+    # Exact metrics denominator is report["exact"], not 2,495.
+    exact_correct = sum(
+        report["confusion"][lbl][lbl] for lbl in DEFAULT_LABELS
+    )
+    assert report["exact_metrics"]["accuracy"] == round(
+        exact_correct / report["exact"], 4
+    )
+
     md = render_report_markdown(report)
     assert "2495" in md
+    assert f"scored={report['exact']}" in md
     assert INVALID_LABEL in md or "Invalid" in md
 
 
