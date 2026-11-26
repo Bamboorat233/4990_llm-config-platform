@@ -17,120 +17,11 @@ import json
 from collections.abc import Callable
 from typing import Any
 
-# Whitelists of supported kwargs per stage, aligned with transformers/accelerate signatures
-KWARGS_WHITELISTS: dict[str, frozenset[str]] = {
-    "load_model": frozenset(
-        {
-            "torch_dtype",
-            "device_map",
-            "low_cpu_mem_usage",
-            "load_in_8bit",
-            "load_in_4bit",
-            "trust_remote_code",
-            "attn_implementation",
-            "revision",
-            "subfolder",
-            "offload_folder",
-            "quantization_config",
-        }
-    ),
-    "load_tokenizer": frozenset(
-        {
-            "use_fast",
-            "trust_remote_code",
-            "revision",
-            "subfolder",
-            "add_prefix_space",
-            "padding_side",
-            "truncation_side",
-            "model_max_length",
-            "clean_up_tokenization_spaces",
-        }
-    ),
-    "encode": frozenset(
-        {
-            "padding",
-            "truncation",
-            "max_length",
-            "return_tensors",
-            "add_special_tokens",
-            "return_attention_mask",
-            "return_token_type_ids",
-        }
-    ),
-    "generate": frozenset(
-        {
-            "max_new_tokens",
-            "min_new_tokens",
-            "temperature",
-            "top_p",
-            "top_k",
-            "do_sample",
-            "num_beams",
-            "num_return_sequences",
-            "repetition_penalty",
-            "length_penalty",
-            "no_repeat_ngram_size",
-            "bad_words_ids",
-            "suppress_tokens",
-            "forced_bos_token_id",
-            "forced_eos_token_id",
-        }
-    ),
-}
-
-
-def parse_kwarg_value(val_str: str) -> Any:
-    """Parse a string input into a typed Python value (bool, int, float, json, or str)."""
-    text = val_str.strip()
-    if text.lower() == "true":
-        return True
-    if text.lower() == "false":
-        return False
-    if text.lower() in {"null", "none"}:
-        return None
-
-    try:
-        return int(text)
-    except ValueError:
-        pass
-
-    try:
-        return float(text)
-    except ValueError:
-        pass
-
-    if (text.startswith("{") and text.endswith("}")) or (
-        text.startswith("[") and text.endswith("]")
-    ):
-        try:
-            return json.loads(text)
-        except Exception:
-            pass
-
-    return text
-
-
-def validate_kwargs_section(h_data: dict[str, dict[str, Any]]) -> list[dict[str, str]]:
-    """Validate that all keys in Component h belong to the respective stage whitelist."""
-    issues: list[dict[str, str]] = []
-    for stage, kwargs_map in h_data.items():
-        allowed = KWARGS_WHITELISTS.get(stage, frozenset())
-        if not isinstance(kwargs_map, dict):
-            continue
-        for key in kwargs_map:
-            if key not in allowed:
-                issues.append(
-                    {
-                        "field": f"h.{stage}.{key}",
-                        "level": "error",
-                        "msg": (
-                            f"Unknown argument '{key}' for stage '{stage}'; "
-                            f"must be one of {sorted(allowed)}"
-                        ),
-                    }
-                )
-    return issues
+from app.validation import (
+    KWARGS_WHITELISTS,
+    parse_kwarg_value,
+    validate_kwargs_section,
+)
 
 
 class KwargsSubPanel:
@@ -289,3 +180,11 @@ class KwargsSubPanel:
             self.h_state[self.stage] = {}
         if self.rows_container is not None:
             self.rows_container.clear()
+
+
+__all__ = [
+    "KWARGS_WHITELISTS",
+    "KwargsSubPanel",
+    "parse_kwarg_value",
+    "validate_kwargs_section",
+]

@@ -13,9 +13,13 @@ schemas.py can import it without a circular import.
 """
 from __future__ import annotations
 
-from typing import Any
+import json
+from typing import TYPE_CHECKING, Any
 
 from app.registry import DEEPSEEK_ID, MISTRAL_ID, get_model
+
+if TYPE_CHECKING:
+    from app.schemas import ConfigRecord, ValidationIssue
 
 _MISSING = object()
 
@@ -218,9 +222,130 @@ def _rule10_deepseek_system_prompt(p: dict) -> list:
     return []
 
 
+# ------------------------------------------------------------ kwargs whitelist
+
+# Whitelists of supported kwargs per stage, aligned with transformers/accelerate signatures
+KWARGS_WHITELISTS: dict[str, frozenset[str]] = {
+    "load_model": frozenset(
+        {
+            "torch_dtype",
+            "device_map",
+            "low_cpu_mem_usage",
+            "load_in_8bit",
+            "load_in_4bit",
+            "trust_remote_code",
+            "attn_implementation",
+            "revision",
+            "subfolder",
+            "offload_folder",
+            "quantization_config",
+        }
+    ),
+    "load_tokenizer": frozenset(
+        {
+            "use_fast",
+            "trust_remote_code",
+            "revision",
+            "subfolder",
+            "add_prefix_space",
+            "padding_side",
+            "truncation_side",
+            "model_max_length",
+            "clean_up_tokenization_spaces",
+        }
+    ),
+    "encode": frozenset(
+        {
+            "padding",
+            "truncation",
+            "max_length",
+            "return_tensors",
+            "add_special_tokens",
+            "return_attention_mask",
+            "return_token_type_ids",
+        }
+    ),
+    "generate": frozenset(
+        {
+            "max_new_tokens",
+            "min_new_tokens",
+            "temperature",
+            "top_p",
+            "top_k",
+            "do_sample",
+            "num_beams",
+            "num_return_sequences",
+            "repetition_penalty",
+            "length_penalty",
+            "no_repeat_ngram_size",
+            "bad_words_ids",
+            "suppress_tokens",
+            "forced_bos_token_id",
+            "forced_eos_token_id",
+        }
+    ),
+}
+
+
+def parse_kwarg_value(val_str: str) -> Any:
+    """Parse a string input into a typed Python value (bool, int, float, json, or str)."""
+    text = val_str.strip()
+    if text.lower() == "true":
+        return True
+    if text.lower() == "false":
+        return False
+    if text.lower() in {"null", "none"}:
+        return None
+
+    try:
+        return int(text)
+    except ValueError:
+        pass
+
+    try:
+        return float(text)
+    except ValueError:
+        pass
+
+    if (text.startswith("{") and text.endswith("}")) or (
+        text.startswith("[") and text.endswith("]")
+    ):
+        try:
+            return json.loads(text)
+        except Exception:
+            pass
+
+    return text
+
+
+def validate_kwargs_section(
+    h_data: dict[str, dict[str, Any]],
+) -> list[ValidationIssue]:
+    """Validate that all keys in Component h belong to the respective stage whitelist."""
+    issues: list[ValidationIssue] = []
+    for stage, kwargs_map in h_data.items():
+        allowed = KWARGS_WHITELISTS.get(stage, frozenset())
+        if not isinstance(kwargs_map, dict):
+            continue
+        for key in kwargs_map:
+            if key not in allowed:
+                issues.append(
+                    {
+                        "field": f"h.{stage}.{key}",
+                        "level": "error",
+                        "msg": (
+                            f"Unknown argument '{key}' for stage '{stage}'; "
+                            f"must be one of {sorted(allowed)}"
+                        ),
+                    }
+                )
+    return issues
+
+
 # ------------------------------------------------------------ entry point
 
-def validate_cross_fields(cfg) -> list:
+
+def validate_cross_fields(cfg: ConfigRecord) -> list[ValidationIssue]:
     """Run all ten rules and return the list of issues (empty = passes)."""
     payload = cfg.model_dump()
 
@@ -229,7 +354,7 @@ def validate_cross_fields(cfg) -> list:
     except ValueError:
         meta = None  # unknown model: skip the model-specific limits
 
-    issues: list = []
+    issues: list[ValidationIssue] = []
     issues += _rule1_length(payload, meta)
     issues += _rule2_batch_padding(payload)
     issues += _rule3_pad_token(payload, meta)
@@ -241,3 +366,11 @@ def validate_cross_fields(cfg) -> list:
     issues += _rule9_mistral_system_prompt(payload)
     issues += _rule10_deepseek_system_prompt(payload)
     return issues
+
+
+__all__ = [
+    "KWARGS_WHITELISTS",
+    "parse_kwarg_value",
+    "validate_cross_fields",
+    "validate_kwargs_section",
+]
