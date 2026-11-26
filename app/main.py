@@ -39,6 +39,7 @@ from app.store import (
     list_configs,
 )
 from app.ui.console import build_console
+from app.ui.generator import build_generator_panel
 from app.ui.kwargs_panel import KwargsSubPanel, validate_kwargs_section
 from app.ui.prompt_preview import (
     SAMPLE_VALUES,
@@ -652,6 +653,7 @@ class PlatformUI:
         self.saved_configs_container: Any = None
         self.console: Any = None
         self.prompt_preview: Any = None
+        self.generator_panel: Any = None
         self.results_panel: Any = None
         self.delete_dialog: Any = None
         self.delete_dialog_label: Any = None
@@ -1266,6 +1268,8 @@ class PlatformUI:
         self.saved_count = len(configs)
         if self.results_panel is not None:
             self.results_panel.refresh_config_options()
+        if self.generator_panel is not None:
+            self.generator_panel.refresh_config_options()
 
         with self.saved_configs_container:
             if not configs:
@@ -1734,7 +1738,7 @@ def _build_pipeline_card(platform: PlatformUI) -> None:
 
 
 def _build_side_panel(platform: PlatformUI) -> None:
-    """Right sticky column: Validation & JSON, Prompt Preview, Run Results, and HPC Terminal."""
+    """Right sticky column: Validation & JSON, Prompt Preview, Script Export, Run Results, and HPC Terminal."""
     with (
         ui.card()
         .props("flat")
@@ -1753,6 +1757,9 @@ def _build_side_panel(platform: PlatformUI) -> None:
                 "text-xs font-medium"
             )
             ui.tab("preview", label="Prompt Preview", icon="visibility").classes(
+                "text-xs font-medium"
+            )
+            ui.tab("export", label="Script Export", icon="code").classes(
                 "text-xs font-medium"
             )
             ui.tab("results", label="Run Results", icon="assessment").classes(
@@ -1782,6 +1789,14 @@ def _build_side_panel(platform: PlatformUI) -> None:
             with ui.tab_panel("preview").classes("p-4 gap-3"):
                 platform.prompt_preview = ui.code("", language="plaintext").classes(
                     "prompt-preview-box w-full text-xs rounded-md border-token"
+                )
+
+            with ui.tab_panel("export").classes("p-4"):
+                platform.generator_panel = build_generator_panel(
+                    container=ui.column().classes("w-full"),
+                    active_config_fn=platform.build_config_record,
+                    list_configs_fn=list_configs,
+                    get_config_fn=get_config,
                 )
 
             with ui.tab_panel("results").classes("p-4"):
