@@ -10,16 +10,20 @@ Pipeline position (``design/M1.5-2_Spec_and_roadmap.md`` section 1)::
 
 Three guarantees hold for every report:
 
-1. The denominator is always ``records``, the size of the gold set. A
-   partial run (log 15) is never rescored on a shorter denominator: the
-   missing records are ``unfinished`` and count as wrong predictions.
-2. In headline ``exact_metrics`` (and the top-level fields that mirror it),
-   only ``exact`` predictions are scored against labels while ``recovered``,
-   ``empty``, ``out_of_set``, ``unparsed`` and ``unfinished`` are scored as
-   ``__INVALID__``. In ``inclusive_metrics``, both ``exact`` and ``recovered``
-   are scored against labels and the remaining four kinds become ``__INVALID__``.
-3. Every division by zero yields ``0.0``. A report never contains ``NaN``
-   and never raises because a class has no gold support or no prediction.
+1. ``records`` is the size of the gold set and defines ``complete``
+   (``unfinished == 0``), ``empty_rate`` (``empty / records``), and
+   ``invalid_rate`` (``(empty + out_of_set + unparsed + unfinished) / records``).
+2. Metric denominators use the scored verdict count rather than ``records``:
+   in headline ``exact_metrics`` (and the top-level fields that mirror it),
+   ``accuracy``, ``macro_f1``, ``micro_f1``, ``weighted_f1``, ``precision``,
+   ``recall``, and ``f1`` are computed ONLY over records with
+   ``kind == "exact"`` (denominator = ``exact``). In ``inclusive_metrics``,
+   they are computed ONLY over records with ``kind in ("exact", "recovered")``
+   (denominator = ``exact + recovered``). ``confusion`` retains all
+   ``records`` rows, bucketing excluded/invalid records into ``__INVALID__``.
+3. Every division by zero (including ``exact == 0``) yields ``0.0``. A report
+   never contains ``NaN`` and never raises because a class has no gold support
+   or no prediction.
 
 The module is pure: no file I/O, no database and no NiceGUI import. Only
 the optional :func:`load_gold_labels` helper reads a file.
@@ -115,11 +119,13 @@ class MetricBlock(TypedDict):
 class ScoreReport(TypedDict):
     """The frozen result shape of ``specs/interfaces.md`` section 5.
 
-    Every key is always present. ``records`` is the gold size and the only
-    denominator; ``complete`` is ``False`` exactly when ``unfinished > 0``.
-    The top-level metric fields mirror ``exact_metrics`` (strict exact match),
-    while ``inclusive_metrics`` is reported alongside for dual reporting.
-    ``invalid_rate`` is ``(empty + out_of_set + unparsed + unfinished) / records``.
+    Every key is always present. ``records`` is the gold size (denominator
+    for ``empty_rate`` and ``invalid_rate``); ``complete`` is ``False``
+    exactly when ``unfinished > 0``. The top-level metric fields mirror
+    ``exact_metrics`` (scored over ``exact`` records), while
+    ``inclusive_metrics`` is scored over ``exact + recovered`` records for
+    dual reporting. ``invalid_rate`` is
+    ``(empty + out_of_set + unparsed + unfinished) / records``.
     """
 
     marker: str
@@ -169,11 +175,13 @@ def _metric_block(
     """Compute one metric block from aligned gold and predicted sequences.
 
     ``predicted`` contains either a configured label or ``__INVALID__``.
-    Precision, recall, F1 and the macro/weighted means are computed from
-    the confusion counts; every zero denominator becomes ``0.0``.
+    ``confusion`` accounts for all ``records`` (bucketing excluded entries
+    into ``__INVALID__``), while accuracy, precision, recall, and F1 are
+    computed only over the scored records where ``predicted != __INVALID__``.
+    Every zero denominator becomes ``0.0``.
     """
 
-    records = len(gold)
+    scored_total = 0
     support = {label: 0 for label in labels}
     predicted_count = {label: 0 for label in labels}
     true_positive = {label: 0 for label in labels}
@@ -184,8 +192,11 @@ def _metric_block(
 
     correct = 0
     for gold_label, prediction in zip(gold, predicted):
-        support[gold_label] += 1
         confusion[gold_label][prediction] += 1
+        if prediction == INVALID_LABEL:
+            continue
+        scored_total += 1
+        support[gold_label] += 1
         if prediction in predicted_count:
             predicted_count[prediction] += 1
         if prediction == gold_label:
@@ -202,7 +213,7 @@ def _metric_block(
         )
         raw_recall[label] = tp / support[label] if support[label] else 0.0
         # F1 from counts: 2TP / (2TP + FP + FN); the denominator is zero
-        # exactly when the class has neither gold nor predicted records.
+        # exactly when the class has neither scored gold nor predicted records.
         denominator = (
             2 * tp
             + (predicted_count[label] - tp)
@@ -215,12 +226,13 @@ def _metric_block(
     )
     weighted_f1 = (
         _rounded(
-            sum(raw_f1[label] * support[label] for label in labels) / records
+            sum(raw_f1[label] * support[label] for label in labels)
+            / scored_total
         )
-        if records
+        if scored_total
         else 0.0
     )
-    accuracy = _safe_ratio(correct, records)
+    accuracy = _safe_ratio(correct, scored_total)
 
     return {
         "accuracy": accuracy,
@@ -420,18 +432,22 @@ def score_verdicts(
 def render_report_markdown(report: ScoreReport) -> str:
     """Render a report as a compact Markdown block.
 
-    The block has a headline Exact Match summary line, an Inclusive comparison
-    line, a one-line kind-count breakdown, a per-class precision/recall/F1
-    table (with support) and the confusion matrix with one row per gold label
-    and the ``__INVALID__`` column. Every line is free of trailing whitespace
-    and the result ends with a newline.
+    The block has a headline Exact Match summary line (noting both ``records``
+    and ``scored=exact``), an Inclusive comparison line (noting
+    ``scored=exact+recovered``), a one-line kind-count breakdown, a per-class
+    precision/recall/F1 table (with gold support) and the confusion matrix with
+    one row per gold label and the ``__INVALID__`` column. Every line is free
+    of trailing whitespace and the result ends with a newline.
     """
 
     complete = "yes" if report["complete"] else "no"
     incl = report["inclusive_metrics"]
+    exact_scored = report["exact"]
+    inclusive_scored = report["exact"] + report["recovered"]
     lines = [
         (
             f"**Summary (Exact Match):** records={report['records']}, "
+            f"scored={exact_scored}, "
             f"complete={complete}, unfinished={report['unfinished']}, "
             f"accuracy={report['accuracy']:.4f}, "
             f"macro_f1={report['macro_f1']:.4f}, "
@@ -440,6 +456,7 @@ def render_report_markdown(report: ScoreReport) -> str:
         ),
         (
             f"**Inclusive Comparison (Exact + Recovered):** "
+            f"scored={inclusive_scored}, "
             f"accuracy={incl['accuracy']:.4f}, "
             f"macro_f1={incl['macro_f1']:.4f}, "
             f"weighted_f1={incl['weighted_f1']:.4f}"

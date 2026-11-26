@@ -331,15 +331,15 @@ Consumers: `app/scoring.py`, `app/store.py` (`scores.payload_json`), `app/ui/res
 ### Rules
 
 1. All keys are always present. `marker` is the verdict marker searched in each decoded output (from `p.verdict_parse_marker`); `labels` is `cfg.c.label_values` in order and defines the label domain; `source` is `"parsed"` for the `banner` and `think` layouts and `"script_table"` for `table_only`, where the script's second table is the source.
-2. `records` is the size of the gold set and is always the denominator, including for a partial run. More verdicts than gold labels raises `ValueError` before a report exists.
+2. `records` is the size of the gold set (denominator for `empty_rate` and `invalid_rate`). More verdicts than gold labels raises `ValueError` before a report exists.
 3. The six kind counts partition `records`: `exact + recovered + empty + out_of_set + unparsed + unfinished == records`. The kinds are defined in design section 3.5.
-4. `complete` is `False` exactly when `unfinished > 0` (log 15). A partial run is never rescored on a shorter denominator, so runs from one experiment remain comparable.
+4. `complete` is `False` exactly when `unfinished > 0` (log 15). `unfinished` records are tracked in `unfinished`, `invalid_rate`, and the `__INVALID__` confusion column, while P/R/F1/accuracy are scored over the extracted verdicts (`exact` or `exact + recovered`).
 5. `empty_rate = empty / records`; `invalid_rate = (empty + out_of_set + unparsed + unfinished) / records` (predictions that could not be resolved to any label).
-6. In headline `exact_metrics` (mirrored at top level), only `exact` predictions are scored against labels while `recovered`, `empty`, `out_of_set`, `unparsed` and `unfinished` are all bucketed into `__INVALID__`. In `inclusive_metrics`, both `exact` and `recovered` are scored against labels and only `empty`, `out_of_set`, `unparsed` and `unfinished` become `__INVALID__`.
-7. Top-level `accuracy`, `macro_f1`, `micro_f1`, and `weighted_f1` mirror `exact_metrics` (strict exact match over `records`). `macro_f1` is the unweighted mean of the per-class `f1` over `labels`; `micro_f1` equals `accuracy` for this single-label task; `weighted_f1` weights each class by its number of gold records. Division by zero yields `0.0` (`zero_division=0`), never `NaN` and never an exception.
+6. In headline `exact_metrics` (mirrored at top level), `accuracy`, `macro_f1`, `micro_f1`, `weighted_f1`, `precision`, `recall`, and `f1` are computed ONLY over records whose verdict `kind == "exact"` (denominator = `exact`), while `recovered`, `empty`, `out_of_set`, `unparsed`, and `unfinished` are bucketed into `__INVALID__` in `confusion`. In `inclusive_metrics`, those metrics are computed ONLY over records whose verdict `kind in ("exact", "recovered")` (denominator = `exact + recovered`), while only `empty`, `out_of_set`, `unparsed`, and `unfinished` become `__INVALID__` in `confusion`.
+7. Top-level `accuracy`, `macro_f1`, `micro_f1`, and `weighted_f1` mirror `exact_metrics` (strict exact match over `exact` records). `macro_f1` is the unweighted mean of the per-class `f1` over `labels`; `micro_f1` equals `accuracy` for this single-label task; `weighted_f1` weights each class by its scored gold support (`exact` or `exact + recovered`). Division by zero (including `exact == 0`) yields `0.0` (`zero_division=0`), never `NaN` and never an exception.
 8. `precision`, `recall` and `f1` are keyed by every label in `labels`, in that order.
-9. `confusion` has one row per gold label in `labels` order and one column per label plus `__INVALID__`. Every cell is present (`0` when empty), and each row sums to that class's gold support.
-10. `exact_metrics` and `inclusive_metrics` are metric blocks with the same keys as the top-level metrics: `accuracy`, `macro_f1`, `micro_f1`, `weighted_f1`, `precision`, `recall`, `f1`, `confusion`. `exact_metrics` counts only `exact` as correct and buckets `recovered` into `__INVALID__`; `inclusive_metrics` counts `exact` and `recovered` as correct. The top-level metric fields mirror `exact_metrics`, while `inclusive_metrics` is kept alongside for dual reporting.
+9. `confusion` has one row per gold label in `labels` order and one column per label plus `__INVALID__`. Every cell is present (`0` when empty), and each row sums to that class's total gold support across `records`.
+10. `exact_metrics` and `inclusive_metrics` are metric blocks with the same keys as the top-level metrics: `accuracy`, `macro_f1`, `micro_f1`, `weighted_f1`, `precision`, `recall`, `f1`, `confusion`. `exact_metrics` scores only `exact` records (denominator = `exact`) and buckets `recovered` into `__INVALID__`; `inclusive_metrics` scores `exact` and `recovered` records (denominator = `exact + recovered`). The top-level metric fields mirror `exact_metrics`, while `inclusive_metrics` is kept alongside for dual reporting.
 
 ### Example
 
@@ -360,26 +360,26 @@ Four gold records: one exact, one recovered, one empty, one out-of-set.
     "unfinished": 0,
     "empty_rate": 0.25,
     "invalid_rate": 0.5,
-    "accuracy": 0.25,
-    "macro_f1": 0.2222,
-    "micro_f1": 0.25,
-    "weighted_f1": 0.3333,
+    "accuracy": 1.0,
+    "macro_f1": 0.3333,
+    "micro_f1": 1.0,
+    "weighted_f1": 1.0,
     "precision": {"True": 1.0, "False": 0.0, "Conflicting": 0.0},
-    "recall": {"True": 0.5, "False": 0.0, "Conflicting": 0.0},
-    "f1": {"True": 0.6667, "False": 0.0, "Conflicting": 0.0},
+    "recall": {"True": 1.0, "False": 0.0, "Conflicting": 0.0},
+    "f1": {"True": 1.0, "False": 0.0, "Conflicting": 0.0},
     "confusion": {
         "True": {"True": 1, "False": 0, "Conflicting": 0, "__INVALID__": 1},
         "False": {"True": 0, "False": 0, "Conflicting": 0, "__INVALID__": 1},
         "Conflicting": {"True": 0, "False": 0, "Conflicting": 0, "__INVALID__": 1},
     },
     "exact_metrics": {
-        "accuracy": 0.25,
-        "macro_f1": 0.2222,
-        "micro_f1": 0.25,
-        "weighted_f1": 0.3333,
+        "accuracy": 1.0,
+        "macro_f1": 0.3333,
+        "micro_f1": 1.0,
+        "weighted_f1": 1.0,
         "precision": {"True": 1.0, "False": 0.0, "Conflicting": 0.0},
-        "recall": {"True": 0.5, "False": 0.0, "Conflicting": 0.0},
-        "f1": {"True": 0.6667, "False": 0.0, "Conflicting": 0.0},
+        "recall": {"True": 1.0, "False": 0.0, "Conflicting": 0.0},
+        "f1": {"True": 1.0, "False": 0.0, "Conflicting": 0.0},
         "confusion": {
             "True": {"True": 1, "False": 0, "Conflicting": 0, "__INVALID__": 1},
             "False": {"True": 0, "False": 0, "Conflicting": 0, "__INVALID__": 1},
@@ -387,13 +387,13 @@ Four gold records: one exact, one recovered, one empty, one out-of-set.
         },
     },
     "inclusive_metrics": {
-        "accuracy": 0.5,
-        "macro_f1": 0.5556,
-        "micro_f1": 0.5,
-        "weighted_f1": 0.5833,
+        "accuracy": 1.0,
+        "macro_f1": 0.6667,
+        "micro_f1": 1.0,
+        "weighted_f1": 1.0,
         "precision": {"True": 1.0, "False": 1.0, "Conflicting": 0.0},
-        "recall": {"True": 0.5, "False": 1.0, "Conflicting": 0.0},
-        "f1": {"True": 0.6667, "False": 1.0, "Conflicting": 0.0},
+        "recall": {"True": 1.0, "False": 1.0, "Conflicting": 0.0},
+        "f1": {"True": 1.0, "False": 1.0, "Conflicting": 0.0},
         "confusion": {
             "True": {"True": 1, "False": 0, "Conflicting": 0, "__INVALID__": 1},
             "False": {"True": 0, "False": 1, "Conflicting": 0, "__INVALID__": 0},
