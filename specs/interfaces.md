@@ -1,9 +1,9 @@
 # Interface contracts
 
-Status: sections 1–3 agreed in issue #1 (milestone M0.5); sections 4–5 added in issue #28 (milestone M1.5). Owner: A.
-Consumers: `app/registry.py` (#2), `app/schemas.py` (#3, #4, #5), `app/ui/*` (#6–#8, #12), `app/store.py` (#10, #11), `app/parsing/*` (#28, #30).
+Status: sections 1–3 agreed in issue #1 (milestone M0.5); sections 4–5 added in issue #28 (milestone M1.5); sections 6–7 added in issue #56 (milestone M2.5/M3.0). Owner: A.
+Consumers: `app/registry.py` (#2), `app/schemas.py` (#3, #4, #5), `app/ui/*` (#6–#8, #12), `app/store.py` (#10, #11), `app/parsing/*` (#28, #30), `app/codegen/*` (#56–#60, #62), `app/compare.py` (#64).
 
-These five contracts are the only cross-module agreements. Anything not written here is an implementation detail of the module that owns it.
+These seven contracts are the only cross-module agreements. Anything not written here is an implementation detail of the module that owns it.
 
 ---
 
@@ -402,3 +402,95 @@ Four gold records: one exact, one recovered, one empty, one out-of-set.
     },
 }
 ```
+
+---
+
+## 6. `GenerationResult`
+
+```python
+class GenerationResult(TypedDict):
+    config_id: str
+    config_hash: str
+    task_type: Literal["fine_tune", "inference"]
+    model_id: str
+    script_filename: str
+    script_code: str
+    requirements_txt: str
+    config_json: str
+    slurm_script: str | None
+    script_sha256: str
+    syntax_ok: bool
+    syntax_error: str | None
+    parity_ok: bool
+    parity_diffs: list[dict]
+    pitfall_issues: list[str]
+    marker_issues: list[str]
+    warnings: list[str]
+
+
+class ConfigValidationError(ValueError):
+    issues: list[ValidationIssue]
+
+
+def generate_bundle(
+    cfg: ConfigRecord,
+    *,
+    include_slurm: bool = False,
+    parent_cfg: ConfigRecord | None = None,
+) -> GenerationResult: ...
+```
+
+Consumers: `app/codegen/__init__.py`, `app/codegen/planner.py`, `app/codegen/verify.py`, `app/codegen/slurm_gen.py`, `app/store.py` (`artifacts.payload_json`), `app/ui/generator.py`.
+
+### Rules
+
+1. All seventeen keys are always present, in this spelling. `slurm_script` is `None` when `include_slurm` is `False`; `syntax_error` is `None` when `syntax_ok` is `True`.
+2. `generate_bundle()` runs the pre-flight validation gate (`validate_cross_fields`, `validate_kwargs_section`, and `validate_pair_consistency` when `parent_cfg` is provided) before generating any artefacts.
+3. Any pre-flight issue with `level == "error"` raises `ConfigValidationError(issues)` carrying the blocking `ValidationIssue` list on `.issues`. Issues with `level == "warning"` never block generation and are returned in `warnings`.
+4. `script_filename` follows `fineTune_<ModelTag>_<id8>.py` or `inference_<ModelTag>_<id8>.py` (`Mistral24B` or `DeepSeek32B`, `<id8>` from `config_id`) so `family_for_script(script_filename) == task_type` always holds.
+5. `script_sha256` is the lowercase hex SHA-256 digest of `script_code.encode("utf-8")`.
+6. Each item in `parity_diffs` is `{"field": str, "expected": Any, "actual": Any, "reason": str}`. `parity_ok` is `True` only when `parity_diffs` is empty.
+7. `pitfall_issues` and `marker_issues` list human-readable English descriptions of any detected reference-script pitfall regressions or missing log-parser phase markers; empty lists mean both checks pass.
+
+---
+
+## 7. `ComparisonReport`
+
+```python
+class ComparisonReport(TypedDict):
+    config_a_id: str
+    config_b_id: str
+    same_model: bool
+    same_task_type: bool
+    param_diffs: list[dict]
+    run_a: dict | None
+    run_b: dict | None
+    score_a: ScoreReport | None
+    score_b: ScoreReport | None
+    exact_deltas: dict[str, float] | None
+    inclusive_deltas: dict[str, float] | None
+
+
+def diff_configs(cfg_a: ConfigRecord, cfg_b: ConfigRecord) -> list[dict]: ...
+
+
+def compare_experiments(
+    config_id_a: str,
+    config_id_b: str,
+    *,
+    db_path: str | Path | None = None,
+) -> ComparisonReport: ...
+
+
+def render_comparison_markdown(report: ComparisonReport) -> str: ...
+```
+
+Consumers: `app/compare.py`, `app/ui/compare.py`.
+
+### Rules
+
+1. All eleven keys are always present, in this spelling. `None` indicates an unavailable run or score report; an omitted key is a bug.
+2. `param_diffs` contains only fields that differ between `cfg_a` and `cfg_b`, sorted by `field`, where each item is `{"field": str, "value_a": Any, "value_b": Any}` and `field` uses contract §1 dotted field paths.
+3. `run_a` and `run_b` hold the latest parsed run payload (`ParseResult` or stored run summary) for each config, or `None` if no run exists.
+4. `score_a` and `score_b` hold the latest `ScoreReport` for the corresponding run, or `None` if the run has not been scored.
+5. `exact_deltas` and `inclusive_deltas` are `None` unless both `score_a` and `score_b` are present. When present, each dict has exact keys `accuracy`, `macro_f1`, `empty_rate`, and `invalid_rate`, computed as `B - A` from the respective `exact_metrics` and `inclusive_metrics` blocks (using top-level `empty_rate` and `invalid_rate` where applicable).
