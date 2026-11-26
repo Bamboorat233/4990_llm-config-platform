@@ -1,0 +1,253 @@
+{
+  "version": "1.0",
+  "description": "Hand-curated English reference baseline derived from fineTuningMistral_en.py and inferenceMistral_en.py, including the 6 mandatory defect fixes.",
+  "source_scripts": {
+    "fine_tune": "reference-scripts& Logs/scripts/fineTuningMistral_en.py",
+    "inference": "reference-scripts& Logs/scripts/inferenceMistral_en.py"
+  },
+  "defects": [
+    {
+      "id": 1,
+      "summary": "Unparenthesized ternary drops the question when top_k_doc is empty.",
+      "reference_behavior": "'...Question...' + '...Answer...' + doc[0] if doc else 'No answer could be found !'",
+      "required_behavior": "Use format_evidence_items() with explicit branching that always preserves the question and substitutes c.missing_answer_placeholder only for the missing answer.",
+      "required_helper": "format_evidence_items"
+    },
+    {
+      "id": 2,
+      "summary": "Out-of-vocabulary pad token literal '<myPadToken>' assigned in inferenceMistral_en.py.",
+      "reference_behavior": "tokenizer.pad_token = '<myPadToken>'",
+      "required_behavior": "Always assign validated cfg.b.pad_token and never emit '<myPadToken>'.",
+      "forbidden_literal": "<myPadToken>"
+    },
+    {
+      "id": 3,
+      "summary": "Post-load attribute assignment tokenizer.fix_mistral_regex = True has no effect.",
+      "reference_behavior": "tokenizer.fix_mistral_regex = True",
+      "required_behavior": "Pass fix_mistral_regex=True into AutoTokenizer.from_pretrained(...) for Mistral; omit for DeepSeek; never emit post-load assignment.",
+      "forbidden_assignment": "tokenizer.fix_mistral_regex"
+    },
+    {
+      "id": 4,
+      "summary": "Inconsistent assistant prompt between train and eval splits and duplicated dataset loop.",
+      "reference_behavior": "Train uses '### Response: Verdict: ' while eval uses '### Response: ' (marked NOTE TO SELF: DRY).",
+      "required_behavior": "Use one shared build_messages() helper consistently across splits with cfg.p.assistant_prompt.",
+      "required_helper": "build_messages"
+    },
+    {
+      "id": 5,
+      "summary": "Hard-coded paths and --temperature CLI argument overwritten by 0.1.",
+      "reference_behavior": "modelId / testDataFile hard-coded; model.generation_config.temperature = 0.1 overwrites CLI.",
+      "required_behavior": "Store paths and hyperparameters in top-level CONFIG populated from cfg with clean CLI overrides via parse_args().",
+      "required_config_symbol": "CONFIG"
+    },
+    {
+      "id": 6,
+      "summary": "No reproducibility seed set anywhere in training or inference.",
+      "reference_behavior": "No random/numpy/torch/transformers seed calls and no SFTConfig(seed=...).",
+      "required_behavior": "Define and call set_reproducibility_seed(cfg.d.sft.seed) and pass seed into SFTConfig.",
+      "required_helper": "set_reproducibility_seed"
+    }
+  ],
+  "tasks": {
+    "fine_tune": {
+      "required_helpers": [
+        "set_reproducibility_seed",
+        "format_evidence_items",
+        "build_messages",
+        "build_dataset",
+        "parse_args",
+        "main"
+      ],
+      "sections": [
+        {
+          "section": "model_loading",
+          "call_site": "AutoModelForCausalLM.from_pretrained",
+          "stage": "load_model",
+          "keywords": {
+            "dtype": {"source": "cfg", "path": "a.dtype", "when": "always"},
+            "local_files_only": {"source": "cfg", "path": "a.local_files_only", "when": "always"},
+            "tp_plan": {"source": "cfg", "path": "a.tp_plan", "when": "truthy"},
+            "device_map": {"source": "cfg", "path": "a.device_map", "when": "no_tp_plan_and_set"},
+            "attn_implementation": {"source": "cfg", "path": "a.attn_implementation", "when": "not_none"},
+            "trust_remote_code": {"source": "cfg", "path": "a.trust_remote_code", "when": "always"},
+            "quantization_config": {"source": "expr", "value": "quantization_config", "when": "quantization_enabled"}
+          }
+        },
+        {
+          "section": "tokenizer_loading",
+          "call_site": "AutoTokenizer.from_pretrained",
+          "stage": "load_tokenizer",
+          "keywords": {
+            "local_files_only": {"source": "cfg", "path": "a.local_files_only", "when": "always"},
+            "padding_side": {"source": "cfg", "path": "b.padding_side", "when": "always"},
+            "use_fast": {"source": "cfg", "path": "b.use_fast", "when": "always"},
+            "truncation_side": {"source": "cfg", "path": "b.truncation_side", "when": "always"},
+            "model_max_length": {"source": "cfg", "path": "b.model_max_length", "when": "not_none"},
+            "trust_remote_code": {"source": "cfg", "path": "a.trust_remote_code", "when": "truthy"},
+            "fix_mistral_regex": {"source": "fixed", "value": true, "when": "mistral_fix_regex", "defect_fix": 3}
+          }
+        },
+        {
+          "section": "lora_config",
+          "call_site": "LoraConfig",
+          "stage": null,
+          "keywords": {
+            "r": {"source": "cfg", "path": "d.lora.r", "when": "always"},
+            "lora_alpha": {"source": "cfg", "path": "d.lora.lora_alpha", "when": "always"},
+            "lora_dropout": {"source": "cfg", "path": "d.lora.lora_dropout", "when": "always"},
+            "bias": {"source": "cfg", "path": "d.lora.bias", "when": "always"},
+            "target_modules": {"source": "cfg", "path": "d.lora.target_modules", "when": "always"},
+            "use_dora": {"source": "cfg", "path": "d.lora.use_dora", "when": "always"},
+            "init_lora_weights": {"source": "cfg", "path": "d.lora.init_lora_weights", "when": "always"}
+          }
+        },
+        {
+          "section": "sft_config",
+          "call_site": "SFTConfig",
+          "stage": null,
+          "keywords": {
+            "output_dir": {"source": "expr", "value": "output_dir", "when": "always"},
+            "learning_rate": {"source": "cfg", "path": "d.sft.learning_rate", "when": "always"},
+            "weight_decay": {"source": "cfg", "path": "d.sft.weight_decay", "when": "always"},
+            "num_train_epochs": {"source": "cfg", "path": "d.sft.num_train_epochs", "when": "always"},
+            "warmup_steps": {"source": "cfg", "path": "d.sft.warmup_steps", "when": "always"},
+            "optim": {"source": "cfg", "path": "d.sft.optim", "when": "always"},
+            "per_device_train_batch_size": {"source": "cfg", "path": "d.sft.per_device_train_batch_size", "when": "always"},
+            "gradient_accumulation_steps": {"source": "cfg", "path": "d.sft.gradient_accumulation_steps", "when": "always"},
+            "lr_scheduler_type": {"source": "cfg", "path": "d.sft.lr_scheduler_type", "when": "always"},
+            "max_grad_norm": {"source": "cfg", "path": "d.sft.max_grad_norm", "when": "always"},
+            "eval_strategy": {"source": "cfg", "path": "d.sft.eval_strategy", "when": "always"},
+            "save_strategy": {"source": "cfg", "path": "d.sft.save_strategy", "when": "always"},
+            "logging_strategy": {"source": "cfg", "path": "d.sft.logging_strategy", "when": "always"},
+            "logging_steps": {"source": "cfg", "path": "d.sft.logging_steps", "when": "always"},
+            "load_best_model_at_end": {"source": "cfg", "path": "d.sft.load_best_model_at_end", "when": "always"},
+            "metric_for_best_model": {"source": "cfg", "path": "d.sft.metric_for_best_model", "when": "always"},
+            "push_to_hub": {"source": "cfg", "path": "d.sft.push_to_hub", "when": "always"},
+            "bf16": {"source": "cfg", "path": "d.sft.bf16", "when": "always"},
+            "gradient_checkpointing": {"source": "cfg", "path": "d.sft.gradient_checkpointing", "when": "always"},
+            "seed": {"source": "cfg", "path": "d.sft.seed", "when": "always", "defect_fix": 6},
+            "max_length": {"source": "cfg", "path": "effective_max_seq_length", "when": "not_none"}
+          }
+        },
+        {
+          "section": "dataset_building",
+          "call_site": "Dataset.from_dict",
+          "stage": null,
+          "keywords": {}
+        },
+        {
+          "section": "sft_trainer",
+          "call_site": "SFTTrainer",
+          "stage": null,
+          "keywords": {
+            "model": {"source": "expr", "value": "model", "when": "always"},
+            "args": {"source": "expr", "value": "training_args", "when": "always"},
+            "processing_class": {"source": "expr", "value": "tokenizer", "when": "always"},
+            "train_dataset": {"source": "expr", "value": "train_dataset", "when": "always"},
+            "eval_dataset": {"source": "expr", "value": "eval_dataset", "when": "always"}
+          }
+        }
+      ]
+    },
+    "inference": {
+      "required_helpers": [
+        "set_reproducibility_seed",
+        "select_evidence_items",
+        "format_evidence_items",
+        "build_user_prompt",
+        "build_messages",
+        "extract_verdict",
+        "parse_args",
+        "main"
+      ],
+      "sections": [
+        {
+          "section": "model_loading",
+          "call_site": "AutoModelForCausalLM.from_pretrained",
+          "stage": "load_model",
+          "keywords": {
+            "local_files_only": {"source": "cfg", "path": "a.local_files_only", "when": "always"},
+            "dtype": {"source": "cfg", "path": "a.dtype", "when": "always"},
+            "tp_plan": {"source": "cfg", "path": "a.tp_plan", "when": "truthy"},
+            "device_map": {"source": "cfg", "path": "a.device_map", "when": "no_tp_plan_and_set"},
+            "attn_implementation": {"source": "cfg", "path": "a.attn_implementation", "when": "not_none"},
+            "trust_remote_code": {"source": "cfg", "path": "a.trust_remote_code", "when": "always"},
+            "quantization_config": {"source": "expr", "value": "quantization_config", "when": "quantization_enabled"}
+          }
+        },
+        {
+          "section": "tokenizer_loading",
+          "call_site": "AutoTokenizer.from_pretrained",
+          "stage": "load_tokenizer",
+          "keywords": {
+            "local_files_only": {"source": "cfg", "path": "a.local_files_only", "when": "always"},
+            "padding_side": {"source": "cfg", "path": "b.padding_side", "when": "always"},
+            "use_fast": {"source": "cfg", "path": "b.use_fast", "when": "always"},
+            "truncation_side": {"source": "cfg", "path": "b.truncation_side", "when": "always"},
+            "model_max_length": {"source": "cfg", "path": "b.model_max_length", "when": "not_none"},
+            "fix_mistral_regex": {"source": "fixed", "value": true, "when": "mistral_fix_regex", "defect_fix": 3}
+          }
+        },
+        {
+          "section": "prompt_building",
+          "call_site": "tokenizer.apply_chat_template",
+          "stage": null,
+          "keywords": {
+            "tokenize": {"source": "fixed", "value": false, "when": "always"},
+            "add_generation_prompt": {"source": "fixed", "value": true, "when": "always"}
+          }
+        },
+        {
+          "section": "token_encoding",
+          "call_site": "tokenizer",
+          "stage": "encode",
+          "keywords": {
+            "return_tensors": {"source": "cfg", "path": "e.return_tensors", "when": "always"},
+            "padding": {"source": "cfg", "path": "e.padding", "when": "always"},
+            "truncation": {"source": "cfg", "path": "e.truncation", "when": "always"},
+            "max_length": {"source": "cfg", "path": "e.max_length", "when": "not_none"},
+            "add_special_tokens": {"source": "fixed", "value": false, "when": "always"},
+            "return_attention_mask": {"source": "fixed", "value": true, "when": "always"}
+          }
+        },
+        {
+          "section": "generation",
+          "call_site": "model.generate",
+          "stage": "generate",
+          "keywords": {
+            "input_ids": {"source": "expr", "value": "encoded['input_ids']", "when": "always"},
+            "attention_mask": {"source": "expr", "value": "encoded['attention_mask']", "when": "always"},
+            "max_new_tokens": {"source": "cfg", "path": "f.max_new_tokens", "when": "always"},
+            "do_sample": {"source": "cfg", "path": "f.do_sample", "when": "always"},
+            "temperature": {"source": "expr", "value": "temperature", "when": "do_sample_enabled"},
+            "top_p": {"source": "cfg", "path": "f.top_p", "when": "not_none"},
+            "top_k": {"source": "cfg", "path": "f.top_k", "when": "not_none"},
+            "use_cache": {"source": "cfg", "path": "f.use_cache", "when": "always"},
+            "num_return_sequences": {"source": "cfg", "path": "f.num_return_sequences", "when": "always"},
+            "repetition_penalty": {"source": "cfg", "path": "f.repetition_penalty", "when": "always"},
+            "no_repeat_ngram_size": {"source": "cfg", "path": "f.no_repeat_ngram_size", "when": "always"},
+            "pad_token_id": {"source": "cfg_or_expr", "path": "f.pad_token_id", "fallback_expr": "tokenizer.pad_token_id", "when": "always"},
+            "eos_token_id": {"source": "cfg_or_expr", "path": "f.eos_token_id", "fallback_expr": "tokenizer.eos_token_id", "when": "always"}
+          }
+        },
+        {
+          "section": "decoding",
+          "call_site": "tokenizer.decode",
+          "stage": null,
+          "keywords": {
+            "skip_special_tokens": {"source": "cfg", "path": "g.skip_special_tokens", "when": "always"},
+            "clean_up_tokenization_spaces": {"source": "cfg", "path": "g.clean_up_tokenization_spaces", "when": "always"},
+            "spaces_between_special_tokens": {"source": "cfg", "path": "g.spaces_between_special_tokens", "when": "always"}
+          }
+        },
+        {
+          "section": "verdict_extraction",
+          "call_site": "extract_verdict",
+          "stage": null,
+          "keywords": {}
+        }
+      ]
+    }
+  }
+}
