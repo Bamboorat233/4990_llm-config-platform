@@ -179,8 +179,11 @@ def test_user_prompt_autoformatting(isolated_db: Any) -> None:
 
     platform = create_app()
 
-    # 1. Prompt fields start visually empty (placeholder) and populate default when Space is pressed
-    assert platform.field_widgets["p.system_prompt"].value == ""
+    # 1. Prompt fields display their actual default value directly (WYSIWYG);
+    # clearing p.system_prompt on Mistral immediately clears the state and blocks validation.
+    assert "You are a fact-checking assistant" in platform.field_widgets["p.system_prompt"].value
+    platform.field_widgets["p.system_prompt"].value = ""
+    assert platform.build_config_record().p.system_prompt == ""
     platform.field_widgets["p.system_prompt"].value = " "
     assert "You are a fact-checking assistant" in platform.field_widgets["p.system_prompt"].value
 
@@ -285,3 +288,39 @@ def test_results_tab_mounted_in_main_app(isolated_db: Any) -> None:
 
 
 
+
+
+def test_active_saved_config_tracks_selection_and_blocks_cleared_prompt(
+    isolated_db: Any,
+) -> None:
+    """Loading/saving switches active_config_id; clearing visible system_prompt blocks generation."""
+    from app.main import create_app
+
+    platform = create_app()
+    assert platform.active_config_id is None
+
+    # Save first config (fine_tune) -> becomes active
+    cfg1 = platform.build_config_record()
+    platform.save_to_db(cfg1)
+    assert platform.active_config_id == cfg1.config_id
+
+    # Switch to inference and save second config -> active switches to cfg2
+    platform.on_task_type_changed(type("E", (), {"value": "inference"})())
+    cfg2 = platform.build_config_record()
+    platform.save_to_db(cfg2)
+    assert platform.active_config_id == cfg2.config_id
+
+    # Load cfg1 -> active switches back to cfg1 and visible prompt text stays populated
+    platform.load_saved_config(cfg1.config_id)
+    assert platform.active_config_id == cfg1.config_id
+    assert "You are a fact-checking assistant" in platform.field_widgets["p.system_prompt"].value
+
+    # Clearing system_prompt immediately blocks Script Export generation
+    platform.field_widgets["p.system_prompt"].value = ""
+    state = platform.generator_panel.generate()
+    assert state.blocked is True
+    assert any(err["field"] == "p.system_prompt" for err in state.errors)
+
+    # Reset clears active_config_id
+    platform.reset_to_defaults()
+    assert platform.active_config_id is None

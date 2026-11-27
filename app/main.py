@@ -626,6 +626,7 @@ class PlatformUI:
         self.notes_val = ""
         self.status_text = "Valid"
         self.saved_count = 0
+        self.active_config_id: str | None = None
 
         # Sample claim/question/answer used for live formatting & preview
         self.sample_overrides: dict[str, str] = dict(SAMPLE_VALUES)
@@ -811,16 +812,6 @@ class PlatformUI:
             value = value.rstrip("\n")
         init_val = "" if value is None else value
         is_prompt = path.startswith("p.")
-        if is_prompt:
-            # Start visually empty (greyed-out placeholder) when holding the default value;
-            # pressing Space inside the box populates the default text for editing.
-            p_key = path.split(".", 1)[1]
-            default_p = defaults_for(self.current_model_id, self.current_task_type).get(
-                "p", {}
-            )
-            default_val = default_p.get(p_key) or ""
-            if str(init_val).strip() == str(default_val).strip():
-                init_val = ""
         with ui.column().classes("w-full min-w-0 gap-0"):
             _field_label(label)
             if is_prompt:
@@ -1079,9 +1070,6 @@ class PlatformUI:
             if "notes" in self.field_widgets:
                 self.field_widgets["notes"].value = self.notes_val
 
-            default_p = defaults_for(self.current_model_id, self.current_task_type).get(
-                "p", {}
-            )
             for path, widget in self.field_widgets.items():
                 if path in {
                     "model_id",
@@ -1091,16 +1079,17 @@ class PlatformUI:
                 } or path.startswith("h."):
                     continue
                 val = self._get_path_value(path)
-                if val is not None and hasattr(widget, "value"):
-                    if isinstance(val, list):
-                        widget.value = ", ".join(str(x) for x in val)
-                    elif path.startswith("p."):
-                        p_key = path.split(".", 1)[1]
-                        default_val = default_p.get(p_key) or ""
-                        if str(val).strip() == str(default_val).strip():
+                if hasattr(widget, "value"):
+                    if val is None:
+                        if path.startswith("p."):
                             widget.value = ""
-                        else:
-                            widget.value = val
+                    elif isinstance(val, list):
+                        widget.value = ", ".join(str(x) for x in val)
+                    elif isinstance(val, str) and path in {
+                        "p.system_prompt",
+                        "p.user_prompt_template",
+                    }:
+                        widget.value = val.rstrip("\n")
                     else:
                         widget.value = val
 
@@ -1217,12 +1206,15 @@ class PlatformUI:
         cfg.created_by = self.created_by_val or None
         cfg.notes = self.notes_val or None
         saved_id = insert_config(cfg)
+        self.active_config_id = saved_id
         ui.notify(f"Config successfully saved (ID: {saved_id[:8]})", type="positive")
         self.refresh_saved_configs_list()
 
     def reset_to_defaults(self) -> None:
         """Reset the form back to registry defaults for current model and task."""
+        self.active_config_id = None
         self.load_state(defaults_for(self.current_model_id, self.current_task_type))
+        self.refresh_saved_configs_list()
         ui.notify("Form reset to registry defaults.", type="info")
 
     def load_saved_config(self, config_id: str) -> None:
@@ -1231,13 +1223,17 @@ class PlatformUI:
         if cfg is None:
             ui.notify(f"Config {config_id} not found.", type="negative")
             return
+        self.active_config_id = config_id
         self.load_state(cfg.model_dump())
+        self.refresh_saved_configs_list()
         ui.notify(f"Loaded config {config_id[:8]}", type="positive")
 
     def duplicate_saved_config(self, config_id: str) -> None:
         """Clone a saved config as an unsaved draft with a new ID and timestamp."""
         clone = duplicate_config(config_id)
+        self.active_config_id = None
         self.load_state(clone.model_dump())
+        self.refresh_saved_configs_list()
         ui.notify(
             f"Duplicated config {config_id[:8]} as new draft ({clone.config_id[:8]}). "
             "Edit and save to persist.",
@@ -1247,6 +1243,8 @@ class PlatformUI:
     def delete_saved_config(self, config_id: str) -> None:
         """Permanently remove a saved config and refresh the drawer list."""
         delete_config(config_id)
+        if self.active_config_id == config_id:
+            self.active_config_id = None
         ui.notify(f"Deleted config {config_id[:8]}", type="warning")
         self.refresh_saved_configs_list()
 
@@ -1288,19 +1286,30 @@ class PlatformUI:
                     "model-fine-tune" if task == "fine_tune" else "model-inference"
                 )
 
+                is_active = cid == self.active_config_id
+                card_cls = (
+                    "w-full px-3 py-2.5 gap-1 rounded-md surface-subtle "
+                    "border-2 border-blue-500 bg-blue-500/10"
+                    if is_active
+                    else "w-full px-3 py-2.5 gap-1 rounded-md surface-subtle"
+                )
+
                 with (
                     ui.card()
                     .props("flat")
-                    .classes("w-full px-3 py-2.5 gap-1 rounded-md surface-subtle")
+                    .classes(card_cls)
                 ):
                     with ui.row().classes(
                         "w-full items-center justify-between no-wrap"
                     ):
-                        ui.label(
-                            SHORT_MODEL_NAMES.get(
-                                item["model_id"], item["model_id"]
-                            )
-                        ).classes(f"font-semibold text-xs {model_color_cls}")
+                        with ui.row().classes("items-center gap-1.5 no-wrap min-w-0"):
+                            ui.label(
+                                SHORT_MODEL_NAMES.get(
+                                    item["model_id"], item["model_id"]
+                                )
+                            ).classes(f"font-semibold text-xs {model_color_cls}")
+                            if is_active:
+                                ui.label("Active").classes("info-tag tag-info")
                         with ui.row().classes("items-center gap-0.5 no-wrap"):
                             ui.button(
                                 icon="file_open",
